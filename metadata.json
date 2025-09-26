@@ -1,0 +1,7 @@
+{
+  "name": "Verticx ERP",
+  "description": "A comprehensive, multi-branch ERP application for educational institutions, featuring role-based portals for admins, principals, registrars, teachers, students, and parents. It leverages AI for insightful analytics and provides a visually rich interface for managing all aspects of school operations.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

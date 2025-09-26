@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verticx ERP</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="/favicon.png" />
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    html {
+      scroll-behavior: smooth;
+    }
+  </style>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'brand-primary': '#4F46E5',
+            'brand-secondary': '#F97316',
+            'brand-accent': '#FB923C',
+            'brand-info': '#38BDF8',
+            'brand-highlight': '#8B5CF6',
+            'background-dark': '#F1F5F9',
+            'surface-dark': '#FFFFFF',
+            'text-primary-dark': '#0F172A',
+            'text-secondary-dark': '#475569',
+          },
+        }
+      }
+    }
+  </script>
+
+  <!-- Razorpay -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+  <!-- Import Maps -->
+  <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/react@^19.1.1",
+          "react-dom/": "https://esm.sh/react-dom@^19.1.1/",
+          "react/": "https://esm.sh/react@^19.1.1/",
+          "react-router-dom": "https://esm.sh/react-router-dom@^6.24.1",
+          "recharts": "https://esm.sh/recharts@^3.1.2",
+          "@google/genai": "https://esm.sh/@google/genai"
+        }
+      }
+    </script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/index.css" />
+<link rel="stylesheet" href="/index.css">
+</head>
+
+<body class="bg-background-dark text-text-primary-dark">
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
+</html>
