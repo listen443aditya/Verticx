@@ -3,14 +3,10 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, '.', '');
+  const env = loadEnv(mode, process.cwd(), '');
 
   return {
-    base: '/', // ensures assets are loaded correctly in production
-    server: {
-      port: 3000,
-      host: '0.0.0.0',
-    },
+    base: '/', // ensures assets are referenced correctly
     plugins: [react()],
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
@@ -18,11 +14,11 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'), // allows import from '@' instead of relative paths
+        '@': path.resolve(__dirname, '.'),
       }
     },
     build: {
-      chunkSizeWarningLimit: 1000, // optional: increase if you want to silence Vite warnings
+      chunkSizeWarningLimit: 1000,
       rollupOptions: {
         output: {
           manualChunks(id) {
