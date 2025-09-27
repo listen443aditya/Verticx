@@ -295,7 +295,7 @@ const AboutUsSection: React.FC = () => (
                     <p className="text-sm text-text-secondary-dark">aditi.singh@verticx.com</p>
                 </div>
                 <div className="flex flex-col items-center">
-                    <img src="https://placehold.co/128x128/E2E8F0/475569?text=will update soon" alt="Aditya Kumar Singh" className="w-32 h-32 rounded-full mb-2 object-cover shadow-lg"/>
+                    <img src="https://placehold.co/128x128/E2E8F0/475569?text=founder of Adisha Group" alt="Aditya Kumar Singh" className="w-32 h-32 rounded-full mb-2 object-cover shadow-lg"/>
                     <h4 className="font-bold">Aditya Kumar Singh</h4>
                     <p className="text-sm text-text-secondary-dark">aditya.singh@verticx.com</p>
                 </div>
