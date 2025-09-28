@@ -702,7 +702,7 @@ const AboutUsSection: React.FC = () => (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
         <div className="flex flex-col items-center">
           <img
-            src="/COF.jpeg?text=co-founder 404 error"
+            src="/COO.jpeg?text=co-founder 404 error"
             alt="Rohit Kumar"
             className="w-32 h-32 rounded-full mb-2 object-cover shadow-lg"
           />
