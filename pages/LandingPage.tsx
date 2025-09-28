@@ -713,7 +713,7 @@ const AboutUsSection: React.FC = () => (
         </div>
         <div className="flex flex-col items-center">
           <img
-            src="/CEO.jpeg"
+            src="/CEO.jpeg?text=CEO"
             alt="Aditi Singh"
             className="w-32 h-32 rounded-full mb-2 object-cover shadow-lg"
           />
