@@ -3,6 +3,31 @@ import { db, saveDb } from './database.ts';
 // FIX: Added missing types for shared methods.
 import type { User, Student, Teacher, SchoolClass, Subject, Course, Examination, LibraryBook, Branch, FeeTemplate, SchoolEvent, StudentProfile, GradeWithCourse, AttendanceRecord, FeeRecord, FeePayment, FeeAdjustment, FeeHistoryItem, SkillAssessment, TransportRoute, Hostel, Room, ClassDetails } from '../types.ts';
 
+// Extend ImportMeta to include 'env' property for Vite
+interface ImportMetaEnv {
+  VITE_API_URL: string;
+}
+interface ImportMeta {
+  env: ImportMetaEnv;
+}
+
+
+
+import axios from "axios";
+
+const baseApi = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+});
+
+baseApi.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+export default baseApi;
+
+
 // --- Helper Functions ---
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 const generatePassword = () => Math.random().toString(36).slice(-8);
