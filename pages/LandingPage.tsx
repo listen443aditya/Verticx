@@ -291,7 +291,7 @@ const AboutUsSection: React.FC = () => (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
                 
                 <div className="flex flex-col items-center">
-                    <img src="https://placehold.co/128x128/E2E8F0/475569?text=COO" alt="co-founder 404 error" className="w-32 h-32 rounded-full mb-2 object-cover shadow-lg"/>
+                    <img src="https://placehold.co/128x128/E2E8F0/475569?text=co-founder 404 error" alt="Rohit Kumar" className="w-32 h-32 rounded-full mb-2 object-cover shadow-lg"/>
                     <h4 className="font-bold">Rohit Kumar</h4>
                     <p className="text-sm text-text-secondary-dark">rohit.singh@verticx.com</p>
                 </div>
@@ -301,7 +301,7 @@ const AboutUsSection: React.FC = () => (
                     <p className="text-sm text-text-secondary-dark">aditi.singh@verticx.com</p>
                 </div>
                <div className="flex flex-col items-center">
-                    <img src="https://placehold.co/128x128/E2E8F0/475569?text=founder not found" alt="Aditya Kumar Singh" className="w-32 h-32 rounded-full mb-2 object-cover shadow-lg"/>
+                    <img src="https://placehold.co/128x128/E2E8F0/475569?text=founder of Adisha Group" alt="Aditya Kumar Singh" className="w-32 h-32 rounded-full mb-2 object-cover shadow-lg"/>
                     <h4 className="font-bold">Aditya Kumar Singh</h4>
                     <p className="text-sm text-text-secondary-dark">aditya.singh@verticx.com</p>
                 </div>
