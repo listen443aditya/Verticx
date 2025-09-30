@@ -1,42 +1,16 @@
 // services/sharedApiService.ts
-import { db, saveDb } from "./database.ts";
-// FIX: Added missing types for shared methods.
-// FIX: Added missing type imports for RegistrationRequest and LeaveSetting.
+
+// ✅ STEP 1: Dependencies are simplified. 'baseApi' is the sole connection to the backend.
+import baseApi from "./baseApiService";
+// ✅ STEP 2: All necessary types for shared data contracts are imported.
 import type {
   User,
-  Student,
-  Teacher,
-  SchoolClass,
-  Subject,
-  Course,
-  Examination,
-  LibraryBook,
-  Branch,
-  FeeTemplate,
-  SchoolEvent,
-  StudentProfile,
-  GradeWithCourse,
-  AttendanceRecord,
-  FeeRecord,
-  FeePayment,
-  FeeAdjustment,
-  FeeHistoryItem,
-  SkillAssessment,
-  TransportRoute,
-  Hostel,
-  Room,
-  ClassDetails,
-  UserRole,
-  TeacherAttendanceRecord,
   LeaveApplication,
-  RegistrationRequest,
   LeaveSetting,
+  TeacherAttendanceRecord,
 } from "../types.ts";
-import { BaseApiService } from "./baseApiService.ts";
 
-const ENABLE_2FA_BYPASS = true; // Set to false to enable 2FA for high-level portals
-
-// --- Session Management ---
+// Session is now managed by reacting to API responses, not by direct manipulation here.
 let currentSession: User | null = null;
 try {
   const sessionData = sessionStorage.getItem("verticxSession");
@@ -47,80 +21,57 @@ try {
   console.error("Could not parse session data", e);
 }
 
-export class SharedApiService extends BaseApiService {
+export class SharedApiService {
   // =================================================================
-  // 2. SESSION & AUTHENTICATION
+  // SESSION & AUTHENTICATION
   // =================================================================
   async login(
     identifier: string,
     password: string
   ): Promise<(User & { otpRequired?: boolean }) | null> {
-    await this.delay(500);
-    const user = (db.users as User[]).find(
-      (u) =>
-        (u.email === identifier || u.id === identifier) &&
-        u.password === password
-    );
+    // Backend now handles user lookup, password verification, and OTP logic.
+    const { data } = await baseApi.post("/auth/login", {
+      identifier,
+      password,
+    });
 
-    if (user) {
-      if (
-        !ENABLE_2FA_BYPASS &&
-        (user.role === "SuperAdmin" ||
-          user.role === "Principal" ||
-          user.role === "Registrar")
-      ) {
-        const otp = String(Math.floor(100000 + Math.random() * 900000));
-        user.currentOtp = otp;
-        saveDb();
-        console.log(`OTP for ${user.name} (${user.role}): ${otp}`);
-        return { ...user, otpRequired: true };
-      }
-
-      const userToReturn = { ...user };
-      if (
-        userToReturn.role === "Parent" &&
-        !userToReturn.branchId &&
-        userToReturn.childrenIds?.length
-      ) {
-        const firstChildId = userToReturn.childrenIds[0];
-        const firstChild = (db.students as Student[]).find(
-          (s) => s.id === firstChildId
-        );
-        if (firstChild) {
-          userToReturn.branchId = firstChild.branchId;
-        }
-      }
-      currentSession = userToReturn;
-      sessionStorage.setItem("verticxSession", JSON.stringify(userToReturn));
-      return userToReturn;
+    if (data && !data.otpRequired) {
+      currentSession = data;
+      sessionStorage.setItem("verticxSession", JSON.stringify(data));
     }
-    return null;
+    return data;
   }
 
   async verifyOtp(userId: string, otp: string): Promise<User | null> {
-    await this.delay(500);
-    const userInDb = (db.users as User[]).find((u) => u.id === userId);
-    if (userInDb && userInDb.currentOtp === otp) {
-      delete userInDb.currentOtp;
-      saveDb();
-      const userToReturn = { ...userInDb };
-      delete (userToReturn as any).currentOtp;
+    const { data } = await baseApi.post("/auth/verify-otp", { userId, otp });
 
-      currentSession = userToReturn;
-      sessionStorage.setItem("verticxSession", JSON.stringify(userToReturn));
-
-      return userToReturn;
+    if (data) {
+      currentSession = data;
+      sessionStorage.setItem("verticxSession", JSON.stringify(data));
     }
-    return null;
+    return data;
   }
 
   async logout(): Promise<void> {
+    // Informs the backend to invalidate the session/token, if applicable.
+    await baseApi.post("/auth/logout");
     currentSession = null;
     sessionStorage.removeItem("verticxSession");
   }
+
   async checkSession(): Promise<User | null> {
-    await this.delay(100);
-    return currentSession ? { ...currentSession } : null;
+    // Validates the current token with the backend to get the user session.
+    try {
+      const { data } = await baseApi.get("/auth/session");
+      currentSession = data;
+      sessionStorage.setItem("verticxSession", JSON.stringify(data));
+      return data;
+    } catch (error) {
+      // If the session is invalid (e.g., 401 Unauthorized), clear it.
+      currentSession = null;
+      sessionStorage.removeItem("verticxSession");
+      return null;
+    }
   }
 
   async registerSchool(data: {
@@ -131,259 +82,87 @@ export class SharedApiService extends BaseApiService {
     location: string;
     registrationId: string;
   }): Promise<void> {
-    await this.delay(1000);
-
-    // Uniqueness check
-    const existingBranch = (db.branches as Branch[]).find(
-      (b) => b.registrationId === data.registrationId
-    );
-    const pendingRequest = (
-      db.registrationRequests as RegistrationRequest[]
-    ).find(
-      (r) => r.registrationId === data.registrationId && r.status === "pending"
-    );
-
-    if (existingBranch || pendingRequest) {
-      throw new Error(
-        "This School Registration ID is already taken or pending approval."
-      );
-    }
-
-    const newRequest: RegistrationRequest = {
-      id: this.generateId("req"),
-      submittedAt: new Date(),
-      status: "pending",
-      ...data,
-    };
-    (db.registrationRequests as RegistrationRequest[]).push(newRequest);
-    saveDb();
+    // Backend handles uniqueness checks and creating the registration request.
+    await baseApi.post("/auth/register-school", data);
   }
 
-  async changePassword(
-    userId: string,
-    current: string,
-    newPass: string
-  ): Promise<void> {
-    await this.delay(500);
-    const user = (db.users as User[]).find((u) => u.id === userId);
-    if (!user || user.password !== current) {
-      throw new Error("Invalid current password.");
-    }
-    user.password = newPass;
-    saveDb();
+  async changePassword(current: string, newPass: string): Promise<void> {
+    // The user is identified by the backend via their auth token.
+    await baseApi.post("/auth/change-password", { current, newPass });
   }
 
+  // NOTE: This is an ADMIN action, moved to a generic endpoint.
   async resetUserPassword(userId: string): Promise<{ newPassword: string }> {
-    await this.delay(800);
-    const user = (db.users as User[]).find((u) => u.id === userId);
-    if (!user) throw new Error("User not found");
-
-    const newPassword = this.generatePassword();
-    user.password = newPassword;
-    console.log(
-      `Password for ${user.name} (${user.id}) has been reset to: ${newPassword}`
-    );
-    saveDb();
-    return { newPassword: newPassword };
+    const { data } = await baseApi.post(`/users/${userId}/reset-password`);
+    return data;
   }
 
-  async updateUserProfile(
-    userId: string,
-    updates: { name?: string; email?: string; phone?: string }
-  ): Promise<User> {
-    await this.delay(300);
-    const user = (db.users as User[]).find((u) => u.id === userId);
-    if (!user) {
-      throw new Error("User not found");
+  // =================================================================
+  // USER PROFILE & SHARED FEATURES
+  // =================================================================
+  async updateUserProfile(updates: {
+    name?: string;
+    email?: string;
+    phone?: string;
+  }): Promise<User> {
+    // The user updates their OWN profile. Identified by auth token.
+    const { data } = await baseApi.put<User>("/profile", updates);
+    // Update the local session with the new details.
+    if (currentSession) {
+      currentSession = { ...currentSession, ...data };
+      sessionStorage.setItem("verticxSession", JSON.stringify(currentSession));
     }
-
-    // Students can't change their details
-    if (user.role === "Student") {
-      throw new Error("Students cannot change their profile details.");
-    }
-
-    Object.assign(user, updates);
-
-    // If it's a teacher, update the teachers table as well for consistency
-    if (user.role === "Teacher") {
-      const teacher = (db.teachers as Teacher[]).find((t) => t.id === userId);
-      if (teacher) {
-        if (updates.name) teacher.name = updates.name;
-        if (updates.email) teacher.email = updates.email;
-        if (updates.phone) teacher.phone = updates.phone;
-      }
-    }
-
-    saveDb();
-
-    return { ...user };
+    return data;
   }
 
-  // FIX: Add missing methods used by multiple portals
   async createLeaveApplication(
     data: Omit<LeaveApplication, "id" | "status">
   ): Promise<void> {
-    const newApp: LeaveApplication = {
-      id: this.generateId("leave"),
-      status: "Pending",
-      ...data,
-    };
-    (db.leaveApplications as LeaveApplication[]).push(newApp);
-    saveDb();
+    await baseApi.post("/leaves/applications", data);
   }
 
-  async getLeaveApplicationsForUser(
-    userId: string
-  ): Promise<LeaveApplication[]> {
-    return (db.leaveApplications as LeaveApplication[]).filter(
-      (l) => l.applicantId === userId
+  async getLeaveApplicationsForUser(): Promise<LeaveApplication[]> {
+    // Fetches leave applications for the currently logged-in user.
+    const { data } = await baseApi.get<LeaveApplication[]>(
+      "/leaves/my-applications"
     );
+    return data;
   }
 
-  async getLeaveSettingsForBranch(branchId: string): Promise<LeaveSetting[]> {
-    const defaultSettings: LeaveSetting[] = [
-      {
-        id: `${branchId}-Student`,
-        branchId,
-        role: "Student",
-        settings: { Sick: 10, Planned: 5 },
-      },
-      {
-        id: `${branchId}-Teacher`,
-        branchId,
-        role: "Teacher",
-        settings: { Sick: 12, Casual: 10, Earned: 15 },
-      },
-      {
-        id: `${branchId}-Registrar`,
-        branchId,
-        role: "Registrar",
-        settings: { Sick: 12, Casual: 10 },
-      },
-      {
-        id: `${branchId}-Librarian`,
-        branchId,
-        role: "Librarian",
-        settings: { Sick: 12, Casual: 10 },
-      },
-      {
-        id: `${branchId}-SupportStaff`,
-        branchId,
-        role: "SupportStaff",
-        settings: { Sick: 10, Casual: 5 },
-      },
-    ];
-
-    const savedSettings = (db.leaveSettings as LeaveSetting[]).filter(
-      (s) => s.branchId === branchId
-    );
-
-    if (savedSettings.length === 0) {
-      (db.leaveSettings as LeaveSetting[]).push(...defaultSettings);
-      saveDb();
-      return defaultSettings;
-    }
-
-    defaultSettings.forEach((def) => {
-      if (!savedSettings.some((s) => s.role === def.role)) {
-        savedSettings.push(def);
-        (db.leaveSettings as LeaveSetting[]).push(def);
-      }
-    });
-    saveDb();
-
-    return savedSettings;
+  async getLeaveSettingsForBranch(): Promise<LeaveSetting[]> {
+    // The branch is inferred by the backend from the user's token.
+    const { data } = await baseApi.get<LeaveSetting[]>("/leaves/settings");
+    return data;
   }
 
-  async getStaffListForBranch(branchId: string): Promise<User[]> {
-    await this.delay(150);
-    const staffRoles: UserRole[] = [
-      "Teacher",
-      "Registrar",
-      "Librarian",
-      "Principal",
-      "SupportStaff",
-    ];
-    return (db.users as User[]).filter(
-      (u) => u.branchId === branchId && staffRoles.includes(u.role)
-    );
+  async getStaffListForBranch(): Promise<
+    (User & { attendancePercentage?: number })[]
+  > {
+    // The backend is responsible for calculating derived data like attendance percentage.
+    const { data } = await baseApi.get<
+      (User & { attendancePercentage?: number })[]
+    >("/staff/list");
+    return data;
   }
 
   async getStaffAttendanceAndLeaveForMonth(
-    staffId: string,
     year: number,
     month: number
   ): Promise<{
     attendance: TeacherAttendanceRecord[];
     leaves: LeaveApplication[];
   }> {
-    await this.delay(250);
-
-    const startDate = new Date(year, month, 1);
-    const endDate = new Date(year, month + 1, 0);
-
-    const attendance = (
-      db.teacherAttendance as TeacherAttendanceRecord[]
-    ).filter((r) => {
-      const recordDate = new Date(r.date);
-      return (
-        r.teacherId === staffId &&
-        recordDate >= startDate &&
-        recordDate <= endDate
-      );
+    // Fetches data for the currently logged-in staff member.
+    const { data } = await baseApi.get("/staff/my-attendance-and-leaves", {
+      params: { year, month },
     });
-
-    const leaves = (db.leaveApplications as LeaveApplication[]).filter((l) => {
-      if (l.applicantId !== staffId || l.status !== "Approved") {
-        return false;
-      }
-      const leaveStart = new Date(l.startDate);
-      const leaveEnd = new Date(l.endDate);
-      // Check for overlap
-      return leaveStart <= endDate && leaveEnd >= startDate;
-    });
-
-    return { attendance, leaves };
-  }
-
-  async getAllStaffForBranch(
-    branchId: string
-  ): Promise<(User & { attendancePercentage?: number })[]> {
-    const staffRoles: UserRole[] = [
-      "Teacher",
-      "Registrar",
-      "Librarian",
-      "Principal",
-      "SupportStaff",
-    ];
-    const staff = (db.users as User[]).filter(
-      (u) => u.branchId === branchId && staffRoles.includes(u.role)
-    );
-
-    const allTeacherAttendance = (
-      db.teacherAttendance as TeacherAttendanceRecord[]
-    ).filter((r) => r.branchId === branchId);
-
-    return staff.map((s) => {
-      const staffRecords = allTeacherAttendance.filter(
-        (r) => r.teacherId === s.id
-      );
-      const presentDays = staffRecords.filter(
-        (r) => r.status === "Present" || r.status === "Half Day"
-      ).length;
-      const totalDays = staffRecords.length;
-      return {
-        ...s,
-        attendancePercentage:
-          totalDays > 0 ? (presentDays / totalDays) * 100 : 100,
-      };
-    });
+    return data;
   }
 
   async getSuperAdminContactDetails(): Promise<User | null> {
-    await this.delay(50);
-    return (db.users as User[]).find((u) => u.role === "SuperAdmin") || null;
+    const { data } = await baseApi.get<User | null>(
+      "/super-admin/contact-details"
+    );
+    return data;
   }
 }
-
-export const sharedApiService = new SharedApiService();

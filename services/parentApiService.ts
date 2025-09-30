@@ -1,162 +1,124 @@
 // services/parentApiService.ts
-import { db, saveDb } from './database.ts';
-import type { Student, Teacher, ParentDashboardData, ChildData, MeetingRequest, FeePayment, StudentProfile, ComplaintAboutStudent, HydratedMeetingRequest, FeeHistoryItem, FeeRecord, GradeWithCourse } from '../types.ts';
-import { BaseApiService } from './baseApiService.ts';
-import { studentApiService } from './index.ts'; // Use existing student service logic
 
-export class ParentApiService extends BaseApiService {
+// STEP 1: A single import for a single purpose: communicating with the backend.
+//    All local database and internal service dependencies have been removed.
+import baseApi from "./baseApiService";
+import type {
+  ParentDashboardData,
+  StudentProfile,
+  ComplaintAboutStudent,
+  FeeHistoryItem,
+  Teacher,
+  HydratedMeetingRequest,
+  MeetingRequest,
+  FeeRecord,
+  GradeWithCourse,
+} from "../types";
 
-    async getParentDashboardData(parentId: string): Promise<ParentDashboardData> {
-        await this.delay(500);
-        const parentUser = this.getUserById(parentId);
-        if (!parentUser || !parentUser.childrenIds) throw new Error("Parent not found");
+//  STEP 2: The class is now a lean, focused collection of API endpoints.
+//    The user (parent) is identified by the backend via their auth token, simplifying method signatures.
+export class ParentApiService {
+  async getParentDashboardData(): Promise<ParentDashboardData> {
+    // The backend now composes the entire, complex dashboard object.
+    const { data } = await baseApi.get<ParentDashboardData>(
+      "/parent/dashboard"
+    );
+    return data;
+  }
 
-        const childrenData: ChildData[] = [];
-        for (const childId of parentUser.childrenIds) {
-            const studentDashboard = await studentApiService.getStudentDashboardData(childId);
-            const transportDetails = await this.getTransportDetailsForMember(childId, 'Student');
-            const accommodationDetails = await this.getAccommodationDetailsForStudent(childId);
-            const branch = await this.getBranchById(studentDashboard.branchId);
-            const student = this.getStudentById(childId);
+  async getStudentProfileDetails(
+    studentId: string
+  ): Promise<StudentProfile | null> {
+    const { data } = await baseApi.get<StudentProfile | null>(
+      `/parent/children/${studentId}/profile`
+    );
+    return data;
+  }
 
-            if (!branch || !student) continue;
-            
-            const child: ChildData = {
-                ...studentDashboard,
-                student,
-                branch,
-                attendance: {
-                    ...studentDashboard.attendance,
-                    sessionPercentage: studentDashboard.attendance.monthlyPercentage,
-                },
-                feeHistory: await this.getFeeHistoryForStudent(childId),
-                transportDetails,
-                accommodationDetails,
-                assignments: studentDashboard.assignments.pending
-            };
-            childrenData.push(child);
-        }
-        
-        const branchId = childrenData[0]?.branchId;
-        const announcements = branchId ? (db.announcements as any[]).filter(a => a.branchId === branchId && (a.audience === 'All' || a.audience === 'Parents')) : [];
-        
-        return { childrenData, announcements };
-    }
+  async getComplaintsAboutStudent(
+    studentId: string
+  ): Promise<ComplaintAboutStudent[]> {
+    const { data } = await baseApi.get<ComplaintAboutStudent[]>(
+      `/parent/children/${studentId}/complaints`
+    );
+    return data;
+  }
 
-    async getStudentProfileDetails(studentId: string): Promise<StudentProfile | null> {
-        return super.getStudentProfileDetails(studentId);
-    }
-    
-    async getComplaintsAboutStudent(studentId: string): Promise<ComplaintAboutStudent[]> {
-        return (db.complaintsAboutStudents as ComplaintAboutStudent[]).filter(c => c.studentId === studentId);
-    }
+  async getFeeHistoryForStudent(studentId: string): Promise<FeeHistoryItem[]> {
+    const { data } = await baseApi.get<FeeHistoryItem[]>(
+      `/parent/children/${studentId}/fees/history`
+    );
+    return data;
+  }
 
-    async getFeeHistoryForStudent(studentId: string): Promise<FeeHistoryItem[]> {
-        const payments = (db.feePayments as FeePayment[]).filter(p => p.studentId === studentId);
-        const adjustments = (db.feeAdjustments as any[]).filter(a => a.studentId === studentId);
-        return [...payments, ...adjustments].sort((a, b) => new Date('paidDate' in a ? a.paidDate : a.date).getTime() - new Date('paidDate' in b ? b.paidDate : b.date).getTime());
-    }
+  async getTeachersForStudent(studentId: string): Promise<Teacher[]> {
+    // The backend now handles the complex logic of finding associated teachers.
+    const { data } = await baseApi.get<Teacher[]>(
+      `/parent/children/${studentId}/teachers`
+    );
+    return data;
+  }
 
-    async getTeachersForStudent(studentId: string): Promise<Teacher[]> {
-        const student = this.getStudentById(studentId);
-        if (!student || !student.classId) return [];
-        const sClass = this.getClassById(student.classId);
-        if (!sClass) return [];
-        const teacherIds = new Set<string>();
-        sClass.subjectIds.forEach(subjectId => {
-            const subject = this.getSubjectById(subjectId);
-            if(subject?.teacherId) { teacherIds.add(subject.teacherId); }
-        });
-        return Array.from(teacherIds).map(id => this.getTeacherById(id)).filter((t): t is Teacher => !!t);
-    }
-    
-    async getMeetingRequestsForParent(parentId: string): Promise<HydratedMeetingRequest[]> {
-        return (db.meetingRequests as MeetingRequest[])
-            .filter(r => r.parentId === parentId)
-            .map(r => ({
-                ...r,
-                parentName: this.getUserById(r.parentId)?.name || 'Unknown Parent',
-                teacherName: this.getTeacherById(r.teacherId)?.name || 'Unknown Teacher',
-                studentName: this.getStudentById(r.studentId)?.name || 'Unknown Student',
-            }));
-    }
+  async getMeetingRequestsForParent(): Promise<HydratedMeetingRequest[]> {
+    // The backend filters and "hydrates" the meeting requests with names.
+    const { data } = await baseApi.get<HydratedMeetingRequest[]>(
+      "/parent/meetings"
+    );
+    return data;
+  }
 
-    async getTeacherAvailability(teacherId: string, date: string): Promise<string[]> {
-        const dayOfWeek = new Date(date).toLocaleString('en-US', { weekday: 'long' }) as any;
-        return (db.timetable as any[])
-            .filter(slot => slot.teacherId === teacherId && slot.day === dayOfWeek)
-            .map(slot => `${slot.startTime} - ${slot.endTime}`);
-    }
+  async getTeacherAvailability(
+    teacherId: string,
+    date: string
+  ): Promise<string[]> {
+    const { data } = await baseApi.get<string[]>(
+      `/parent/teachers/${teacherId}/availability`,
+      { params: { date } }
+    );
+    return data;
+  }
 
-    async createMeetingRequest(request: Omit<MeetingRequest, 'id'|'status'>): Promise<void> {
-        const newReq: MeetingRequest = { id: this.generateId('meet'), status: 'pending', ...request };
-        (db.meetingRequests as MeetingRequest[]).push(newReq);
-        saveDb();
-    }
-    
-    async updateMeetingRequest(requestId: string, updates: Partial<MeetingRequest>): Promise<void> {
-        const req = (db.meetingRequests as MeetingRequest[]).find(r => r.id === requestId);
-        if (req) {
-            Object.assign(req, updates);
-            saveDb();
-        }
-    }
+  async createMeetingRequest(
+    request: Omit<MeetingRequest, "id" | "status">
+  ): Promise<void> {
+    await baseApi.post("/parent/meetings", request);
+  }
 
-    async recordFeePayment(paymentResponse: any): Promise<void> {
-        await this.delay(500);
-        const { razorpay_payment_id, notes } = paymentResponse;
-        const { studentId, amountPaid, paidMonths, previousDuesPaid } = notes;
-        
-        const feeRecord = (db.feeRecords as FeeRecord[]).find(fr => fr.studentId === studentId);
-        if (feeRecord) {
-            feeRecord.paidAmount += amountPaid;
+  async updateMeetingRequest(
+    requestId: string,
+    updates: Partial<MeetingRequest>
+  ): Promise<void> {
+    await baseApi.put(`/parent/meetings/${requestId}`, updates);
+  }
 
-            if (previousDuesPaid > 0 && feeRecord.previousSessionDues) {
-                feeRecord.previousSessionDues = Math.max(0, feeRecord.previousSessionDues - previousDuesPaid);
-            }
+  async recordFeePayment(paymentResponse: any): Promise<void> {
+    // The frontend securely forwards the payment gateway's response to the backend for verification and recording.
+    await baseApi.post("/parent/fees/record-payment", paymentResponse);
+  }
 
-            const payment: FeePayment = {
-                id: this.generateId('pay'),
-                studentId,
-                amount: amountPaid,
-                paidDate: new Date().toISOString().split('T')[0],
-                transactionId: razorpay_payment_id,
-                details: `Online payment for ${paidMonths.join(', ')} and previous dues.`,
-            };
-            (db.feePayments as FeePayment[]).push(payment);
-            saveDb();
-        } else {
-            throw new Error("Could not find fee record to update.");
-        }
-    }
-    
-    async payStudentFees(studentId: string, amount: number, details: string): Promise<void> {
-        await this.delay(1000);
-        const feeRecord = (db.feeRecords as FeeRecord[]).find(fr => fr.studentId === studentId);
-        if (feeRecord) {
-             const payment: FeePayment = {
-                id: this.generateId('pay'),
-                studentId,
-                amount,
-                details,
-                paidDate: new Date().toISOString().split('T')[0],
-                transactionId: this.generateId('txn')
-            };
-            (db.feePayments as FeePayment[]).push(payment);
-            
-            feeRecord.paidAmount += amount;
-            
-            saveDb();
-        } else {
-            throw new Error("Fee record not found for student.");
-        }
-    }
+  async payStudentFees(
+    studentId: string,
+    amount: number,
+    details: string
+  ): Promise<void> {
+    await baseApi.post(`/parent/children/${studentId}/fees/pay`, {
+      amount,
+      details,
+    });
+  }
 
-    async getFeeRecordForStudent(studentId: string): Promise<FeeRecord | null> {
-        return (db.feeRecords as FeeRecord[]).find(fr => fr.studentId === studentId) || null;
-    }
+  async getFeeRecordForStudent(studentId: string): Promise<FeeRecord | null> {
+    const { data } = await baseApi.get<FeeRecord | null>(
+      `/parent/children/${studentId}/fees/record`
+    );
+    return data;
+  }
 
-    async getStudentGrades(studentId: string): Promise<GradeWithCourse[]> {
-        return studentApiService.getStudentGrades(studentId);
-    }
+  async getStudentGrades(studentId: string): Promise<GradeWithCourse[]> {
+    // This call is now direct, no longer relying on a different frontend service.
+    const { data } = await baseApi.get<GradeWithCourse[]>(
+      `/parent/children/${studentId}/grades`
+    );
+    return data;
+  }
 }

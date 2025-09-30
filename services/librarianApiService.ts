@@ -1,133 +1,142 @@
 // services/librarianApiService.ts
-import { db, saveDb } from './database.ts';
-import type { LibrarianDashboardData, LibraryBook, BookIssuance, HydratedBookIssuance, Student, Teacher, ClassIssuanceSummary, TeacherAttendanceRecord } from '../types.ts';
-import { BaseApiService } from './baseApiService.ts';
 
-export class LibrarianApiService extends BaseApiService {
-    async getLibrarianDashboardData(branchId: string): Promise<LibrarianDashboardData> {
-        await this.delay(400);
-        const books = (db.libraryBooks as LibraryBook[]).filter(b => b.branchId === branchId);
-        const issuances = (db.bookIssuances as BookIssuance[]).filter(i => this.getLibraryBookById(i.bookId)?.branchId === branchId);
-        const today = new Date();
-        const overdue = issuances.filter(i => !i.returnedDate && new Date(i.dueDate) < today);
-        const uniqueMembers = new Set(issuances.map(i => i.memberId)).size;
-        
-        const recentActivity: HydratedBookIssuance[] = issuances
-            .sort((a, b) => new Date(b.returnedDate || b.issuedDate).getTime() - new Date(a.returnedDate || a.issuedDate).getTime())
-            .slice(0, 10)
-            .map(i => ({ ...i, bookTitle: this.getBookTitle(i.bookId), memberName: this.getMemberName(i.memberId, i.memberType), memberDetails: '' }));
-            
-        const overdueList: any[] = overdue.map(i => {
-            const diffDays = Math.ceil((today.getTime() - new Date(i.dueDate).getTime()) / (1000 * 3600 * 24));
-            return { ...i, bookTitle: this.getBookTitle(i.bookId), memberName: this.getMemberName(i.memberId, i.memberType), memberDetails: i.memberType, fineAmount: diffDays * i.finePerDay };
-        });
+// ✅ STEP 1: The single source of truth. 'baseApi' is now our only gateway to the backend.
+//    The local 'database' has been honorably discharged.
+import baseApi from "./baseApiService";
+import type {
+  LibrarianDashboardData,
+  LibraryBook,
+  BookIssuance,
+  HydratedBookIssuance,
+  ClassIssuanceSummary,
+  TeacherAttendanceRecord,
+} from "../types.ts";
 
-        const classIssuanceSummary: ClassIssuanceSummary[] = [];
-        const classes = await this.getSchoolClassesByBranch(branchId);
-        for(const c of classes) {
-            const studentIds = new Set(c.studentIds);
-            const classIssuances = issuances.filter(i => i.memberType === 'Student' && studentIds.has(i.memberId));
-            if(classIssuances.length > 0) {
-                const studentBookCounts: {[key: string]: number} = {};
-                classIssuances.forEach(i => {
-                    const studentName = this.getStudentById(i.memberId)?.name || 'Unknown';
-                    studentBookCounts[studentName] = (studentBookCounts[studentName] || 0) + 1;
-                });
+// ✅ STEP 2: Every method is now a clear, direct conversation with your backend API.
+//    All heavy lifting—calculations, data joins, and business logic—is handled by the server.
+export class LibrarianApiService {
+  async getLibrarianDashboardData(): Promise<LibrarianDashboardData> {
+    // A single, efficient call to get the entire dashboard state.
+    const { data } = await baseApi.get<LibrarianDashboardData>(
+      "/librarian/dashboard"
+    );
+    return data;
+  }
 
-                classIssuanceSummary.push({
-                    classId: c.id,
-                    className: `Grade ${c.gradeLevel} - ${c.section}`,
-                    issuedCount: classIssuances.length,
-                    totalValue: classIssuances.reduce((sum, i) => sum + (this.getLibraryBookById(i.bookId)?.price || 0), 0),
-                    studentsWithBooks: Object.entries(studentBookCounts).map(([studentName, bookCount]) => ({ studentName, bookCount }))
-                });
-            }
-        }
-        
-        return {
-            summary: { totalBooks: books.reduce((sum, b) => sum + b.totalCopies, 0), issuedBooks: issuances.filter(i => !i.returnedDate).length, overdueBooks: overdue.length, uniqueMembers },
-            recentActivity, overdueList, classIssuanceSummary,
-        };
-    }
-    
-    // FIX: Implement missing method
-    async getLibraryBooks(branchId: string): Promise<LibraryBook[]> {
-        await this.delay(200);
-        return (db.libraryBooks as LibraryBook[]).filter(b => b.branchId === branchId);
-    }
-    
-    // FIX: Implement missing method
-    async getBookIssuances(branchId: string): Promise<BookIssuance[]> {
-        await this.delay(200);
-        const bookIdsInBranch = new Set((await this.getLibraryBooks(branchId)).map(b => b.id));
-        return (db.bookIssuances as BookIssuance[]).filter(i => bookIdsInBranch.has(i.bookId));
-    }
-    
-    async getBookIssuancesWithMemberDetails(branchId: string): Promise<HydratedBookIssuance[]> {
-        const bookIdsInBranch = new Set((db.libraryBooks as LibraryBook[]).filter(b => b.branchId === branchId).map(b => b.id));
-        return (db.bookIssuances as BookIssuance[])
-            .filter(i => bookIdsInBranch.has(i.bookId))
-            .map(i => ({ ...i, bookTitle: this.getBookTitle(i.bookId), memberName: this.getMemberName(i.memberId, i.memberType), memberDetails: i.memberType }));
+  async getLibraryBooks(): Promise<LibraryBook[]> {
+    const { data } = await baseApi.get<LibraryBook[]>("/librarian/books");
+    return data;
+  }
+
+  async getBookIssuances(): Promise<BookIssuance[]> {
+    const { data } = await baseApi.get<BookIssuance[]>("/librarian/issuances");
+    return data;
+  }
+
+  async getBookIssuancesWithMemberDetails(): Promise<HydratedBookIssuance[]> {
+    // The backend now provides the fully "hydrated" data, saving frontend processing.
+    const { data } = await baseApi.get<HydratedBookIssuance[]>(
+      "/librarian/issuances?details=true"
+    );
+    return data;
+  }
+
+  async updateBook(
+    bookId: string,
+    bookData: Partial<LibraryBook>,
+    pdfFile: File | null
+  ): Promise<void> {
+    // Using FormData to handle mixed content (JSON data + a potential file upload).
+    const formData = new FormData();
+    // Append book data fields. FormData stringifies values, backend should parse them.
+    Object.entries(bookData).forEach(([key, value]) => {
+      if (value !== null && value !== undefined) {
+        formData.append(key, String(value));
+      }
+    });
+    if (pdfFile) {
+      formData.append("pdfFile", pdfFile);
     }
 
-    async updateBook(bookId: string, bookData: Partial<LibraryBook>, pdfFile: File | null): Promise<void> {
-        const book = this.getLibraryBookById(bookId);
-        if (book) { Object.assign(book, bookData); if (pdfFile) book.pdfUrl = URL.createObjectURL(pdfFile); saveDb(); }
-    }
-    
-    async createBook(branchId: string, bookData: Partial<LibraryBook>, pdfFile: File | null): Promise<void> {
-        const newBook: LibraryBook = { id: this.generateId('book'), branchId, ...bookData, availableCopies: bookData.totalCopies || 1, pdfUrl: pdfFile ? URL.createObjectURL(pdfFile) : undefined } as LibraryBook;
-        (db.libraryBooks as LibraryBook[]).push(newBook);
-        saveDb();
-    }
+    await baseApi.put(`/librarian/books/${bookId}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  }
 
-    async deleteBook(bookId: string): Promise<void> {
-        const isIssued = (db.bookIssuances as BookIssuance[]).some(i => i.bookId === bookId && !i.returnedDate);
-        if(isIssued) throw new Error("Cannot delete book. Some copies are still issued.");
-        db.libraryBooks = (db.libraryBooks as LibraryBook[]).filter(b => b.id !== bookId);
-        saveDb();
+  async createBook(
+    bookData: Partial<LibraryBook>,
+    pdfFile: File | null
+  ): Promise<void> {
+    const formData = new FormData();
+    Object.entries(bookData).forEach(([key, value]) => {
+      if (value !== null && value !== undefined) {
+        formData.append(key, String(value));
+      }
+    });
+    if (pdfFile) {
+      formData.append("pdfFile", pdfFile);
     }
+    // The user's branchId is inferred by the backend via their auth token.
+    await baseApi.post("/librarian/books", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  }
 
-    // FIX: Implement missing method
-    async issueBook(bookId: string, memberId: string, memberType: 'Student' | 'Teacher', dueDate: Date, finePerDay: number): Promise<void> {
-        const book = this.getLibraryBookById(bookId);
-        if (!book || book.availableCopies < 1) throw new Error("Book not available");
-        book.availableCopies--;
-        const issuance: BookIssuance = { id: this.generateId('iss'), bookId, memberId, memberType, issuedDate: new Date(), dueDate, finePerDay };
-        (db.bookIssuances as BookIssuance[]).push(issuance);
-        saveDb();
-    }
+  async deleteBook(bookId: string): Promise<void> {
+    // The backend is now responsible for validating if the book can be deleted.
+    await baseApi.delete(`/librarian/books/${bookId}`);
+  }
 
-    async issueBookByIsbnOrId(branchId: string, bookIdentifier: string, memberId: string, dueDate: string, finePerDay: number): Promise<{ bookTitle: string, memberName: string }> {
-        const book = (db.libraryBooks as LibraryBook[]).find(b => (b.id === bookIdentifier || b.isbn === bookIdentifier) && b.branchId === branchId);
-        if (!book) throw new Error("Book not found.");
-        if (book.availableCopies < 1) throw new Error("No copies available to issue.");
-        const member = (db.students as (Student | Teacher)[]).concat(db.teachers).find(m => m.id === memberId);
-        if (!member) throw new Error("Member not found.");
-        const memberType = (member as Student).gradeLevel ? 'Student' : 'Teacher';
-        book.availableCopies--;
-        const issuance: BookIssuance = { id: this.generateId('iss'), bookId: book.id, memberId, memberType, issuedDate: new Date(), dueDate: new Date(dueDate), finePerDay };
-        (db.bookIssuances as BookIssuance[]).push(issuance);
-        saveDb();
-        return { bookTitle: book.title, memberName: member.name };
-    }
-    
-    async returnBook(issuanceId: string): Promise<void> {
-        const issuance = (db.bookIssuances as BookIssuance[]).find(i => i.id === issuanceId);
-        if (issuance && !issuance.returnedDate) {
-            issuance.returnedDate = new Date();
-            const book = this.getLibraryBookById(issuance.bookId);
-            if (book) { book.availableCopies++; }
-            saveDb();
-        }
-    }
+  async issueBook(
+    bookId: string,
+    memberId: string,
+    memberType: "Student" | "Teacher",
+    dueDate: Date,
+    finePerDay: number
+  ): Promise<void> {
+    await baseApi.post("/librarian/issuances", {
+      bookId,
+      memberId,
+      memberType,
+      dueDate,
+      finePerDay,
+    });
+  }
 
-    async searchLibraryBooks(branchId: string, query: string): Promise<LibraryBook[]> {
-        const lowerQuery = query.toLowerCase();
-        return (db.libraryBooks as LibraryBook[]).filter(b => b.branchId === branchId && ( b.title.toLowerCase().includes(lowerQuery) || b.author.toLowerCase().includes(lowerQuery) || b.isbn.includes(query) ));
-    }
+  async issueBookByIsbnOrId(
+    bookIdentifier: string,
+    memberId: string,
+    dueDate: string,
+    finePerDay: number
+  ): Promise<{ bookTitle: string; memberName: string }> {
+    const { data } = await baseApi.post("/librarian/issuances/by-identifier", {
+      bookIdentifier,
+      memberId,
+      dueDate,
+      finePerDay,
+    });
+    return data;
+  }
 
-    async getLibrarianAttendanceById(librarianId: string): Promise<TeacherAttendanceRecord[]> {
-        return (db.teacherAttendance as TeacherAttendanceRecord[]).filter(r => r.teacherId === librarianId);
-    }
+  async returnBook(issuanceId: string): Promise<void> {
+    await baseApi.put(`/librarian/issuances/${issuanceId}/return`);
+  }
+
+  async searchLibraryBooks(query: string): Promise<LibraryBook[]> {
+    const { data } = await baseApi.get<LibraryBook[]>(
+      "/librarian/books/search",
+      {
+        params: { q: query },
+      }
+    );
+    return data;
+  }
+
+  async getLibrarianAttendance(): Promise<TeacherAttendanceRecord[]> {
+    // The specific user (librarian) is identified by the backend via auth token.
+    const { data } = await baseApi.get<TeacherAttendanceRecord[]>(
+      "/librarian/attendance"
+    );
+    return data;
+  }
 }
