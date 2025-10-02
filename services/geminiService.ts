@@ -1,6 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
 
-// The user has requested to replace the mock with a real implementation.
 const API_KEY = process.env.API_KEY;
 
 if (!API_KEY) {

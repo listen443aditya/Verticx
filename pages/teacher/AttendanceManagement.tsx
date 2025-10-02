@@ -1,13 +1,16 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth.ts';
 // FIX: Corrected import to use teacherApiService aliased as apiService.
-import { teacherApiService as apiService } from '../../services';
+import { TeacherApiService } from '../../services';
+const apiService = new TeacherApiService();
 // FIX: Added missing 'AttendanceRecord' type to the import.
 import type { TeacherCourse, Student, AttendanceStatus, SchoolEvent, AttendanceRecord } from '../../types.ts';
 import Card from '../../components/ui/Card.tsx';
 import Button from '../../components/ui/Button.tsx';
 import Input from '../../components/ui/Input.tsx';
 import { useDataRefresh } from '../../contexts/DataRefreshContext.tsx';
+
+
 
 const RequestChangeModal: React.FC<{
     student: { id: string, name: string },

@@ -9,6 +9,8 @@ import type {
   FacultyApplication,
   TeacherProfile,
   Branch,
+  Student,
+  SchoolClass,
   PrincipalDashboardData,
   SchoolEvent,
   FeeRectificationRequest,
@@ -46,6 +48,10 @@ export class PrincipalApiService {
     const { data } = await baseApi.post("/principal/profile/verify-otp", {
       otp,
     });
+    return data;
+  }
+  async getBranchDetails(): Promise<Branch> {
+    const { data } = await baseApi.get<Branch>("/principal/branch-details");
     return data;
   }
 
@@ -131,10 +137,10 @@ export class PrincipalApiService {
 
   // --- Academics & Student Management ---
 
-  async getPrincipalClassView(): Promise<any[]> {
-    const { data } = await baseApi.get<any[]>("/principal/classes/view");
-    return data;
-  }
+  // async getPrincipalClassView(): Promise<any[]> {
+  //   const { data } = await baseApi.get<any[]>("/principal/classes/view");
+  //   return data;
+  // }
 
   async getExaminationsWithResultStatus(): Promise<Examination[]> {
     const { data } = await baseApi.get<Examination[]>(
@@ -156,9 +162,11 @@ export class PrincipalApiService {
     return data;
   }
 
-  async getAttendanceOverview(): Promise<PrincipalAttendanceOverview> {
+  async getAttendanceOverview(
+    branchId: string
+  ): Promise<PrincipalAttendanceOverview> {
     const { data } = await baseApi.get<PrincipalAttendanceOverview>(
-      "/principal/attendance/overview"
+      `/principal/branches/${branchId}/attendance/overview`
     );
     return data;
   }
@@ -421,6 +429,66 @@ export class PrincipalApiService {
   async getErpFinancials(): Promise<ErpFinancials> {
     const { data } = await baseApi.get<ErpFinancials>(
       "/principal/erp/financials"
+    );
+    return data;
+  }
+  public async getEvents(): Promise<SchoolEvent[]> {
+    const { data } = await baseApi.get<SchoolEvent[]>("/principal/events");
+    return data;
+  }
+
+  public async deleteEvent(eventId: string): Promise<void> {
+    await baseApi.delete<void>(`/principal/events/${eventId}`);
+  }
+
+  // --- Class & Academic Management ---
+
+  async getClassDetails(classId: string): Promise<any> {
+    const { data } = await baseApi.get<any>(`/principal/classes/${classId}`);
+    return data;
+  }
+
+  async assignClassMentor(
+    classId: string,
+    mentorId: string | null
+  ): Promise<void> {
+    await baseApi.post(`/principal/classes/${classId}/mentor`, { mentorId });
+  }
+
+  async assignFeeTemplateToClass(
+    classId: string,
+    templateId: string | null
+  ): Promise<void> {
+    await baseApi.post(`/principal/classes/${classId}/fee-template`, {
+      templateId,
+    });
+  }
+
+  async getTeachersByBranch(branchId: string): Promise<Teacher[]> {
+    const { data } = await baseApi.get<Teacher[]>(
+      `/principal/branches/${branchId}/teachers`
+    );
+    return data;
+  }
+
+  async getPrincipalClassView(branchId: string): Promise<SchoolClass[]> {
+    const { data } = await baseApi.get<SchoolClass[]>(
+      `/principal/branches/${branchId}/classes`
+    );
+    return data;
+  }
+
+  // Get students for a branch
+  async getStudentsByBranch(branchId: string): Promise<Student[]> {
+    const { data } = await baseApi.get<Student[]>(
+      `/principal/branches/${branchId}/students`
+    );
+    return data;
+  }
+
+  async getFeeTemplates(branchId: string): Promise<any[]> {
+    const { data } = await baseApi.get<any[]>(
+      `/principal/branches/${branchId}/fee-templates`
     );
     return data;
   }

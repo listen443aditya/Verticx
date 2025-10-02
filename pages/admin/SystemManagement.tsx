@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Card from '../../components/ui/Card.tsx';
-import { adminApiService } from '../../services';
+import { AdminApiService } from '../../services';
 import type { AuditLog } from '../../types.ts';
 import { useDataRefresh } from '../../contexts/DataRefreshContext.tsx';
 
+const adminApiService = new AdminApiService();
 const SystemManagement: React.FC = () => {
     const [logs, setLogs] = useState<AuditLog[]>([]);
     const [loading, setLoading] = useState(true);

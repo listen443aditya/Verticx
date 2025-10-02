@@ -3,7 +3,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.ts';
 // FIX: Corrected import to use named export
-import { teacherApiService as apiService } from '../../services';
+import { TeacherApiService } from "../../services";
+const apiService = new TeacherApiService();
 import type { Quiz } from '../../types.ts';
 import Card from '../../components/ui/Card.tsx';
 import Button from '../../components/ui/Button.tsx';

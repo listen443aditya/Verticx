@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import type { AdminDashboardData, RegistrationRequest, PrincipalQuery, UserRole } from '../../types.ts';
-import { adminApiService } from '../../services';
+import { AdminApiService } from '../../services';
 import Card from '../../components/ui/Card.tsx';
 import { BranchIcon, StudentsIcon, TeachersIcon, FinanceIcon, AttendanceIcon, RequestsIcon, AlertTriangleIcon, HelpCircleIcon } from '../../components/icons/Icons.tsx';
 import Button from '../../components/ui/Button.tsx';
@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { useDataRefresh } from '../../contexts/DataRefreshContext.tsx';
 import ContactCard from '../../components/shared/ContactCard.tsx';
 import { useAuth } from '../../hooks/useAuth.ts';
-
+const adminApiService = new AdminApiService();
 const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode; onClick?: () => void }> = ({ title, value, icon, onClick }) => (
     <Card className={`flex items-center p-4 ${onClick ? 'cursor-pointer hover:bg-slate-50' : ''}`} onClick={onClick}>
         <div className="p-3 mr-4 text-brand-secondary bg-brand-primary/10 rounded-full">{icon}</div>

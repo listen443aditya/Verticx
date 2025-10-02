@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth.ts';
 // FIX: Corrected import to use the specific studentApiService
-import { studentApiService as apiService } from '../../services';
+import { StudentApiService } from "../../services";
 import type { LibraryBook } from '../../types.ts';
 import Card from '../../components/ui/Card.tsx';
 import Input from '../../components/ui/Input.tsx';
 import Button from '../../components/ui/Button.tsx';
 import { LibraryIcon } from '../../components/icons/Icons.tsx';
+const apiService = new StudentApiService();
 
 const Library: React.FC = () => {
     const { user } = useAuth();
@@ -20,7 +21,7 @@ const Library: React.FC = () => {
             return;
         }
         setLoading(true);
-        const results = await apiService.searchLibraryBooks(user.branchId, query);
+        const results = await apiService.searchLibraryBooks( query);
         setBooks(results);
         setLoading(false);
     }, [user?.branchId]);

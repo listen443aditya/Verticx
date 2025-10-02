@@ -4,11 +4,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth.ts';
 // FIX: Corrected import to use named export
-import { studentApiService as apiService } from '../../services';
+import { StudentApiService } from '../../services';
 import type { Teacher, TeacherFeedback } from '../../types.ts';
 import Card from '../../components/ui/Card.tsx';
 import Button from '../../components/ui/Button.tsx';
 
+const apiService = new StudentApiService();
 const FEEDBACK_PARAMS = [
     'Clarity of Explanation',
     'Subject Knowledge',

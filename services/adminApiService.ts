@@ -49,7 +49,7 @@ export class AdminApiService {
     return data;
   }
 
-  async getAdminDashboardData(): Promise<AdminDashboardData> {
+  async getAdminDashboardData(role: string): Promise<AdminDashboardData> {
     // The backend aggregates all dashboard data into a single, efficient call.
     const { data } = await baseApi.get<AdminDashboardData>("/admin/dashboard");
     return data;

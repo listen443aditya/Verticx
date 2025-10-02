@@ -24,7 +24,10 @@ import {
 import Button from "../components/ui/Button.tsx";
 import Card from "../components/ui/Card.tsx";
 import Input from "../components/ui/Input.tsx";
-import { sharedApiService } from "../services";
+import { SharedApiService } from "../services"; // ✅ Import the Class (PascalCase)
+
+// ✅ Create a new instance of the service for this context to use
+const sharedApiService = new SharedApiService();
 
 // --- Reusable Components ---
 const Section: React.FC<{

@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { adminApiService } from '../../services';
+import { AdminApiService } from '../../services';
 import type { SystemInfrastructureData } from '../../types.ts';
 import Card from '../../components/ui/Card.tsx';
 import Input from '../../components/ui/Input.tsx';
 import { BusIcon, HostelIcon } from '../../components/icons/Icons.tsx';
 
+const adminApiService = new AdminApiService();
 const ProgressBar: React.FC<{ value: number; total: number; colorClass: string }> = ({ value, total, colorClass }) => {
     const percentage = total > 0 ? (value / total) * 100 : 0;
     return (

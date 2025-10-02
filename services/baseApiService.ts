@@ -40,7 +40,6 @@ baseApi.interceptors.request.use((config) => {
   return config;
 });
 
-export default baseApi;
 
 // --- Helper Functions ---
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
@@ -375,3 +374,4 @@ export abstract class BaseApiService {
     );
   }
 }
+export default baseApi;

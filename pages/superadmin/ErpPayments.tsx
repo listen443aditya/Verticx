@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { adminApiService } from '../../services';
+import { AdminApiService } from '../../services';
 import type { ErpPayment, Branch, SystemSettings } from '../../types.ts';
 import Card from '../../components/ui/Card.tsx';
 import Input from '../../components/ui/Input.tsx';
@@ -7,6 +7,7 @@ import Button from '../../components/ui/Button.tsx';
 import ErpPaymentHistoryModal from '../../components/modals/ErpPaymentHistoryModal.tsx';
 import { useAuth } from '../../hooks/useAuth.ts';
 
+const adminApiService = new AdminApiService();
 interface BillingRecord {
     branchId: string;
     branchName: string;

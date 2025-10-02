@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import Card from '../../components/ui/Card.tsx';
-import { adminApiService } from '../../services';
+import { AdminApiService } from '../../services';
 import type { SystemWideAnalytics, Branch } from '../../types.ts';
 import Input from '../../components/ui/Input.tsx';
+const adminApiService = new AdminApiService();
 
 // NEW component for displaying top/bottom lists
 const PerformanceList: React.FC<{ title: string; data: any[]; valueKey: string; unit?: string; ascending?: boolean }> = ({ title, data, valueKey, unit = '', ascending = false }) => (

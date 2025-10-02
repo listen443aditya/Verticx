@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 // FIX: Corrected import to use named export
-import { teacherApiService as apiService } from '../../services';
+import { TeacherApiService } from "../../services";
+const apiService = new TeacherApiService();
 import type { Quiz, QuizQuestion, QuizResult } from '../../types.ts';
 import Card from '../../components/ui/Card.tsx';
 import Input from '../../components/ui/Input.tsx';

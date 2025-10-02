@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { adminApiService } from '../../services';
+import { AdminApiService } from '../../services';
 import type { SchoolFinancialDetails } from '../../types.ts';
 import Card from '../ui/Card.tsx';
 import Button from '../ui/Button.tsx';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
+const adminApiService = new AdminApiService();
 
 const RADIAN = Math.PI / 180;
 const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }: any) => {

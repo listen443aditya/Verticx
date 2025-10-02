@@ -5,10 +5,11 @@ import baseApi from "./baseApiService";
 // ✅ STEP 2: All necessary types for shared data contracts are imported.
 import type {
   User,
+  Branch, // FIX: Imported Branch type
   LeaveApplication,
   LeaveSetting,
   TeacherAttendanceRecord,
-} from "../types.ts";
+} from "../types";
 
 // Session is now managed by reacting to API responses, not by direct manipulation here.
 let currentSession: User | null = null;
@@ -100,6 +101,19 @@ export class SharedApiService {
   // =================================================================
   // USER PROFILE & SHARED FEATURES
   // =================================================================
+
+  // FIX: Added missing getUserById method
+  async getUserById(userId: string): Promise<User | null> {
+    const { data } = await baseApi.get<User | null>(`/users/${userId}`);
+    return data;
+  }
+
+  // FIX: Added missing getBranchById method
+  async getBranchById(branchId: string): Promise<Branch | null> {
+    const { data } = await baseApi.get<Branch | null>(`/branches/${branchId}`);
+    return data;
+  }
+
   async updateUserProfile(updates: {
     name?: string;
     email?: string;
@@ -121,7 +135,7 @@ export class SharedApiService {
     await baseApi.post("/leaves/applications", data);
   }
 
-  async getLeaveApplicationsForUser(): Promise<LeaveApplication[]> {
+  async getLeaveApplicationsForUser(id?: string): Promise<LeaveApplication[]> {
     // Fetches leave applications for the currently logged-in user.
     const { data } = await baseApi.get<LeaveApplication[]>(
       "/leaves/my-applications"

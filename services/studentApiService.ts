@@ -22,6 +22,9 @@ import type {
 } from "../types.ts";
 
 export class StudentApiService {
+  getTeachersByBranch(branchId: string): any {
+      throw new Error('Method not implemented.');
+  }
   // --- Dashboard & Profile ---
   async getStudentDashboardData(): Promise<StudentDashboardData> {
     // A single, powerful call that gets the entire, pre-calculated dashboard object from the backend.
@@ -77,6 +80,7 @@ export class StudentApiService {
   }
 
   async updateStudentSelfStudyProgress(
+    userId: string,
     lectureId: string,
     isCompleted: boolean
   ): Promise<void> {
@@ -87,11 +91,13 @@ export class StudentApiService {
   }
 
   // --- Assignments & Quizzes ---
-  async getAssignments(): Promise<{ pending: Assignment[]; graded: any[] }> {
+  async getAssignments(
+    branchId: string
+  ): Promise<{ pending: Assignment[]; graded: any[] }> {
     const { data } = await baseApi.get<{
       pending: Assignment[];
       graded: any[];
-    }>("/student/assignments");
+    }>("/student/assignments", { params: { branchId } }); // Pass branchId as a query parameter
     return data;
   }
 
@@ -104,9 +110,7 @@ export class StudentApiService {
     return data;
   }
 
-  async getStudentQuizForAttempt(
-    studentQuizId: string
-  ): Promise<{
+  async getStudentQuizForAttempt(studentQuizId: string): Promise<{
     studentQuiz: StudentQuiz;
     quiz: Quiz;
     questions: QuizQuestion[];
@@ -138,9 +142,9 @@ export class StudentApiService {
   }
 
   // --- Feedback & Complaints ---
-  async getStudentFeedbackHistory(): Promise<TeacherFeedback[]> {
+  async getStudentFeedbackHistory(id:string): Promise<TeacherFeedback[]> {
     const { data } = await baseApi.get<TeacherFeedback[]>(
-      "/student/feedback/history"
+      `/student/feedback/history/${id}`
     );
     return data;
   }

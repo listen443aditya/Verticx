@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth.ts';
 // FIX: Corrected import to use teacherApiService aliased as apiService.
-import { teacherApiService as apiService, sharedApiService } from '../../services';
+import { SharedApiService } from '../../services';
 import Card from '../../components/ui/Card.tsx';
 import Button from '../../components/ui/Button.tsx';
 import type { TeacherDashboardData, TimetableSlot, TransportRoute, BusStop, Branch, User } from '../../types.ts';
@@ -13,7 +13,9 @@ import { useDataRefresh } from '../../contexts/DataRefreshContext.tsx';
 import AssignHomeworkModal from '../../components/modals/AssignHomeworkModal.tsx';
 import ContactCard from '../../components/shared/ContactCard.tsx';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-
+import { TeacherApiService } from "../../services";
+const apiService = new TeacherApiService();
+const sharedApiService = new SharedApiService();
 const days: ('Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday')[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
 const WeeklySchedule: React.FC<{ schedule: TimetableSlot[] }> = ({ schedule }) => {

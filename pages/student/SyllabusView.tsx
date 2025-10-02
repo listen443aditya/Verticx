@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth.ts';
 // FIX: Corrected import to use named export
-import { studentApiService as apiService } from '../../services';
+import { StudentApiService } from '../../services';
 import type { Lecture } from '../../types.ts';
 import Card from '../../components/ui/Card.tsx';
 import { ClipboardListIcon } from '../../components/icons/Icons.tsx';
 
+const apiService = new StudentApiService();
 interface LecturePlan {
     subjectName: string;
     lectures: Lecture[];
@@ -23,8 +24,8 @@ const SyllabusView: React.FC = () => {
             if (!user) return;
             setLoading(true);
             const [lectureData, completedIds] = await Promise.all([
-                apiService.getLecturesForStudent(user.id),
-                apiService.getStudentSelfStudyProgress(user.id)
+                apiService.getLecturesForStudent(),
+                apiService.getStudentSelfStudyProgress()
             ]);
             setLecturePlans(lectureData);
             setCompletedLectureIds(new Set(completedIds));

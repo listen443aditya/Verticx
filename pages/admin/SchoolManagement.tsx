@@ -1,14 +1,14 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { Branch } from '../../types.ts';
-import { adminApiService } from '../../services';
+import { AdminApiService } from '../../services';
 import Card from '../../components/ui/Card.tsx';
 import Button from '../../components/ui/Button.tsx';
 import ConfirmationModal from '../../components/ui/ConfirmationModal.tsx';
 import SchoolDetailModal from './SchoolDetailModal.tsx';
 import { useDataRefresh } from '../../contexts/DataRefreshContext.tsx';
 import Input from '../../components/ui/Input.tsx';
-
+const adminApiService = new AdminApiService();
 const SchoolManagement: React.FC = () => {
     const [branches, setBranches] = useState<Branch[]>([]);
     const [loading, setLoading] = useState(true);

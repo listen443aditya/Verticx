@@ -13,6 +13,7 @@ import type {
   MeetingRequest,
   FeeRecord,
   GradeWithCourse,
+  SchoolEvent,
 } from "../types";
 
 //  STEP 2: The class is now a lean, focused collection of API endpoints.
@@ -118,6 +119,12 @@ export class ParentApiService {
     // This call is now direct, no longer relying on a different frontend service.
     const { data } = await baseApi.get<GradeWithCourse[]>(
       `/parent/children/${studentId}/grades`
+    );
+    return data;
+  }
+  async getSchoolEvents(branchId: string): Promise<SchoolEvent[]> {
+    const { data } = await baseApi.get<SchoolEvent[]>(
+      `/parent/branches/${branchId}/events`
     );
     return data;
   }

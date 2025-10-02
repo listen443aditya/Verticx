@@ -3,12 +3,12 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.ts';
 // FIX: Corrected import to use named export
-import { studentApiService as apiService } from '../../services';
+import { StudentApiService} from '../../services';
 import type { StudentQuiz, Quiz, QuizQuestion } from '../../types.ts';
 import Card from '../../components/ui/Card.tsx';
 import Button from '../../components/ui/Button.tsx';
 import { AlertTriangleIcon } from '../../components/icons/Icons.tsx';
-
+const apiService = new StudentApiService();
 const AttendQuiz: React.FC = () => {
     const { studentQuizId } = useParams();
     const { user } = useAuth();

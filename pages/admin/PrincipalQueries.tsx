@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth.ts';
-import { adminApiService } from '../../services';
+import { AdminApiService } from '../../services';
 import type { PrincipalQuery } from '../../types.ts';
 import Card from '../../components/ui/Card.tsx';
 import Button from '../../components/ui/Button.tsx';
 import Input from '../../components/ui/Input.tsx';
 import { useDataRefresh } from '../../contexts/DataRefreshContext.tsx';
 
+const adminApiService = new AdminApiService();
 const ResolveQueryModal: React.FC<{
     query: PrincipalQuery;
     onClose: () => void;

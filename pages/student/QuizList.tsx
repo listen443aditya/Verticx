@@ -3,11 +3,14 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.ts';
 // FIX: Corrected import to use named export
-import { studentApiService as apiService } from '../../services';
+import { StudentApiService} from '../../services';
 import type { StudentQuiz } from '../../types.ts';
 import Card from '../../components/ui/Card.tsx';
 import Button from '../../components/ui/Button.tsx';
 import { AcademicsIcon } from '../../components/icons/Icons.tsx';
+
+const apiService = new StudentApiService();
+
 
 const QuizList: React.FC = () => {
     const { user } = useAuth();
@@ -19,7 +22,7 @@ const QuizList: React.FC = () => {
         const fetchQuizzes = async () => {
             if (!user) return;
             setLoading(true);
-            const data = await apiService.getAvailableQuizzesForStudent(user.id);
+            const data = await apiService.getAvailableQuizzesForStudent();
             setQuizzes(data);
             setLoading(false);
         };

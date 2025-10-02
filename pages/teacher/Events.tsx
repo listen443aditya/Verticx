@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth.ts';
 // FIX: Corrected import to use the specific teacherApiService
-import { teacherApiService as apiService } from '../../services';
+import { TeacherApiService } from "../../services";
+const apiService = new TeacherApiService();
 import type { SchoolEvent } from '../../types.ts';
 import Card from '../../components/ui/Card.tsx';
 import Button from '../../components/ui/Button.tsx';

@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import type { RegistrationRequest } from '../../types.ts';
-import { adminApiService } from '../../services';
+import { AdminApiService } from '../../services';
 import Card from '../../components/ui/Card.tsx';
 import Button from '../../components/ui/Button.tsx';
 import { useDataRefresh } from '../../contexts/DataRefreshContext.tsx';
 import NotificationModal from '../../components/modals/NotificationModal.tsx';
 import ConfirmationModal from '../../components/ui/ConfirmationModal.tsx';
-
+const adminApiService = new AdminApiService();
 const RequestDetailModal: React.FC<{ request: RegistrationRequest; onClose: () => void; }> = ({ request, onClose }) => {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4" aria-modal="true" role="dialog">

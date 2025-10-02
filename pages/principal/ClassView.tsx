@@ -1,13 +1,16 @@
+// pages/principal/ClassView.tsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth.ts';
-import { principalApiService as apiService } from '../../services';
+import { PrincipalApiService } from "../../services";
+
 import type { SchoolClass, Student, ClassDetails, Teacher, FeeTemplate } from '../../types.ts';
 import Card from '../../components/ui/Card.tsx';
 import Button from '../../components/ui/Button.tsx';
 import Input from '../../components/ui/Input.tsx';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { useDataRefresh } from '../../contexts/DataRefreshContext.tsx';
 
+import { useDataRefresh } from '../../contexts/DataRefreshContext.tsx';
+const apiService = new PrincipalApiService();
 type AggregatedClass = SchoolClass & {
   students: Student[];
   stats: {

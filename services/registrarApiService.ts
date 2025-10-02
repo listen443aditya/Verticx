@@ -35,7 +35,7 @@ import type {
   AttendanceListItem,
   FacultyApplication,
   FeeRectificationRequest,
-} from "../types.ts";
+} from "../types";
 
 export class RegistrarApiService {
   // --- Dashboard ---
@@ -84,6 +84,20 @@ export class RegistrarApiService {
   }
 
   // --- Student Information System ---
+  async getStudentsByBranch(branchId: string): Promise<Student[]> {
+    const { data } = await baseApi.get<Student[]>("/registrar/students", {
+      params: { branchId },
+    });
+    return data;
+  }
+
+  async getStudentsByGrade(gradeLevel: number): Promise<Student[]> {
+    const { data } = await baseApi.get<Student[]>(`/registrar/students`, {
+      params: { grade: gradeLevel },
+    });
+    return data;
+  }
+
   async updateStudent(
     studentId: string,
     updates: Partial<Student>
@@ -154,10 +168,12 @@ export class RegistrarApiService {
   }
 
   // --- Faculty & Staff Information System ---
-  async getAllStaff(): Promise<(User & { attendancePercentage?: number })[]> {
+  async getAllStaff(
+    branchId: string
+  ): Promise<(User & { attendancePercentage?: number })[]> {
     const { data } = await baseApi.get<
       (User & { attendancePercentage?: number })[]
-    >("/registrar/staff");
+    >("/registrar/staff", { params: { branchId } });
     return data;
   }
 
@@ -199,6 +215,23 @@ export class RegistrarApiService {
   }
 
   // --- Class & Subject Management ---
+  async getSchoolClasses(): Promise<SchoolClass[]> {
+    const { data } = await baseApi.get<SchoolClass[]>("/registrar/classes");
+    return data;
+  }
+
+  async getStudentsForClass(classId: string): Promise<Student[]> {
+    const { data } = await baseApi.get<Student[]>(
+      `/registrar/classes/${classId}/students`
+    );
+    return data;
+  }
+
+  async getSubjects(): Promise<Subject[]> {
+    const { data } = await baseApi.get<Subject[]>("/registrar/subjects");
+    return data;
+  }
+
   async createSchoolClass(data: {
     gradeLevel: number;
     section: string;
@@ -240,6 +273,12 @@ export class RegistrarApiService {
     await baseApi.delete(`/registrar/classes/${classId}/students/${studentId}`);
   }
 
+  async assignClassMentor(classId: string, teacherId: string): Promise<void> {
+    await baseApi.put(`/registrar/classes/${classId}/assign-mentor`, {
+      teacherId,
+    });
+  }
+
   async updateSubject(
     subjectId: string,
     updates: Partial<Subject>
@@ -252,8 +291,24 @@ export class RegistrarApiService {
   }
 
   // --- Fee Management ---
+  async getFeeTemplates(): Promise<FeeTemplate[]> {
+    const { data } = await baseApi.get<FeeTemplate[]>(
+      "/registrar/fees/templates"
+    );
+    return data;
+  }
+
   async createFeeTemplate(template: Omit<FeeTemplate, "id">): Promise<void> {
     await baseApi.post("/registrar/fees/templates", template);
+  }
+
+  async assignFeeTemplateToClass(
+    classId: string,
+    feeTemplateId: string
+  ): Promise<void> {
+    await baseApi.put(`/registrar/classes/${classId}/assign-fee-template`, {
+      feeTemplateId,
+    });
   }
 
   async requestFeeTemplateUpdate(
@@ -508,6 +563,12 @@ export class RegistrarApiService {
     return data;
   }
 
+  // FIX: Added missing getSchoolEvents method
+  async getSchoolEvents(): Promise<SchoolEvent[]> {
+    const { data } = await baseApi.get<SchoolEvent[]>("/registrar/events");
+    return data;
+  }
+
   async createSchoolEvent(
     eventData: Omit<SchoolEvent, "id" | "status" | "createdAt">
   ): Promise<void> {
@@ -519,6 +580,11 @@ export class RegistrarApiService {
     eventData: Partial<SchoolEvent>
   ): Promise<void> {
     await baseApi.put(`/registrar/events/${eventId}`, eventData);
+  }
+
+  // FIX: Added missing deleteSchoolEvent method
+  async deleteSchoolEvent(eventId: string): Promise<void> {
+    await baseApi.delete(`/registrar/events/${eventId}`);
   }
 
   // --- Hostel Management ---

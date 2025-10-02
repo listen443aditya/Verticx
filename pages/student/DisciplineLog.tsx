@@ -3,10 +3,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth.ts';
 // FIX: Corrected import to use the specific studentApiService
-import { studentApiService as apiService } from '../../services';
+import { StudentApiService} from '../../services';
 import type { ComplaintAboutStudent } from '../../types.ts';
 import Card from '../../components/ui/Card.tsx';
 import { AlertTriangleIcon } from '../../components/icons/Icons.tsx';
+const apiService = new StudentApiService();
 
 const DisciplineLog: React.FC = () => {
     const { user } = useAuth();
@@ -14,16 +15,17 @@ const DisciplineLog: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     const fetchData = useCallback(async () => {
-        if (!user) return;
-        setLoading(true);
-        try {
-            const data = await apiService.getComplaintsAboutStudent(user.id);
-            setComplaints(data);
-        } catch (error) {
-            console.error("Failed to fetch complaints", error);
-        } finally {
-            setLoading(false);
-        }
+      if (!user) return;
+      setLoading(true);
+      try {
+        // FIX: Removed the user.id argument to match the API service method.
+        const data = await apiService.getComplaintsAboutStudent();
+        setComplaints(data);
+      } catch (error) {
+        console.error("Failed to fetch complaints", error);
+      } finally {
+        setLoading(false);
+      }
     }, [user]);
 
     useEffect(() => {

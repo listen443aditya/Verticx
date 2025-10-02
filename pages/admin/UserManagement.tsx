@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import type { User, UserRole } from '../../types.ts';
-import { adminApiService, sharedApiService } from '../../services';
+import { AdminApiService, SharedApiService } from '../../services';
 import Card from '../../components/ui/Card.tsx';
 import Button from '../../components/ui/Button.tsx';
 import Input from '../../components/ui/Input.tsx';
 import { useDataRefresh } from '../../contexts/DataRefreshContext.tsx';
 import { useAuth } from '../../hooks/useAuth.ts';
-
+const adminApiService = new AdminApiService();
+const sharedApiService = new SharedApiService();
 const CredentialsModal: React.FC<{ title: string; credentials: { id: string, password: string }, userType: string, onClose: () => void }> = ({ title, credentials, userType, onClose }) => (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
         <Card className="w-full max-w-md">

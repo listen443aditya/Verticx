@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import Card from '../../components/ui/Card.tsx';
 import Button from '../../components/ui/Button.tsx';
-import { adminApiService } from '../../services';
+import { AdminApiService } from '../../services';
 // FIX: Added 'SystemWideErpFinancials' and 'ErpBillingStatus' to the type import.
 import type { SystemWideFinancials, Branch, SystemWideErpFinancials, ErpBillingStatus } from '../../types.ts';
 import Input from '../../components/ui/Input.tsx';
@@ -11,6 +11,7 @@ import { HelpCircleIcon, BanknoteIcon, FinanceIcon, StudentsIcon, BranchIcon, Al
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { useAuth } from '../../hooks/useAuth.ts';
 
+const adminApiService = new AdminApiService();
 
 const StudentFeeCollections: React.FC = () => {
     const [financialData, setFinancialData] = useState<SystemWideFinancials | null>(null);

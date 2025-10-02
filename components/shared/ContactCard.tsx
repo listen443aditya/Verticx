@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Branch, User } from '../../types.ts';
-import { sharedApiService } from '../../services';
+import { SharedApiService } from '../../services';
 import Card from '../ui/Card.tsx';
 import { MailIcon, PhoneIcon, MapPinIcon } from '../icons/Icons.tsx';
 
@@ -8,6 +8,7 @@ interface ContactCardProps {
     branch?: Branch;
     principalName?: string;
 }
+const sharedApiService = new SharedApiService();
 
 const ContactCard: React.FC<ContactCardProps> = ({ branch, principalName }) => {
     const [verticxSupport, setVerticxSupport] = useState<User | null>(null);

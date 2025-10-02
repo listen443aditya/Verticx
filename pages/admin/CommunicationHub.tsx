@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth.ts';
-import { adminApiService } from '../../services';
+import { AdminApiService } from '../../services';
 // FIX: Added CommunicationTarget to imports
 import type { UserRole, Branch, AdminSms, AdminEmail, AdminNotification, CommunicationTarget } from '../../types.ts';
 import Card from '../../components/ui/Card.tsx';
 import Button from '../../components/ui/Button.tsx';
 import Input from '../../components/ui/Input.tsx';
 import { XIcon } from '../../components/icons/Icons.tsx';
+const adminApiService = new AdminApiService();
 
 const CommunicationHub: React.FC = () => {
     const { user } = useAuth();

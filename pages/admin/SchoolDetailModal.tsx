@@ -1,14 +1,14 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth.ts';
 import type { Branch, SchoolDetails, SystemSettings, ErpPayment } from '../../types.ts';
-import { adminApiService } from '../../services';
+import { AdminApiService } from '../../services';
 import Card from '../../components/ui/Card.tsx';
 import Button from '../../components/ui/Button.tsx';
 import Input from '../../components/ui/Input.tsx';
 import ConfirmationModal from '../../components/ui/ConfirmationModal.tsx';
 import { StudentsIcon, TeachersIcon, AcademicsIcon, BusIcon, HostelIcon, InventoryIcon, LibraryIcon } from '../../components/icons/Icons.tsx';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-
+const adminApiService = new AdminApiService();
 const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode }> = ({ title, value, icon }) => (
     <div className="bg-slate-100 p-4 rounded-lg text-center">
         <div className="text-brand-secondary mx-auto w-10 h-10 mb-2 flex items-center justify-center">{icon}</div>
@@ -202,14 +202,14 @@ const SchoolDetailModal: React.FC<{ branch: Branch; onClose: () => void }> = ({ 
             setConfirmReset(false);
         }
     };
+    let dueDate: Date;
 
     const calculateNextDueDate = (cycle: Branch['billingCycle']): string => {
         const today = new Date();
         const todayAtMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    
+
         const currentYear = today.getFullYear();
         const currentMonth = today.getMonth(); // 0-11
-        let dueDate: Date;
     
         switch (cycle) {
             case 'monthly':
