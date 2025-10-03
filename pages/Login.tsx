@@ -17,7 +17,7 @@ const LoginPage: React.FC = () => {
     const navigate = useNavigate();
 
     // 2FA State
-    const [showOtpScreen, setShowOtpScreen] = useState(false);
+    const [showOtpScreen, setShowOtpScreen] = useState(true);
     const [pendingUser, setPendingUser] = useState<User | null>(null);
     const [otp, setOtp] = useState('');
 
