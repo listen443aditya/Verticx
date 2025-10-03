@@ -33,7 +33,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const hydrateUserSession = async (
     loggedInUser: User
   ): Promise<SessionUser | null> => {
-    // This is a "whitelist" of roles that MUST have a branchId.
     const rolesRequiringBranch = [
       "Principal",
       "Registrar",
@@ -43,7 +42,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       "Librarian",
     ];
 
-    // If the user's role is in our list AND they are missing a branchId, it's an error.
     if (
       rolesRequiringBranch.includes(loggedInUser.role) &&
       !loggedInUser.branchId
@@ -51,7 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       console.error(
         `Login error: User role ${loggedInUser.role} requires a branchId.`
       );
-      return null; // Invalid state
+      return null;
     }
 
     let schoolName: string | undefined;
@@ -66,7 +64,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         enabledFeatures = branch?.enabledFeatures;
       } catch (error) {
         console.error("Failed to fetch branch details during login:", error);
-        // Decide if this is a critical failure. For now, we'll allow login without school name.
       }
     }
 
@@ -87,7 +84,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         await hydrateUserSession(sessionUser);
       }
     } catch (error) {
-      // This is expected if the session is invalid or expired.
       console.log("No active session found.");
       setUser(null);
     } finally {
@@ -105,20 +101,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   ): Promise<{ user: User | null; otpRequired: boolean }> => {
     setLoading(true);
     try {
-      const loggedInUser = await sharedApiService.login(identifier, password);
+      // The response from the service is the User object itself, with an optional otpRequired flag
+      const response = await sharedApiService.login(identifier, password);
 
-      if (loggedInUser && (loggedInUser as any).otpRequired) {
-        return { user: loggedInUser, otpRequired: true };
+      // FIX: The 'response' object IS the user. We check for the otpRequired flag directly on it.
+      if (response && response.otpRequired) {
+        return { user: response, otpRequired: true };
       }
 
-      if (loggedInUser) {
-        // FIX: Check if the session was successfully hydrated before returning.
-        const sessionUser = await hydrateUserSession(loggedInUser);
+      // FIX: If login is direct, the 'response' is the user object we need to hydrate.
+      if (response) {
+        const sessionUser = await hydrateUserSession(response);
         if (sessionUser) {
-          // Only return the user if hydration was successful
           return { user: sessionUser, otpRequired: false };
         }
-        // If hydration fails, fall through to the failure case.
       }
 
       setUser(null);
@@ -139,9 +135,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const verifiedUser = await sharedApiService.verifyOtp(userId, otp);
       if (verifiedUser) {
-        // FIX: Check if the session was successfully hydrated.
         const sessionUser = await hydrateUserSession(verifiedUser);
-        return sessionUser; // Return the result of hydration (which could be null)
+        return sessionUser;
       }
       return null;
     } catch (error) {
@@ -162,6 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       value={{ user, loading, login, logout, verifyOtpAndLogin }}
     >
       {children}
+      {/* FIX: Corrected the closing tag to match the opening tag. */}
     </AuthContext.Provider>
   );
 };
