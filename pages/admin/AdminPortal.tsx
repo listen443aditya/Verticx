@@ -1,3 +1,4 @@
+// pages/admin/AdminPortal.tsx
 import React, { useState } from 'react';
 // FIX: Corrected react-router-dom imports for v6+
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom';

@@ -1,5 +1,4 @@
-
-
+// pages/admin/AdminDashboard.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import type { AdminDashboardData, RegistrationRequest, PrincipalQuery, UserRole } from '../../types.ts';

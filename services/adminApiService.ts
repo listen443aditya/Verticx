@@ -1,7 +1,5 @@
 // services/adminApiService.ts
 
-// ✅ STEP 1: Import the configured baseApi client and necessary types.
-//    All dependencies on the local 'database.ts' have been removed.
 import baseApi from "./baseApiService";
 import type {
   User,
@@ -19,65 +17,82 @@ import type {
   SchoolDetails,
   ErpPayment,
   SystemWideErpFinancials,
-  SchoolFinancialDetails,
   AuditLog,
   PrincipalQuery,
+  UserRole, // Import UserRole for better type safety
 } from "../types";
 
-// ✅ STEP 2: Refactor the class. Every method now makes a direct, asynchronous API call.
-//    All complex logic, calculations, and data filtering now happen on the backend.
+// Helper function to get the correct API prefix based on role
+const getApiPrefix = (role: UserRole) => {
+  return role === "SuperAdmin" ? "/superadmin" : "/admin";
+};
+
 export class AdminApiService {
-  async getRegistrationRequests(): Promise<RegistrationRequest[]> {
-    const { data } = await baseApi.get("/admin/requests/registration");
+  async getRegistrationRequests(
+    role: UserRole
+  ): Promise<RegistrationRequest[]> {
+    const { data } = await baseApi.get(
+      `${getApiPrefix(role)}/registration-requests`
+    );
     return data;
   }
 
-  async approveRequest(requestId: string): Promise<void> {
-    // The backend now handles user creation, branch creation, and sending credentials.
-    await baseApi.put(`/admin/requests/registration/${requestId}/approve`);
+  async approveRequest(role: UserRole, requestId: string): Promise<void> {
+    await baseApi.post(
+      `${getApiPrefix(role)}/registration-requests/${requestId}/approve`
+    );
   }
 
-  async denyRequest(requestId: string): Promise<void> {
-    await baseApi.put(`/admin/requests/registration/${requestId}/deny`);
+  async denyRequest(role: UserRole, requestId: string): Promise<void> {
+    await baseApi.post(
+      `${getApiPrefix(role)}/registration-requests/${requestId}/deny`
+    );
   }
 
-  async getBranches(status?: "active"): Promise<Branch[]> {
-    // All complex stat calculations (health score, etc.) are now done by the backend.
-    const { data } = await baseApi.get<Branch[]>("/admin/branches", {
-      params: status ? { status } : {},
-    });
+  async getBranches(role: UserRole, status?: "active"): Promise<Branch[]> {
+    const { data } = await baseApi.get<Branch[]>(
+      `${getApiPrefix(role)}/branches`,
+      {
+        params: status ? { status } : {},
+      }
+    );
     return data;
   }
 
-  async getAdminDashboardData(role: string): Promise<AdminDashboardData> {
-    // The backend aggregates all dashboard data into a single, efficient call.
-    const { data } = await baseApi.get<AdminDashboardData>("/admin/dashboard");
+  async getAdminDashboardData(role: UserRole): Promise<AdminDashboardData> {
+    // FIX: The endpoint now correctly uses the user's role.
+    const endpoint =
+      role === "SuperAdmin" ? "/superadmin/dashboard" : "/admin/dashboard";
+    const { data } = await baseApi.get<AdminDashboardData>(endpoint);
     return data;
   }
 
   async updateBranchStatus(
+    role: UserRole,
     branchId: string,
     status: Branch["status"]
   ): Promise<void> {
-    await baseApi.put(`/admin/branches/${branchId}/status`, { status });
+    await baseApi.patch(`${getApiPrefix(role)}/branches/${branchId}/status`, {
+      status,
+    });
   }
 
-  async deleteBranch(branchId: string): Promise<void> {
-    // The backend handles the cascading deletion of all associated data.
-    await baseApi.delete(`/admin/branches/${branchId}`);
+  async deleteBranch(role: UserRole, branchId: string): Promise<void> {
+    await baseApi.delete(`${getApiPrefix(role)}/branches/${branchId}`);
   }
 
-  async getAllUsers(): Promise<User[]> {
-    const { data } = await baseApi.get<User[]>("/admin/users");
+  async getAllUsers(role: UserRole): Promise<User[]> {
+    const { data } = await baseApi.get<User[]>(`${getApiPrefix(role)}/users`);
     return data;
   }
 
   async getSystemWideFinancials(
+    role: UserRole,
     startDate?: string,
     endDate?: string
   ): Promise<SystemWideFinancials> {
     const { data } = await baseApi.get<SystemWideFinancials>(
-      "/admin/finance/system-wide",
+      `${getApiPrefix(role)}/financials`,
       {
         params: { startDate, endDate },
       }
@@ -85,33 +100,40 @@ export class AdminApiService {
     return data;
   }
 
-  async getSystemWideAnalytics(): Promise<SystemWideAnalytics> {
-    const { data } = await baseApi.get<SystemWideAnalytics>("/admin/analytics");
-    return data;
-  }
-
-  async getSystemWideInfrastructureData(): Promise<SystemInfrastructureData> {
-    const { data } = await baseApi.get<SystemInfrastructureData>(
-      "/admin/infrastructure"
+  async getSystemWideAnalytics(role: UserRole): Promise<SystemWideAnalytics> {
+    const { data } = await baseApi.get<SystemWideAnalytics>(
+      `${getApiPrefix(role)}/analytics`
     );
     return data;
   }
 
-  async getAdminCommunicationHistory(): Promise<{
+  async getSystemWideInfrastructureData(
+    role: UserRole
+  ): Promise<SystemInfrastructureData> {
+    const { data } = await baseApi.get<SystemInfrastructureData>(
+      `${getApiPrefix(role)}/infrastructure`
+    );
+    return data;
+  }
+
+  async getAdminCommunicationHistory(role: UserRole): Promise<{
     sms: AdminSms[];
     email: AdminEmail[];
     notification: AdminNotification[];
   }> {
-    const { data } = await baseApi.get("/admin/communication/history");
+    const { data } = await baseApi.get(
+      `${getApiPrefix(role)}/communication-history`
+    );
     return data;
   }
 
   async sendBulkSms(
+    role: UserRole,
     target: CommunicationTarget,
     message: string,
     sentBy: string
   ): Promise<void> {
-    await baseApi.post("/admin/communication/sms", {
+    await baseApi.post(`${getApiPrefix(role)}/send-sms`, {
       target,
       message,
       sentBy,
@@ -119,12 +141,13 @@ export class AdminApiService {
   }
 
   async sendBulkEmail(
+    role: UserRole,
     target: CommunicationTarget,
     subject: string,
     body: string,
     sentBy: string
   ): Promise<void> {
-    await baseApi.post("/admin/communication/email", {
+    await baseApi.post(`${getApiPrefix(role)}/send-email`, {
       target,
       subject,
       body,
@@ -133,12 +156,13 @@ export class AdminApiService {
   }
 
   async sendBulkNotification(
+    role: UserRole,
     target: CommunicationTarget,
     title: string,
     message: string,
     sentBy: string
   ): Promise<void> {
-    await baseApi.post("/admin/communication/notification", {
+    await baseApi.post(`${getApiPrefix(role)}/send-notification`, {
       target,
       title,
       message,
@@ -146,73 +170,82 @@ export class AdminApiService {
     });
   }
 
-  async getSchoolDetails(branchId: string): Promise<SchoolDetails> {
-    const { data } = await baseApi.get(`/admin/schools/${branchId}`);
+  async getSchoolDetails(
+    role: UserRole,
+    branchId: string
+  ): Promise<SchoolDetails> {
+    const { data } = await baseApi.get(
+      `${getApiPrefix(role)}/branches/${branchId}/details`
+    );
     return data;
   }
 
   async getSystemSettings(): Promise<SystemSettings> {
-    const { data } = await baseApi.get("/admin/system/settings");
+    const { data } = await baseApi.get("/superadmin/system-settings");
     return data;
   }
 
   async updateSystemSettings(settings: SystemSettings): Promise<void> {
-    // Backend now handles propagating global settings to all branches.
-    await baseApi.put("/admin/system/settings", settings);
+    await baseApi.put("/superadmin/system-settings", settings);
   }
 
-  async resetUserPassword(userId: string): Promise<{ newPassword: string }> {
+  async resetUserPassword(
+    role: UserRole,
+    userId: string
+  ): Promise<{ newPassword: string }> {
     const { data } = await baseApi.post(
-      `/admin/users/${userId}/reset-password`
+      `${getApiPrefix(role)}/users/${userId}/reset-password`
     );
     return data;
   }
 
   async updateBranchDetails(
+    role: UserRole,
     branchId: string,
     updates: Partial<Branch>
   ): Promise<void> {
-    await baseApi.put(`/admin/branches/${branchId}`, updates);
+    await baseApi.patch(
+      `${getApiPrefix(role)}/branches/${branchId}/details`,
+      updates
+    );
   }
 
   async getErpPayments(): Promise<ErpPayment[]> {
-    const { data } = await baseApi.get("/admin/finance/erp-billing");
+    const { data } = await baseApi.get("/superadmin/erp-payments");
     return data;
   }
 
   async getSystemWideErpFinancials(): Promise<SystemWideErpFinancials> {
-    const { data } = await baseApi.get("/admin/finance/system-wide-erp");
-    return data;
-  }
-
-  async getSchoolFinancialDetails(
-    branchId: string
-  ): Promise<SchoolFinancialDetails> {
-    const { data } = await baseApi.get(`/admin/finance/school/${branchId}`);
+    const { data } = await baseApi.get("/superadmin/erp-financials");
     return data;
   }
 
   async getAuditLogs(): Promise<AuditLog[]> {
-    const { data } = await baseApi.get("/admin/audit-logs");
+    const { data } = await baseApi.get("/superadmin/audit-logs");
     return data;
   }
 
   async getPrincipalQueries(
+    role: UserRole,
     status?: "Open" | "Resolved"
   ): Promise<PrincipalQuery[]> {
-    const { data } = await baseApi.get("/admin/queries/principal", {
-      params: { status },
-    });
+    const { data } = await baseApi.get(
+      `${getApiPrefix(role)}/principal-queries`,
+      {
+        params: { status },
+      }
+    );
     return data;
   }
 
   async resolvePrincipalQuery(
+    role: UserRole,
     queryId: string,
     adminNotes: string,
     adminId: string
   ): Promise<PrincipalQuery> {
-    const { data } = await baseApi.put(
-      `/admin/queries/principal/${queryId}/resolve`,
+    const { data } = await baseApi.post(
+      `${getApiPrefix(role)}/principal-queries/${queryId}/resolve`,
       {
         adminNotes,
         adminId,
@@ -231,7 +264,8 @@ export class AdminApiService {
     },
     adminId: string
   ): Promise<void> {
-    await baseApi.post(`/admin/finance/erp-billing/${branchId}/manual`, {
+    await baseApi.post(`/superadmin/erp-payments/manual`, {
+      branchId,
       ...paymentDetails,
       adminId,
     });
