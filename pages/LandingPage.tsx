@@ -844,7 +844,7 @@ const ContactSection: React.FC = () => {
             </p>
             <p className="flex items-center text-text-secondary-dark">
               <MapPinIcon className="w-5 h-5 mr-3 text-brand-primary" /> Chandigarh University
-               Mohali Punjab - 140413, India
+               Mohali Punjab - 140301, India
             </p>
           </div>
         </div>
