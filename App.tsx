@@ -1,3 +1,4 @@
+// App.tsx
 import React from 'react';
 // FIX: Changed react-router-dom imports to align with v6.4+ data router patterns.
 // Outlet is used to render child routes, and useNavigate is used for programmatic navigation.

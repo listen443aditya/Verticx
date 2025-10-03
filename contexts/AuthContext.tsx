@@ -30,7 +30,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // FIX: Rewrote this function to be more robust.
   const hydrateUserSession = async (
     loggedInUser: User
   ): Promise<SessionUser | null> => {
@@ -55,17 +54,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return null; // Invalid state
     }
 
-    // All other roles (like Admin, SuperAdmin, or even 'undefined' from a faulty API response)
-    // will correctly bypass the check and proceed.
     let schoolName: string | undefined;
     let enabledFeatures: Record<string, boolean> | undefined;
 
     if (loggedInUser.branchId) {
-      const branch = await sharedApiService.getBranchById(
-        loggedInUser.branchId
-      );
-      schoolName = branch?.name;
-      enabledFeatures = branch?.enabledFeatures;
+      try {
+        const branch = await sharedApiService.getBranchById(
+          loggedInUser.branchId
+        );
+        schoolName = branch?.name;
+        enabledFeatures = branch?.enabledFeatures;
+      } catch (error) {
+        console.error("Failed to fetch branch details during login:", error);
+        // Decide if this is a critical failure. For now, we'll allow login without school name.
+      }
     }
 
     const sessionUser: SessionUser = {
@@ -79,11 +81,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const checkSession = useCallback(async () => {
     setLoading(true);
-    const sessionUser = await sharedApiService.checkSession();
-    if (sessionUser) {
-      await hydrateUserSession(sessionUser);
+    try {
+      const sessionUser = await sharedApiService.checkSession();
+      if (sessionUser) {
+        await hydrateUserSession(sessionUser);
+      }
+    } catch (error) {
+      // This is expected if the session is invalid or expired.
+      console.log("No active session found.");
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -103,8 +112,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       if (loggedInUser) {
-        await hydrateUserSession(loggedInUser);
-        return { user: loggedInUser, otpRequired: false };
+        // FIX: Check if the session was successfully hydrated before returning.
+        const sessionUser = await hydrateUserSession(loggedInUser);
+        if (sessionUser) {
+          // Only return the user if hydration was successful
+          return { user: sessionUser, otpRequired: false };
+        }
+        // If hydration fails, fall through to the failure case.
       }
 
       setUser(null);
@@ -125,8 +139,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const verifiedUser = await sharedApiService.verifyOtp(userId, otp);
       if (verifiedUser) {
-        await hydrateUserSession(verifiedUser);
-        return verifiedUser;
+        // FIX: Check if the session was successfully hydrated.
+        const sessionUser = await hydrateUserSession(verifiedUser);
+        return sessionUser; // Return the result of hydration (which could be null)
       }
       return null;
     } catch (error) {

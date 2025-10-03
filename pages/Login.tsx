@@ -1,5 +1,5 @@
+// pages/Login.tsx
 import React, { useState } from 'react';
-// FIX: Corrected react-router-dom import for v6+
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.ts';
 import { VerticxLogo } from '../components/icons/Icons.tsx';
