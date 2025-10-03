@@ -711,7 +711,7 @@ const AboutUsSection: React.FC = () => (
           />
           <h4 className="font-bold">Rohit Kumar</h4>
           <p className="text-sm text-text-secondary-dark">
-            rohitsinghjps2004@gmail.com
+            singhhrohiit.12@gmail.com
           </p>
         </div>
         <div className="flex flex-col items-center">
