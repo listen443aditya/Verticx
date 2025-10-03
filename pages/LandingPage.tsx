@@ -711,7 +711,7 @@ const AboutUsSection: React.FC = () => (
           />
           <h4 className="font-bold">Rohit Kumar</h4>
           <p className="text-sm text-text-secondary-dark">
-            rohit.singh@verticx.com
+            rohitsinghjps2004@gmail.com
           </p>
         </div>
         <div className="flex flex-col items-center">
@@ -722,19 +722,19 @@ const AboutUsSection: React.FC = () => (
           />
           <h4 className="font-bold">Aditi Singh</h4>
           <p className="text-sm text-text-secondary-dark">
-            aditi.singh@verticx.com
+            additii21@gmail.com
           </p>
         </div>
 
         <div className="flex flex-col items-center">
           <img
-            src="https://placehold.co/128x128/E2E8F0/475569?text=founder not found"
+            src="https://placehold.co/128x128/E2E8F0/475569?text=founder"
             alt="Aditya Kumar Singh"
             className="w-32 h-32 rounded-full mb-2 object-cover shadow-lg"
           />
           <h4 className="font-bold">Aditya Kumar Singh</h4>
           <p className="text-sm text-text-secondary-dark">
-            aditya.singh@verticx.com
+            adityakumarsingh7242191@gmail.com
           </p>
         </div>
       </div>
@@ -837,15 +837,14 @@ const ContactSection: React.FC = () => {
           <div className="mt-8 space-y-4">
             <p className="flex items-center text-text-secondary-dark">
               <MailIcon className="w-5 h-5 mr-3 text-brand-primary" />{" "}
-              sales@verticx.com
+              adityakumarsingh7242191@gmail.com
             </p>
             <p className="flex items-center text-text-secondary-dark">
-              <PhoneIcon className="w-5 h-5 mr-3 text-brand-primary" /> +1 (555)
-              123-4567
+              <PhoneIcon className="w-5 h-5 mr-3 text-brand-primary" /> +91 9801537137
             </p>
             <p className="flex items-center text-text-secondary-dark">
-              <MapPinIcon className="w-5 h-5 mr-3 text-brand-primary" /> 123
-              Innovation Drive, Tech City, USA
+              <MapPinIcon className="w-5 h-5 mr-3 text-brand-primary" /> Chandigarh University
+               Mohali Punjab - 140413, India
             </p>
           </div>
         </div>
@@ -1030,7 +1029,7 @@ const Footer: React.FC = () => {
         </div>
         <div className="mt-8 border-t border-slate-700 pt-8 text-center text-sm text-slate-400">
           <p>
-            &copy; {new Date().getFullYear()} Verticx Technologies Pvt. Ltd. All
+            &copy; {new Date().getFullYear()} Verticx Technologies All
             rights reserved.
           </p>
         </div>
