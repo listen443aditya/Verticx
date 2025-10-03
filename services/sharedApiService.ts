@@ -42,6 +42,11 @@ export class SharedApiService {
   }
 
   async verifyOtp(userId: string, otp: string): Promise<User | null> {
+      console.log(
+        "%c--- EXECUTING LATEST verifyOtp FUNCTION ---",
+        "color: lime; font-weight: bold;"
+      );
+      console.log("Sending this payload to the backend:", { userId, otp });
     const { data } = await baseApi.post("/auth/verify-otp", { userId, otp });
 
     // FIX: The backend returns `{ user, token }`. Only store and return the `user` object.
