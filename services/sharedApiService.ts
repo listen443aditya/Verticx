@@ -9,17 +9,6 @@ import type {
   TeacherAttendanceRecord,
 } from "../types";
 
-let currentSession: User | null = null;
-try {
-  const sessionData = sessionStorage.getItem("verticxSession");
-  if (sessionData) {
-    currentSession = JSON.parse(sessionData);
-  }
-} catch (e) {
-  console.error("Could not parse session data", e);
-}
-
-// FIX: Define the correct shape of the API login response
 type LoginResponse = {
   user: User;
   token?: string;
@@ -27,18 +16,21 @@ type LoginResponse = {
 };
 
 export class SharedApiService {
+  // =================================================================
+  // SESSION & AUTHENTICATION
+  // =================================================================
   async login(
     identifier: string,
     password: string
   ): Promise<LoginResponse | null> {
-    // The API call itself is correct
     const { data } = await baseApi.post("/auth/login", {
       identifier,
       password,
     });
 
-    if (data && data.user && !data.otpRequired) {
-      currentSession = data.user;
+    if (data?.user && data.token && !data.otpRequired) {
+      // FIX: Save the token to localStorage
+      localStorage.setItem("token", data.token);
       sessionStorage.setItem("verticxSession", JSON.stringify(data.user));
     }
     return data;
@@ -50,38 +42,39 @@ export class SharedApiService {
   ): Promise<{ user: User; token: string } | null> {
     const { data } = await baseApi.post("/auth/verify-otp", { userId, otp });
 
-    if (data && data.user) {
-      currentSession = data.user;
+    if (data?.user && data.token) {
+      // FIX: Save the token to localStorage
+      localStorage.setItem("token", data.token);
       sessionStorage.setItem("verticxSession", JSON.stringify(data.user));
-      return data; // Return the full { user, token } object
     }
-    return null;
+    // The context needs the full response to hydrate the user
+    return data;
   }
 
-  // ... (rest of the file is unchanged)
   async logout(): Promise<void> {
     try {
       await baseApi.post("/auth/logout");
     } catch (error) {
       console.error("Logout request failed, clearing session locally.", error);
     } finally {
-      currentSession = null;
+      // FIX: Clear both the user and the token
       sessionStorage.removeItem("verticxSession");
+      localStorage.removeItem("token");
     }
   }
 
   async checkSession(): Promise<User | null> {
     try {
+      // The auth token is sent automatically by the baseApi interceptor
       const { data } = await baseApi.get("/auth/session");
       if (data && data.user) {
-        currentSession = data.user;
         sessionStorage.setItem("verticxSession", JSON.stringify(data.user));
         return data.user;
       }
       throw new Error("Invalid session response");
     } catch (error) {
-      currentSession = null;
       sessionStorage.removeItem("verticxSession");
+      localStorage.removeItem("token"); // Also clear token on session fail
       return null;
     }
   }
@@ -92,7 +85,6 @@ export class SharedApiService {
     email: string;
     phone: string;
     location: string;
-    registrationId: string;
     principalPassword?: string;
   }): Promise<void> {
     await baseApi.post("/auth/register-school", data);
@@ -107,6 +99,8 @@ export class SharedApiService {
       newPassword,
     });
   }
+
+  // ... The rest of your file does not need to be changed ...
 
   async resetUserPassword(userId: string): Promise<{ newPassword: string }> {
     const { data } = await baseApi.post(`/users/${userId}/reset-password`);
@@ -129,9 +123,11 @@ export class SharedApiService {
     phone?: string;
   }): Promise<User> {
     const { data } = await baseApi.put<User>("/profile", updates);
-    if (currentSession) {
-      currentSession = { ...currentSession, ...data };
-      sessionStorage.setItem("verticxSession", JSON.stringify(currentSession));
+    const sessionData = sessionStorage.getItem("verticxSession");
+    if (sessionData) {
+      let sessionUser = JSON.parse(sessionData);
+      sessionUser = { ...sessionUser, ...data };
+      sessionStorage.setItem("verticxSession", JSON.stringify(sessionUser));
     }
     return data;
   }
