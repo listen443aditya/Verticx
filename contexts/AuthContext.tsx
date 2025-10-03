@@ -1,3 +1,4 @@
+// contexts/AuthContext.tsx
 import React, { createContext, useState, useEffect, useCallback } from "react";
 import type { User } from "../types.ts";
 import { SharedApiService } from "../services";
@@ -101,17 +102,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   ): Promise<{ user: User | null; otpRequired: boolean }> => {
     setLoading(true);
     try {
-      // The response from the service is the User object itself, with an optional otpRequired flag
       const response = await sharedApiService.login(identifier, password);
 
-      // FIX: The 'response' object IS the user. We check for the otpRequired flag directly on it.
-      if (response && response.otpRequired) {
-        return { user: response, otpRequired: true };
+      if (response?.otpRequired && response.user) {
+        return { user: response.user, otpRequired: true };
       }
 
-      // FIX: If login is direct, the 'response' is the user object we need to hydrate.
-      if (response) {
-        const sessionUser = await hydrateUserSession(response);
+      if (response?.user) {
+        const sessionUser = await hydrateUserSession(response.user);
         if (sessionUser) {
           return { user: sessionUser, otpRequired: false };
         }
@@ -133,9 +131,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   ): Promise<User | null> => {
     setLoading(true);
     try {
-      const verifiedUser = await sharedApiService.verifyOtp(userId, otp);
-      if (verifiedUser) {
-        const sessionUser = await hydrateUserSession(verifiedUser);
+      const response = await sharedApiService.verifyOtp(userId, otp);
+      if (response?.user) {
+        const sessionUser = await hydrateUserSession(response.user);
         return sessionUser;
       }
       return null;
@@ -157,7 +155,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       value={{ user, loading, login, logout, verifyOtpAndLogin }}
     >
       {children}
-      {/* FIX: Corrected the closing tag to match the opening tag. */}
     </AuthContext.Provider>
   );
 };

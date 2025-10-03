@@ -9,7 +9,6 @@ import type {
   TeacherAttendanceRecord,
 } from "../types";
 
-// Session is now managed by reacting to API responses, not by direct manipulation here.
 let currentSession: User | null = null;
 try {
   const sessionData = sessionStorage.getItem("verticxSession");
@@ -20,20 +19,24 @@ try {
   console.error("Could not parse session data", e);
 }
 
+// FIX: Define the correct shape of the API login response
+type LoginResponse = {
+  user: User;
+  token?: string;
+  otpRequired?: boolean;
+};
+
 export class SharedApiService {
-  // =================================================================
-  // SESSION & AUTHENTICATION
-  // =================================================================
   async login(
     identifier: string,
     password: string
-  ): Promise<(User & { otpRequired?: boolean }) | null> {
+  ): Promise<LoginResponse | null> {
+    // The API call itself is correct
     const { data } = await baseApi.post("/auth/login", {
       identifier,
       password,
     });
 
-    // FIX: The backend returns `{ user, token }`. Only store the `user` object in the session.
     if (data && data.user && !data.otpRequired) {
       currentSession = data.user;
       sessionStorage.setItem("verticxSession", JSON.stringify(data.user));
@@ -41,23 +44,21 @@ export class SharedApiService {
     return data;
   }
 
-  async verifyOtp(userId: string, otp: string): Promise<User | null> {
-      console.log(
-        "%c--- EXECUTING LATEST verifyOtp FUNCTION ---",
-        "color: lime; font-weight: bold;"
-      );
-      console.log("Sending this payload to the backend:", { userId, otp });
+  async verifyOtp(
+    userId: string,
+    otp: string
+  ): Promise<{ user: User; token: string } | null> {
     const { data } = await baseApi.post("/auth/verify-otp", { userId, otp });
 
-    // FIX: The backend returns `{ user, token }`. Only store and return the `user` object.
     if (data && data.user) {
       currentSession = data.user;
       sessionStorage.setItem("verticxSession", JSON.stringify(data.user));
-      return data.user;
+      return data; // Return the full { user, token } object
     }
     return null;
   }
 
+  // ... (rest of the file is unchanged)
   async logout(): Promise<void> {
     try {
       await baseApi.post("/auth/logout");
@@ -71,14 +72,12 @@ export class SharedApiService {
 
   async checkSession(): Promise<User | null> {
     try {
-      // FIX: The backend returns `{ user }`. We need to extract the user object.
       const { data } = await baseApi.get("/auth/session");
       if (data && data.user) {
         currentSession = data.user;
         sessionStorage.setItem("verticxSession", JSON.stringify(data.user));
         return data.user;
       }
-      // If response is malformed, treat as logged out.
       throw new Error("Invalid session response");
     } catch (error) {
       currentSession = null;
@@ -93,8 +92,8 @@ export class SharedApiService {
     email: string;
     phone: string;
     location: string;
-    registrationId: string; // This likely isn't sent from frontend, but keeping for consistency.
-    principalPassword?: string; // Need to send password
+    registrationId: string;
+    principalPassword?: string;
   }): Promise<void> {
     await baseApi.post("/auth/register-school", data);
   }
@@ -113,10 +112,6 @@ export class SharedApiService {
     const { data } = await baseApi.post(`/users/${userId}/reset-password`);
     return data;
   }
-
-  // =================================================================
-  // USER PROFILE & SHARED FEATURES
-  // =================================================================
 
   async getUserById(userId: string): Promise<User | null> {
     const { data } = await baseApi.get<User | null>(`/users/${userId}`);
