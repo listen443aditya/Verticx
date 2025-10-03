@@ -1,11 +1,9 @@
 // services/sharedApiService.ts
 
-// ✅ STEP 1: Dependencies are simplified. 'baseApi' is the sole connection to the backend.
 import baseApi from "./baseApiService";
-// ✅ STEP 2: All necessary types for shared data contracts are imported.
 import type {
   User,
-  Branch, // FIX: Imported Branch type
+  Branch,
   LeaveApplication,
   LeaveSetting,
   TeacherAttendanceRecord,
@@ -30,15 +28,15 @@ export class SharedApiService {
     identifier: string,
     password: string
   ): Promise<(User & { otpRequired?: boolean }) | null> {
-    // Backend now handles user lookup, password verification, and OTP logic.
     const { data } = await baseApi.post("/auth/login", {
       identifier,
       password,
     });
 
-    if (data && !data.otpRequired) {
-      currentSession = data;
-      sessionStorage.setItem("verticxSession", JSON.stringify(data));
+    // FIX: The backend returns `{ user, token }`. Only store the `user` object in the session.
+    if (data && data.user && !data.otpRequired) {
+      currentSession = data.user;
+      sessionStorage.setItem("verticxSession", JSON.stringify(data.user));
     }
     return data;
   }
@@ -46,29 +44,38 @@ export class SharedApiService {
   async verifyOtp(userId: string, otp: string): Promise<User | null> {
     const { data } = await baseApi.post("/auth/verify-otp", { userId, otp });
 
-    if (data) {
-      currentSession = data;
-      sessionStorage.setItem("verticxSession", JSON.stringify(data));
+    // FIX: The backend returns `{ user, token }`. Only store and return the `user` object.
+    if (data && data.user) {
+      currentSession = data.user;
+      sessionStorage.setItem("verticxSession", JSON.stringify(data.user));
+      return data.user;
     }
-    return data;
+    return null;
   }
 
   async logout(): Promise<void> {
-    // Informs the backend to invalidate the session/token, if applicable.
-    await baseApi.post("/auth/logout");
-    currentSession = null;
-    sessionStorage.removeItem("verticxSession");
+    try {
+        await baseApi.post("/auth/logout");
+    } catch (error) {
+        console.error("Logout request failed, clearing session locally.", error);
+    } finally {
+        currentSession = null;
+        sessionStorage.removeItem("verticxSession");
+    }
   }
 
   async checkSession(): Promise<User | null> {
-    // Validates the current token with the backend to get the user session.
     try {
+      // FIX: The backend returns `{ user }`. We need to extract the user object.
       const { data } = await baseApi.get("/auth/session");
-      currentSession = data;
-      sessionStorage.setItem("verticxSession", JSON.stringify(data));
-      return data;
+      if (data && data.user) {
+        currentSession = data.user;
+        sessionStorage.setItem("verticxSession", JSON.stringify(data.user));
+        return data.user;
+      }
+      // If response is malformed, treat as logged out.
+      throw new Error("Invalid session response");
     } catch (error) {
-      // If the session is invalid (e.g., 401 Unauthorized), clear it.
       currentSession = null;
       sessionStorage.removeItem("verticxSession");
       return null;
@@ -81,18 +88,16 @@ export class SharedApiService {
     email: string;
     phone: string;
     location: string;
-    registrationId: string;
+    registrationId: string; // This likely isn't sent from frontend, but keeping for consistency.
+    principalPassword?: string; // Need to send password
   }): Promise<void> {
-    // Backend handles uniqueness checks and creating the registration request.
     await baseApi.post("/auth/register-school", data);
   }
 
-  async changePassword(current: string, newPass: string): Promise<void> {
-    // The user is identified by the backend via their auth token.
-    await baseApi.post("/auth/change-password", { current, newPass });
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await baseApi.post("/auth/change-password", { currentPassword, newPassword });
   }
 
-  // NOTE: This is an ADMIN action, moved to a generic endpoint.
   async resetUserPassword(userId: string): Promise<{ newPassword: string }> {
     const { data } = await baseApi.post(`/users/${userId}/reset-password`);
     return data;
@@ -102,13 +107,11 @@ export class SharedApiService {
   // USER PROFILE & SHARED FEATURES
   // =================================================================
 
-  // FIX: Added missing getUserById method
   async getUserById(userId: string): Promise<User | null> {
     const { data } = await baseApi.get<User | null>(`/users/${userId}`);
     return data;
   }
 
-  // FIX: Added missing getBranchById method
   async getBranchById(branchId: string): Promise<Branch | null> {
     const { data } = await baseApi.get<Branch | null>(`/branches/${branchId}`);
     return data;
@@ -119,9 +122,7 @@ export class SharedApiService {
     email?: string;
     phone?: string;
   }): Promise<User> {
-    // The user updates their OWN profile. Identified by auth token.
     const { data } = await baseApi.put<User>("/profile", updates);
-    // Update the local session with the new details.
     if (currentSession) {
       currentSession = { ...currentSession, ...data };
       sessionStorage.setItem("verticxSession", JSON.stringify(currentSession));
@@ -136,7 +137,6 @@ export class SharedApiService {
   }
 
   async getLeaveApplicationsForUser(id?: string): Promise<LeaveApplication[]> {
-    // Fetches leave applications for the currently logged-in user.
     const { data } = await baseApi.get<LeaveApplication[]>(
       "/leaves/my-applications"
     );
@@ -144,7 +144,6 @@ export class SharedApiService {
   }
 
   async getLeaveSettingsForBranch(): Promise<LeaveSetting[]> {
-    // The branch is inferred by the backend from the user's token.
     const { data } = await baseApi.get<LeaveSetting[]>("/leaves/settings");
     return data;
   }
@@ -152,7 +151,6 @@ export class SharedApiService {
   async getStaffListForBranch(): Promise<
     (User & { attendancePercentage?: number })[]
   > {
-    // The backend is responsible for calculating derived data like attendance percentage.
     const { data } = await baseApi.get<
       (User & { attendancePercentage?: number })[]
     >("/staff/list");
@@ -166,7 +164,6 @@ export class SharedApiService {
     attendance: TeacherAttendanceRecord[];
     leaves: LeaveApplication[];
   }> {
-    // Fetches data for the currently logged-in staff member.
     const { data } = await baseApi.get("/staff/my-attendance-and-leaves", {
       params: { year, month },
     });
