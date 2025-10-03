@@ -55,12 +55,12 @@ export class SharedApiService {
 
   async logout(): Promise<void> {
     try {
-        await baseApi.post("/auth/logout");
+      await baseApi.post("/auth/logout");
     } catch (error) {
-        console.error("Logout request failed, clearing session locally.", error);
+      console.error("Logout request failed, clearing session locally.", error);
     } finally {
-        currentSession = null;
-        sessionStorage.removeItem("verticxSession");
+      currentSession = null;
+      sessionStorage.removeItem("verticxSession");
     }
   }
 
@@ -94,8 +94,14 @@ export class SharedApiService {
     await baseApi.post("/auth/register-school", data);
   }
 
-  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
-    await baseApi.post("/auth/change-password", { currentPassword, newPassword });
+  async changePassword(
+    currentPassword: string,
+    newPassword: string
+  ): Promise<void> {
+    await baseApi.post("/auth/change-password", {
+      currentPassword,
+      newPassword,
+    });
   }
 
   async resetUserPassword(userId: string): Promise<{ newPassword: string }> {
