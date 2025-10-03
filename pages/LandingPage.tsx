@@ -168,7 +168,7 @@ const HeroSection: React.FC = () => (
       <div className="hidden lg:block">
         <div className="bg-surface-dark p-4 rounded-xl shadow-2xl transform hover:scale-105 transition-transform duration-300">
           <img
-            src="https://placehold.co/600x400/E2E8F0/475569?text=ERP+Dashboard+Preview"
+            src="/principal_Dashboard.jpeg"
             alt="Verticx ERP Dashboard Preview"
             className="rounded-lg"
           />
@@ -705,7 +705,7 @@ const AboutUsSection: React.FC = () => (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
         <div className="flex flex-col items-center">
           <img
-            src="/COF.jpeg?text=co-founder 404 error"
+            src="/COF.jpeg?text=co-founder"
             alt="Rohit Kumar"
             className="w-32 h-32 rounded-full mb-2 object-cover shadow-lg"
           />
