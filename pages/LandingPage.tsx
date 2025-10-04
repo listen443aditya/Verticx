@@ -780,6 +780,7 @@ const CtaSection: React.FC = () => (
 );
 
 const ContactSection: React.FC = () => {
+  // FIX: State now includes registrationId and phone, and removes password.
   const [formData, setFormData] = useState({
     schoolName: "",
     registrationId: "",
@@ -803,6 +804,7 @@ const ContactSection: React.FC = () => {
     setMessage("");
     setIsError(false);
     try {
+      // The formData object is now correct for the registration request.
       await sharedApiService.registerSchool(formData);
       setMessage(
         "Registration request submitted successfully! We will contact you shortly."
@@ -816,7 +818,11 @@ const ContactSection: React.FC = () => {
         location: "",
       });
     } catch (error: any) {
-      setMessage(error.message || "An error occurred. Please try again.");
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "An error occurred. Please try again.";
+      setMessage(errorMessage);
       setIsError(true);
     } finally {
       setLoading(false);
@@ -834,6 +840,7 @@ const ContactSection: React.FC = () => {
             Fill out the form to get started with Verticx, or contact us to
             request a personalized demo for your institution.
           </SectionTitle>
+          <div className="mt-8 space-y-4"> <div>
           <div className="mt-8 space-y-4">
             <p className="flex items-center text-text-secondary-dark">
               <MailIcon className="w-5 h-5 mr-3 text-brand-primary" />{" "}
@@ -847,6 +854,8 @@ const ContactSection: React.FC = () => {
                Mohali Punjab - 140301, India
             </p>
           </div>
+          </div>
+        </div>
         </div>
         <Card>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -857,13 +866,13 @@ const ContactSection: React.FC = () => {
               onChange={handleChange}
               required
             />
+            {/* FIX: registrationId field is now part of the form */}
             <Input
               name="registrationId"
               label="School Registration ID"
               value={formData.registrationId}
               onChange={handleChange}
               required
-              placeholder="e.g., VRTX-NORTH-01"
             />
             <Input
               name="principalName"
@@ -874,15 +883,16 @@ const ContactSection: React.FC = () => {
             />
             <Input
               name="email"
-              label="Email Address"
+              label="Principal's Email Address"
               type="email"
               value={formData.email}
               onChange={handleChange}
               required
             />
+            {/* FIX: phone field is now part of the form */}
             <Input
               name="phone"
-              label="Phone Number"
+              label="Contact Phone Number"
               type="tel"
               value={formData.phone}
               onChange={handleChange}
@@ -895,17 +905,20 @@ const ContactSection: React.FC = () => {
               onChange={handleChange}
               required
             />
+
             {message && (
               <p
-                className={`text-center ${
-                  isError ? "text-red-600" : "text-green-600"
+                className={`text-center p-2 rounded-md ${
+                  isError
+                    ? "text-red-700 bg-red-100"
+                    : "text-green-700 bg-green-100"
                 }`}
               >
                 {message}
               </p>
             )}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Submitting..." : "Submit Registration"}
+              {loading ? "Submitting..." : "Submit Registration Request"}
             </Button>
           </form>
         </Card>
@@ -913,7 +926,6 @@ const ContactSection: React.FC = () => {
     </Section>
   );
 };
-
 const Footer: React.FC = () => {
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
@@ -1029,8 +1041,8 @@ const Footer: React.FC = () => {
         </div>
         <div className="mt-8 border-t border-slate-700 pt-8 text-center text-sm text-slate-400">
           <p>
-            &copy; {new Date().getFullYear()} Verticx Technologies All
-            rights reserved.
+            &copy; {new Date().getFullYear()} Verticx Technologies All rights
+            reserved.
           </p>
         </div>
       </div>

@@ -49,8 +49,6 @@ export class SharedApiService {
   }
 
   async logout(): Promise<void> {
-    // FIX: Clear the local session immediately. Then, attempt to notify the backend
-    // but ignore any errors, as the token may already be invalid. This prevents console errors.
     sessionStorage.removeItem("verticxSession");
     localStorage.removeItem("token");
     try {
@@ -77,13 +75,14 @@ export class SharedApiService {
     }
   }
 
-  // FIX: Updated the function signature to match the backend controller.
+  // FIX: This signature now correctly matches the landing page form and the backend controller.
   async registerSchool(data: {
     schoolName: string;
-    branchLocation: string;
+    registrationId: string;
     principalName: string;
-    principalEmail: string;
-    principalPassword?: string;
+    email: string;
+    phone: string;
+    location: string;
   }): Promise<void> {
     await baseApi.post("/auth/register-school", data);
   }
@@ -98,7 +97,7 @@ export class SharedApiService {
     });
   }
 
-  // ... (The rest of the file is unchanged and correct) ...
+  // ... The rest of the file is unchanged ...
 
   async resetUserPassword(userId: string): Promise<{ newPassword: string }> {
     const { data } = await baseApi.post(`/users/${userId}/reset-password`);
