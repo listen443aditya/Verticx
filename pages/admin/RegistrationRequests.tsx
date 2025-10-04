@@ -100,7 +100,6 @@ const RegistrationRequests: React.FC = () => {
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
     {}
   );
-  // FIX: State was correct, but calls to it were misspelled.
   const [notification, setNotification] = useState<{
     title: string;
     message: string;
@@ -114,11 +113,18 @@ const RegistrationRequests: React.FC = () => {
   const fetchRequests = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const allRequests = await adminApiService.getRegistrationRequests(
-      user.role
-    );
-    setRequests(allRequests.filter((r) => r.status === "pending"));
-    setLoading(false);
+    try {
+      // This API call now only returns pending requests from the backend.
+      const pendingRequests = await adminApiService.getRegistrationRequests(
+        user.role
+      );
+      // FIX: No need to filter on the frontend anymore, the backend does it for us.
+      setRequests(pendingRequests);
+    } catch (error) {
+      console.error("Failed to fetch requests:", error);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => {
@@ -129,16 +135,14 @@ const RegistrationRequests: React.FC = () => {
     if (!user) return;
     setActionLoading((prev) => ({ ...prev, [requestId]: true }));
     try {
-      // The response now contains the credentials
       const response = await adminApiService.approveRequest(
         user.role,
         requestId
       );
       triggerRefresh();
-      // FIX: Correctly used the 'notification' state
       setNotification({
         title: "Approval Successful!",
-        message: `School created. Credentials sent to principal.\n\nEmail: ${response.credentials.email}\nTemp Password: ${response.credentials.password}`,
+        message: `School and principal account created. \n\nEmail: ${response.credentials.email} \nTemporary Password: ${response.credentials.password}`,
       });
     } catch (error) {
       console.error("Failed to approve request:", error);
@@ -156,7 +160,7 @@ const RegistrationRequests: React.FC = () => {
     setActionLoading((prev) => ({ ...prev, [denyingRequest.id]: true }));
     try {
       await adminApiService.denyRequest(user.role, denyingRequest.id);
-      triggerRefresh();
+      triggerRefresh(); // This will re-fetch the list, and the denied request will be gone.
       setDenyingRequest(null);
     } catch (error) {
       console.error("Failed to deny request:", error);
