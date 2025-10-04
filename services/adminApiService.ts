@@ -28,29 +28,51 @@ const getApiPrefix = (role: UserRole) => {
 }
 
 export class AdminApiService {
-  async getRegistrationRequests(role: UserRole): Promise<RegistrationRequest[]> {
-    const { data } = await baseApi.get(`${getApiPrefix(role)}/registration-requests`);
+  async getRegistrationRequests(
+    role: UserRole
+  ): Promise<RegistrationRequest[]> {
+    const { data } = await baseApi.get(
+      `${getApiPrefix(role)}/registration-requests`
+    );
     return data;
   }
 
-  async approveRequest(role: UserRole, requestId: string): Promise<void> {
-    await baseApi.post(`${getApiPrefix(role)}/registration-requests/${requestId}/approve`);
+  // in src/services/adminApiService.ts
+
+  async approveRequest(
+    role: UserRole,
+    requestId: string
+  ): Promise<{
+    message: string;
+    credentials: { email: string; password: string };
+  }> {
+    // This function must be updated to return the data from the API call.
+    const { data } = await baseApi.post(
+      `${getApiPrefix(role)}/registration-requests/${requestId}/approve`
+    );
+    return data; // This 'return data' is the critical part that was missing.
   }
 
   async denyRequest(role: UserRole, requestId: string): Promise<void> {
-    await baseApi.post(`${getApiPrefix(role)}/registration-requests/${requestId}/deny`);
+    await baseApi.post(
+      `${getApiPrefix(role)}/registration-requests/${requestId}/deny`
+    );
   }
 
   async getBranches(role: UserRole, status?: "active"): Promise<Branch[]> {
-    const { data } = await baseApi.get<Branch[]>(`${getApiPrefix(role)}/branches`, {
-      params: status ? { status } : {},
-    });
+    const { data } = await baseApi.get<Branch[]>(
+      `${getApiPrefix(role)}/branches`,
+      {
+        params: status ? { status } : {},
+      }
+    );
     return data;
   }
 
   async getAdminDashboardData(role: UserRole): Promise<AdminDashboardData> {
     // FIX: The endpoint now correctly uses the user's role.
-    const endpoint = role === 'SuperAdmin' ? '/superadmin/dashboard' : '/admin/dashboard';
+    const endpoint =
+      role === "SuperAdmin" ? "/superadmin/dashboard" : "/admin/dashboard";
     const { data } = await baseApi.get<AdminDashboardData>(endpoint);
     return data;
   }
@@ -60,7 +82,9 @@ export class AdminApiService {
     branchId: string,
     status: Branch["status"]
   ): Promise<void> {
-    await baseApi.patch(`${getApiPrefix(role)}/branches/${branchId}/status`, { status });
+    await baseApi.patch(`${getApiPrefix(role)}/branches/${branchId}/status`, {
+      status,
+    });
   }
 
   async deleteBranch(role: UserRole, branchId: string): Promise<void> {
@@ -87,11 +111,15 @@ export class AdminApiService {
   }
 
   async getSystemWideAnalytics(role: UserRole): Promise<SystemWideAnalytics> {
-    const { data } = await baseApi.get<SystemWideAnalytics>(`${getApiPrefix(role)}/analytics`);
+    const { data } = await baseApi.get<SystemWideAnalytics>(
+      `${getApiPrefix(role)}/analytics`
+    );
     return data;
   }
 
-  async getSystemWideInfrastructureData(role: UserRole): Promise<SystemInfrastructureData> {
+  async getSystemWideInfrastructureData(
+    role: UserRole
+  ): Promise<SystemInfrastructureData> {
     const { data } = await baseApi.get<SystemInfrastructureData>(
       `${getApiPrefix(role)}/infrastructure`
     );
@@ -103,7 +131,9 @@ export class AdminApiService {
     email: AdminEmail[];
     notification: AdminNotification[];
   }> {
-    const { data } = await baseApi.get(`${getApiPrefix(role)}/communication-history`);
+    const { data } = await baseApi.get(
+      `${getApiPrefix(role)}/communication-history`
+    );
     return data;
   }
 
@@ -150,8 +180,13 @@ export class AdminApiService {
     });
   }
 
-  async getSchoolDetails(role: UserRole, branchId: string): Promise<SchoolDetails> {
-    const { data } = await baseApi.get(`${getApiPrefix(role)}/branches/${branchId}/details`);
+  async getSchoolDetails(
+    role: UserRole,
+    branchId: string
+  ): Promise<SchoolDetails> {
+    const { data } = await baseApi.get(
+      `${getApiPrefix(role)}/branches/${branchId}/details`
+    );
     return data;
   }
 
@@ -164,7 +199,10 @@ export class AdminApiService {
     await baseApi.put("/superadmin/system-settings", settings);
   }
 
-  async resetUserPassword(role: UserRole, userId: string): Promise<{ newPassword: string }> {
+  async resetUserPassword(
+    role: UserRole,
+    userId: string
+  ): Promise<{ newPassword: string }> {
     const { data } = await baseApi.post(
       `${getApiPrefix(role)}/users/${userId}/reset-password`
     );
@@ -176,7 +214,10 @@ export class AdminApiService {
     branchId: string,
     updates: Partial<Branch>
   ): Promise<void> {
-    await baseApi.patch(`${getApiPrefix(role)}/branches/${branchId}/details`, updates);
+    await baseApi.patch(
+      `${getApiPrefix(role)}/branches/${branchId}/details`,
+      updates
+    );
   }
 
   async getErpPayments(): Promise<ErpPayment[]> {
@@ -194,10 +235,16 @@ export class AdminApiService {
     return data;
   }
 
-  async getPrincipalQueries(role: UserRole, status?: "Open" | "Resolved"): Promise<PrincipalQuery[]> {
-    const { data } = await baseApi.get(`${getApiPrefix(role)}/principal-queries`, {
-      params: { status },
-    });
+  async getPrincipalQueries(
+    role: UserRole,
+    status?: "Open" | "Resolved"
+  ): Promise<PrincipalQuery[]> {
+    const { data } = await baseApi.get(
+      `${getApiPrefix(role)}/principal-queries`,
+      {
+        params: { status },
+      }
+    );
     return data;
   }
 
