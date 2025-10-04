@@ -29,7 +29,6 @@ export class SharedApiService {
     });
 
     if (data?.user && data.token && !data.otpRequired) {
-      // FIX: Save the token to localStorage
       localStorage.setItem("token", data.token);
       sessionStorage.setItem("verticxSession", JSON.stringify(data.user));
     }
@@ -43,29 +42,28 @@ export class SharedApiService {
     const { data } = await baseApi.post("/auth/verify-otp", { userId, otp });
 
     if (data?.user && data.token) {
-      // FIX: Save the token to localStorage
       localStorage.setItem("token", data.token);
       sessionStorage.setItem("verticxSession", JSON.stringify(data.user));
     }
-    // The context needs the full response to hydrate the user
     return data;
   }
 
   async logout(): Promise<void> {
+    // FIX: Clear the local session immediately. Then, attempt to notify the backend
+    // but ignore any errors, as the token may already be invalid. This prevents console errors.
+    sessionStorage.removeItem("verticxSession");
+    localStorage.removeItem("token");
     try {
       await baseApi.post("/auth/logout");
     } catch (error) {
-      console.error("Logout request failed, clearing session locally.", error);
-    } finally {
-      // FIX: Clear both the user and the token
-      sessionStorage.removeItem("verticxSession");
-      localStorage.removeItem("token");
+      console.log(
+        "Logout notification to server failed (this is often normal)."
+      );
     }
   }
 
   async checkSession(): Promise<User | null> {
     try {
-      // The auth token is sent automatically by the baseApi interceptor
       const { data } = await baseApi.get("/auth/session");
       if (data && data.user) {
         sessionStorage.setItem("verticxSession", JSON.stringify(data.user));
@@ -74,17 +72,17 @@ export class SharedApiService {
       throw new Error("Invalid session response");
     } catch (error) {
       sessionStorage.removeItem("verticxSession");
-      localStorage.removeItem("token"); // Also clear token on session fail
+      localStorage.removeItem("token");
       return null;
     }
   }
 
+  // FIX: Updated the function signature to match the backend controller.
   async registerSchool(data: {
-    principalName: string;
     schoolName: string;
-    email: string;
-    phone: string;
-    location: string;
+    branchLocation: string;
+    principalName: string;
+    principalEmail: string;
     principalPassword?: string;
   }): Promise<void> {
     await baseApi.post("/auth/register-school", data);
@@ -100,7 +98,7 @@ export class SharedApiService {
     });
   }
 
-  // ... The rest of your file does not need to be changed ...
+  // ... (The rest of the file is unchanged and correct) ...
 
   async resetUserPassword(userId: string): Promise<{ newPassword: string }> {
     const { data } = await baseApi.post(`/users/${userId}/reset-password`);
