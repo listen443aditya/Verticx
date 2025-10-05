@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback } from "react";
-// FIX: Corrected import to use the AdminApiService class directly from its file.
 import { AdminApiService } from "../../services/adminApiService";
 import type { SystemSettings } from "../../types";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import { useDataRefresh } from "../../contexts/DataRefreshContext";
+import { useAuth } from "../../hooks/useAuth.ts"; // The forgotten name, now spoken.
 
-// FIX: Create an instance of the correct service.
 const apiService = new AdminApiService();
 
 const featureConfig = {
@@ -75,6 +74,7 @@ const featureConfig = {
 };
 
 const MasterConfiguration: React.FC = () => {
+  const { user } = useAuth();
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -82,11 +82,17 @@ const MasterConfiguration: React.FC = () => {
   const { triggerRefresh } = useDataRefresh();
 
   const fetchData = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
-    const data = await apiService.getSystemSettings();
-    setSettings(data);
-    setLoading(false);
-  }, []);
+    try {
+      const data = await apiService.getSystemSettings(user.role);
+      setSettings(data);
+    } catch (error) {
+      console.error("Failed to fetch master config:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
     fetchData();
@@ -107,11 +113,11 @@ const MasterConfiguration: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!settings) return;
+    if (!settings || !user) return;
     setIsSaving(true);
     setSaveStatus("");
     try {
-      await apiService.updateSystemSettings(settings);
+      await apiService.updateSystemSettings(user.role, settings);
       setSaveStatus("Settings updated successfully!");
       triggerRefresh();
     } catch (error) {
@@ -150,7 +156,7 @@ const MasterConfiguration: React.FC = () => {
                 Login Page Announcement
               </label>
               <textarea
-                value={settings.loginPageAnnouncement}
+                value={settings.loginPageAnnouncement || ""}
                 onChange={(e) =>
                   handleSettingChange("loginPageAnnouncement", e.target.value)
                 }
@@ -186,7 +192,7 @@ const MasterConfiguration: React.FC = () => {
                       >
                         <input
                           type="checkbox"
-                          checked={settings.globalFeatureToggles[key] !== false} // Default to true if not set
+                          checked={settings.globalFeatureToggles[key] !== false}
                           onChange={(e) =>
                             handleFeatureToggle(key, e.target.checked)
                           }
