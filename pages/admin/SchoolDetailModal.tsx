@@ -33,6 +33,7 @@ import {
 } from "recharts";
 
 const adminApiService = new AdminApiService();
+
 const StatCard: React.FC<{
   title: string;
   value: string;
@@ -259,15 +260,14 @@ const SchoolDetailModal: React.FC<{ branch: Branch; onClose: () => void }> = ({
   const [displayDueDate, setDisplayDueDate] = useState("");
 
   const fetchDetails = useCallback(async () => {
-    // FIX: Add guard for user object
-    if (!user) return;
+    if (!user) return; // Guard clause
     setLoading(true);
     try {
       const [data, settingsData, allPayments] = await Promise.all([
-        // FIX: Pass user.role to the API call
         adminApiService.getSchoolDetails(user.role, branch.id),
-        adminApiService.getSystemSettings(),
-        adminApiService.getErpPayments(),
+        // FIX: Pass the user's role to these API calls
+        adminApiService.getSystemSettings(user.role),
+        adminApiService.getErpPayments(user.role),
       ]);
       setDetails(data);
       setGlobalSettings(settingsData);
@@ -286,7 +286,7 @@ const SchoolDetailModal: React.FC<{ branch: Branch; onClose: () => void }> = ({
 
       setErpPrice(
         data?.branch.erpPricePerStudent?.toString() ||
-          settingsData.defaultErpPrice?.toString() ||
+          settingsData?.defaultErpPrice?.toString() ||
           "0"
       );
       setErpConcessionPercentage(
@@ -298,18 +298,16 @@ const SchoolDetailModal: React.FC<{ branch: Branch; onClose: () => void }> = ({
     } finally {
       setLoading(false);
     }
-  }, [user, branch.id]); // FIX: Add user to dependency array
+  }, [user, branch.id]);
 
   useEffect(() => {
     fetchDetails();
   }, [fetchDetails]);
 
   const handleResetPassword = async () => {
-    // FIX: Add guard for user object
     if (!user || !details?.principal) return;
     setIsResetting(true);
     try {
-      // FIX: Pass user.role to the API call
       const { newPassword } = await adminApiService.resetUserPassword(
         user.role,
         details.principal.id
@@ -323,54 +321,39 @@ const SchoolDetailModal: React.FC<{ branch: Branch; onClose: () => void }> = ({
       setConfirmReset(false);
     }
   };
-  let dueDate: Date;
 
   const calculateNextDueDate = (cycle: Branch["billingCycle"]): string => {
+    let dueDate: Date = new Date();
     const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
     const todayAtMidnight = new Date(
-      today.getFullYear(),
-      today.getMonth(),
+      currentYear,
+      currentMonth,
       today.getDate()
     );
-
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth(); // 0-11
 
     switch (cycle) {
       case "monthly":
         dueDate = new Date(currentYear, currentMonth + 1, 10);
         break;
-
       case "quarterly":
         const currentQuarter = Math.floor(currentMonth / 3);
         const nextQuarterStartMonth = (currentQuarter + 1) * 3;
         dueDate = new Date(currentYear, nextQuarterStartMonth, 10);
         break;
-
       case "half_yearly":
-        const july10 = new Date(currentYear, 6, 10); // Month 6 is July
-        if (todayAtMidnight < july10) {
-          dueDate = july10;
-        } else {
-          dueDate = new Date(currentYear + 1, 0, 10);
-        }
+        const july10 = new Date(currentYear, 6, 10);
+        dueDate =
+          todayAtMidnight < july10 ? july10 : new Date(currentYear + 1, 0, 10);
         break;
-
       case "yearly":
         let dueYear = currentYear;
-        const thisYearsDueDate = new Date(currentYear, 0, 10);
-        if (todayAtMidnight >= thisYearsDueDate) {
-          dueYear++;
-        }
+        if (todayAtMidnight >= new Date(currentYear, 0, 10)) dueYear++;
         dueDate = new Date(dueYear, 0, 10);
         break;
     }
-
-    const y = dueDate.getFullYear();
-    const m = String(dueDate.getMonth() + 1).padStart(2, "0");
-    const d = String(dueDate.getDate()).padStart(2, "0");
-
-    return `${y}-${m}-${d}`;
+    return dueDate.toISOString().split("T")[0];
   };
 
   useEffect(() => {
@@ -379,32 +362,27 @@ const SchoolDetailModal: React.FC<{ branch: Branch; onClose: () => void }> = ({
       const [year, month, day] = dueDateString.split("-").map(Number);
       const formattedDate = new Date(year, month - 1, day).toLocaleDateString(
         "en-US",
-        {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        }
+        { year: "numeric", month: "long", day: "numeric" }
       );
       setDisplayDueDate(formattedDate);
     }
   }, [billingCycle]);
 
- const handleSaveBillingConfig = async () => {
-   if (!user || !details) return;
-   setIsSavingPrice(true);
-   const nextDueDateString = calculateNextDueDate(billingCycle); // This is already a string
-   await adminApiService.updateBranchDetails(user.role, details.branch.id, {
-     erpPricePerStudent: Number(erpPrice),
-     erpConcessionPercentage: Number(erpConcessionPercentage),
-     billingCycle: billingCycle,
-     nextDueDate: nextDueDateString, // FIX: Pass the date as a string
-   });
-   await fetchDetails();
-   setIsSavingPrice(false);
- };
+  const handleSaveBillingConfig = async () => {
+    if (!user || !details) return;
+    setIsSavingPrice(true);
+    const nextDueDateString = calculateNextDueDate(billingCycle);
+    await adminApiService.updateBranchDetails(user.role, details.branch.id, {
+      erpPricePerStudent: Number(erpPrice),
+      erpConcessionPercentage: Number(erpConcessionPercentage),
+      billingCycle: billingCycle,
+      nextDueDate: nextDueDateString,
+    });
+    await fetchDetails();
+    setIsSavingPrice(false);
+  };
 
   const handleSaveFeatures = async (newFeatures: Record<string, boolean>) => {
-    // FIX: Add guard for user object to satisfy TypeScript
     if (!user || !details) return;
     await adminApiService.updateBranchDetails(user.role, details.branch.id, {
       enabledFeatures: newFeatures,
@@ -605,19 +583,12 @@ const SchoolDetailModal: React.FC<{ branch: Branch; onClose: () => void }> = ({
                       </p>
                       <p className="text-lg font-bold">
                         {lastPayment
-                          ? (() => {
-                              const [year, month, day] = lastPayment.paymentDate
-                                .split("-")
-                                .map(Number);
-                              return new Date(
-                                year,
-                                month - 1,
-                                day
-                              ).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                              });
-                            })()
+                          ? new Date(
+                              lastPayment.paymentDate
+                            ).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })
                           : "N/A"}
                       </p>
                     </div>
@@ -965,7 +936,6 @@ const SchoolDetailModal: React.FC<{ branch: Branch; onClose: () => void }> = ({
             &times;
           </button>
         </div>
-
         <div className="border-b border-slate-200 mb-4">
           <button
             className={tabButtonClasses(activeTab === "details")}
@@ -1004,7 +974,6 @@ const SchoolDetailModal: React.FC<{ branch: Branch; onClose: () => void }> = ({
             ERP Payments
           </button>
         </div>
-
         <div className="flex-grow overflow-y-auto pr-2">{renderContent()}</div>
         {confirmReset && details?.principal && (
           <ConfirmationModal

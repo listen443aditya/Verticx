@@ -6,7 +6,6 @@ import type {
   SystemWideFinancials,
   Branch,
   SystemWideErpFinancials,
-  ErpBillingStatus,
   UserRole,
 } from "../../types.ts";
 import Input from "../../components/ui/Input.tsx";
@@ -50,20 +49,17 @@ const StudentFeeCollections: React.FC<{
 
   useEffect(() => {
     const fetchData = async () => {
-      // FIX: Add a guard clause to wait for the user object.
       if (!user) return;
       setLoading(true);
       try {
         const data =
           startDate && endDate
-            ? // FIX: Pass the user's role to the API call.
-              await adminApiService.getSystemWideFinancials(
+            ? await adminApiService.getSystemWideFinancials(
                 user.role,
                 startDate,
                 endDate
               )
-            : // FIX: Pass the user's role to the API call.
-              await adminApiService.getSystemWideFinancials(user.role);
+            : await adminApiService.getSystemWideFinancials(user.role);
         setFinancialData(data);
       } catch (error) {
         console.error("Failed to fetch financial data:", error);
@@ -318,7 +314,8 @@ const StudentFeeCollections: React.FC<{
           )}
         </div>
       </Card>
-      {viewingDetailsOf && (
+      {/* FIX: Removed the incorrect userRole prop. */}
+      {viewingDetailsOf && user && (
         <SchoolFinancialDetailModal
           branchId={viewingDetailsOf}
           onClose={() => setViewingDetailsOf(null)}
@@ -328,19 +325,29 @@ const StudentFeeCollections: React.FC<{
   );
 };
 
-const ErpBillingsDashboard: React.FC = () => {
+const ErpBillingsDashboard: React.FC<{
+  user: ReturnType<typeof useAuth>["user"];
+}> = ({ user }) => {
   const [data, setData] = useState<SystemWideErpFinancials | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!user) return;
       setLoading(true);
-      const result = await adminApiService.getSystemWideErpFinancials();
-      setData(result);
-      setLoading(false);
+      try {
+        const result = await adminApiService.getSystemWideErpFinancials(
+          user.role
+        );
+        setData(result);
+      } catch (error) {
+        console.error("Failed to load ERP billing data", error);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchData();
-  }, []);
+  }, [user]);
 
   const getStatusChip = (status: Branch["status"]) => {
     switch (status) {
@@ -526,8 +533,8 @@ const FinanceManagement: React.FC = () => {
       {activeTab === "studentFees" && user && (
         <StudentFeeCollections user={user} />
       )}
-      {activeTab === "erpBillings" && user?.role === "SuperAdmin" && (
-        <ErpBillingsDashboard />
+      {activeTab === "erpBillings" && user?.role === "SuperAdmin" && user && (
+        <ErpBillingsDashboard user={user} />
       )}
     </div>
   );
