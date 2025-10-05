@@ -17,6 +17,9 @@ import {
   MenuIcon,
   XIcon,
   BanknoteIcon,
+  // ADDED: The icons for the new routes
+  HelpCircleIcon,
+  ShieldCheckIcon,
 } from "../../components/icons/Icons.tsx";
 
 // Re-use Admin Pages for feature parity
@@ -34,6 +37,10 @@ import MasterConfiguration from "./MasterConfiguration.tsx";
 import ErpPayments from "./ErpPayments.tsx";
 import UserProfileModal from "../../components/modals/UserProfileModal.tsx";
 import { useDataRefresh } from "../../contexts/DataRefreshContext.tsx";
+
+// ADDED: The components for the new routes
+import PrincipalQueries from "../admin/PrincipalQueries.tsx";
+import SystemManagement from "../admin/SystemManagement.tsx";
 
 const SuperAdminSidebarContent: React.FC<{
   onClose?: () => void;
@@ -81,64 +88,54 @@ const SuperAdminSidebarContent: React.FC<{
       </div>
       <nav className="flex-1 space-y-2 overflow-y-auto">
         <NavLink to="/superadmin/dashboard" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <DashboardIcon className="w-full h-full" />
-          </div>
+          <DashboardIcon className="w-4 h-4 mr-3" />
           <span className="truncate min-w-0">Dashboard</span>
         </NavLink>
         <NavLink to="/superadmin/schools" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <BranchIcon className="w-full h-full" />
-          </div>
+          <BranchIcon className="w-4 h-4 mr-3" />
           <span className="truncate min-w-0">School Management</span>
         </NavLink>
         <NavLink to="/superadmin/requests" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <RequestsIcon className="w-full h-full" />
-          </div>
+          <RequestsIcon className="w-4 h-4 mr-3" />
           <span className="truncate min-w-0">Registration Requests</span>
         </NavLink>
+        {/* ADDED: The link to Principal Queries */}
+        <NavLink to="/superadmin/principal-queries" className={navLinkClasses}>
+          <HelpCircleIcon className="w-4 h-4 mr-3" />
+          <span className="truncate min-w-0">Principal Queries</span>
+        </NavLink>
         <NavLink to="/superadmin/users" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <UsersIcon className="w-full h-full" />
-          </div>
+          <UsersIcon className="w-4 h-4 mr-3" />
           <span className="truncate min-w-0">User Management</span>
         </NavLink>
         <NavLink to="/superadmin/finance" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <FinanceIcon className="w-full h-full" />
-          </div>
+          <FinanceIcon className="w-4 h-4 mr-3" />
           <span className="truncate min-w-0">Finance & Fees</span>
         </NavLink>
         <NavLink to="/superadmin/analytics" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <ReportsIcon className="w-full h-full" />
-          </div>
+          <ReportsIcon className="w-4 h-4 mr-3" />
           <span className="truncate min-w-0">Analytics & Reporting</span>
         </NavLink>
         <NavLink to="/superadmin/infrastructure" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <BusIcon className="w-full h-full" />
-          </div>
+          <BusIcon className="w-4 h-4 mr-3" />
           <span className="truncate min-w-0">Infrastructure</span>
         </NavLink>
         <NavLink to="/superadmin/communication" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <CommunicationIcon className="w-full h-full" />
-          </div>
+          <CommunicationIcon className="w-4 h-4 mr-3" />
           <span className="truncate min-w-0">Communication Hub</span>
         </NavLink>
         <NavLink to="/superadmin/erp-payments" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <BanknoteIcon className="w-full h-full" />
-          </div>
+          <BanknoteIcon className="w-4 h-4 mr-3" />
           <span className="truncate min-w-0">ERP Payments</span>
         </NavLink>
         <NavLink to="/superadmin/master-config" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <Settings2Icon className="w-full h-full" />
-          </div>
+          <Settings2Icon className="w-4 h-4 mr-3" />
           <span className="truncate min-w-0">Master Configuration</span>
+        </NavLink>
+        {/* ADDED: The link to System Management */}
+        <NavLink to="/superadmin/system" className={navLinkClasses}>
+          <ShieldCheckIcon className="w-4 h-4 mr-3" />
+          <span className="truncate min-w-0">System & Audit</span>
         </NavLink>
       </nav>
       <div className="mt-auto">
@@ -156,9 +153,7 @@ const SuperAdminSidebarContent: React.FC<{
           onClick={handleLogout}
           className="flex items-center w-full px-4 py-3 text-sm font-medium text-slate-300 hover:bg-red-800 hover:text-white rounded-lg transition-colors duration-200"
         >
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <LogoutIcon className="w-full h-full" />
-          </div>
+          <LogoutIcon className="w-4 h-4 mr-3" />
           <span className="truncate min-w-0">Logout</span>
         </button>
       </div>
@@ -233,6 +228,9 @@ const SuperAdminPortal: React.FC = () => {
           <Route path="communication" element={<CommunicationHub />} />
           <Route path="erp-payments" element={<ErpPayments />} />
           <Route path="master-config" element={<MasterConfiguration />} />
+          {/* ADDED: The routes for the new components */}
+          <Route path="principal-queries" element={<PrincipalQueries />} />
+          <Route path="system" element={<SystemManagement />} />
         </Routes>
       </main>
       {user && isProfileModalOpen && (
