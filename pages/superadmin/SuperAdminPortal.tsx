@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-// FIX: Corrected react-router-dom imports for v6+
 import { Routes, Route, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth.ts";
 import {
@@ -13,27 +12,28 @@ import {
   ReportsIcon,
   BusIcon,
   CommunicationIcon,
-  Settings2Icon,
+  SettingsIcon,
   MenuIcon,
   XIcon,
-  BanknoteIcon,
+  HelpCircleIcon,
+  ShieldCheckIcon,
+  FileCogIcon,
 } from "../../components/icons/Icons.tsx";
+import UserProfileModal from "../../components/modals/UserProfileModal.tsx";
+import { useDataRefresh } from "../../contexts/DataRefreshContext.tsx";
 
-// Re-use Admin Pages for feature parity
+// Import all the pages that will be routed within this portal
 import AdminDashboard from "../admin/AdminDashboard.tsx";
 import SchoolManagement from "../admin/SchoolManagement.tsx";
 import RegistrationRequests from "../admin/RegistrationRequests.tsx";
+import PrincipalQueries from "../admin/PrincipalQueries.tsx";
 import UserManagement from "../admin/UserManagement.tsx";
 import FinanceManagement from "../admin/FinanceManagement.tsx";
 import Analytics from "../admin/Analytics.tsx";
 import InfrastructureOversight from "../admin/InfrastructureOversight.tsx";
 import CommunicationHub from "../admin/CommunicationHub.tsx";
-
-// New SuperAdmin exclusive pages
 import MasterConfiguration from "./MasterConfiguration.tsx";
-import ErpPayments from "./ErpPayments.tsx";
-import UserProfileModal from "../../components/modals/UserProfileModal.tsx";
-import { useDataRefresh } from "../../contexts/DataRefreshContext.tsx";
+import SystemManagement from "../admin/SystemManagement.tsx";
 
 const SuperAdminSidebarContent: React.FC<{
   onClose?: () => void;
@@ -50,12 +50,12 @@ const SuperAdminSidebarContent: React.FC<{
   const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
     `flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200 overflow-hidden ${
       isActive
-        ? "bg-amber-500 text-slate-900"
+        ? "bg-brand-primary text-white"
         : "text-slate-300 hover:bg-slate-700 hover:text-white"
     }`;
 
   return (
-    <aside className="w-64 bg-slate-900 text-slate-100 flex flex-col p-4 border-r border-slate-700 h-full">
+    <aside className="w-64 bg-slate-800 text-slate-100 flex flex-col p-4 border-r border-slate-700 h-full">
       <div className="flex items-center justify-between mb-8 px-2">
         <div className="flex items-center overflow-hidden">
           <div className="w-8 h-8 mr-3 flex-shrink-0">
@@ -74,92 +74,68 @@ const SuperAdminSidebarContent: React.FC<{
           </button>
         )}
       </div>
-      <div className="text-center mb-4 p-2 bg-slate-800 rounded-lg">
-        <p className="text-sm font-semibold text-amber-400">
-          Super Admin Portal
-        </p>
-      </div>
       <nav className="flex-1 space-y-2 overflow-y-auto">
         <NavLink to="/superadmin/dashboard" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <DashboardIcon className="w-full h-full" />
-          </div>
-          <span className="truncate min-w-0">Dashboard</span>
+          <DashboardIcon className="w-4 h-4 mr-3" />
+          Dashboard
         </NavLink>
         <NavLink to="/superadmin/schools" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <BranchIcon className="w-full h-full" />
-          </div>
-          <span className="truncate min-w-0">School Management</span>
+          <BranchIcon className="w-4 h-4 mr-3" />
+          School Management
         </NavLink>
         <NavLink to="/superadmin/requests" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <RequestsIcon className="w-full h-full" />
-          </div>
-          <span className="truncate min-w-0">Registration Requests</span>
+          <RequestsIcon className="w-4 h-4 mr-3" />
+          Registration Requests
+        </NavLink>
+        <NavLink to="/superadmin/principal-queries" className={navLinkClasses}>
+          <HelpCircleIcon className="w-4 h-4 mr-3" />
+          Principal Queries
         </NavLink>
         <NavLink to="/superadmin/users" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <UsersIcon className="w-full h-full" />
-          </div>
-          <span className="truncate min-w-0">User Management</span>
+          <UsersIcon className="w-4 h-4 mr-3" />
+          User Management
         </NavLink>
         <NavLink to="/superadmin/finance" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <FinanceIcon className="w-full h-full" />
-          </div>
-          <span className="truncate min-w-0">Finance & Fees</span>
+          <FinanceIcon className="w-4 h-4 mr-3" />
+          Finance & ERP
         </NavLink>
         <NavLink to="/superadmin/analytics" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <ReportsIcon className="w-full h-full" />
-          </div>
-          <span className="truncate min-w-0">Analytics & Reporting</span>
+          <ReportsIcon className="w-4 h-4 mr-3" />
+          Analytics
         </NavLink>
         <NavLink to="/superadmin/infrastructure" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <BusIcon className="w-full h-full" />
-          </div>
-          <span className="truncate min-w-0">Infrastructure</span>
+          <BusIcon className="w-4 h-4 mr-3" />
+          Infrastructure
         </NavLink>
         <NavLink to="/superadmin/communication" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <CommunicationIcon className="w-full h-full" />
-          </div>
-          <span className="truncate min-w-0">Communication Hub</span>
-        </NavLink>
-        <NavLink to="/superadmin/erp-payments" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <BanknoteIcon className="w-full h-full" />
-          </div>
-          <span className="truncate min-w-0">ERP Payments</span>
+          <CommunicationIcon className="w-4 h-4 mr-3" />
+          Communication
         </NavLink>
         <NavLink to="/superadmin/master-config" className={navLinkClasses}>
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <Settings2Icon className="w-full h-full" />
-          </div>
-          <span className="truncate min-w-0">Master Configuration</span>
+          <FileCogIcon className="w-4 h-4 mr-3" />
+          Master Config
+        </NavLink>
+        <NavLink to="/superadmin/system" className={navLinkClasses}>
+          <ShieldCheckIcon className="w-4 h-4 mr-3" />
+          System & Audit
         </NavLink>
       </nav>
       <div className="mt-auto">
         <button
           onClick={onOpenProfile}
           className="w-full text-left px-4 py-3 mb-2 border-t border-slate-700 hover:bg-slate-700 rounded-lg transition-colors focus:outline-none"
-          aria-label="Open user profile modal"
         >
           <p className="text-sm font-semibold text-white truncate">
             {user?.name}
           </p>
-          <p className="text-xs text-amber-400">{user?.role}</p>
+          <p className="text-xs text-slate-400">{user?.role}</p>
         </button>
         <button
           onClick={handleLogout}
           className="flex items-center w-full px-4 py-3 text-sm font-medium text-slate-300 hover:bg-red-800 hover:text-white rounded-lg transition-colors duration-200"
         >
-          <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
-            <LogoutIcon className="w-full h-full" />
-          </div>
-          <span className="truncate min-w-0">Logout</span>
+          <LogoutIcon className="w-4 h-4 mr-3" />
+          <span>Logout</span>
         </button>
       </div>
     </aside>
@@ -179,14 +155,11 @@ const SuperAdminPortal: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-background-dark text-text-primary-dark">
-      {/* Desktop Sidebar */}
       <div className="hidden lg:flex lg:flex-shrink-0">
         <SuperAdminSidebarContent
           onOpenProfile={() => setProfileModalOpen(true)}
         />
       </div>
-
-      {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div
           className="fixed inset-0 z-40 flex lg:hidden"
@@ -209,12 +182,10 @@ const SuperAdminPortal: React.FC = () => {
           </div>
         </div>
       )}
-
       <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
         <button
           className="lg:hidden mb-4 text-text-secondary-dark"
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          aria-label="Toggle menu"
         >
           {isSidebarOpen ? (
             <XIcon className="w-6 h-6" />
@@ -226,13 +197,14 @@ const SuperAdminPortal: React.FC = () => {
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="schools" element={<SchoolManagement />} />
           <Route path="requests" element={<RegistrationRequests />} />
+          <Route path="principal-queries" element={<PrincipalQueries />} />
           <Route path="users" element={<UserManagement />} />
           <Route path="finance" element={<FinanceManagement />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="infrastructure" element={<InfrastructureOversight />} />
           <Route path="communication" element={<CommunicationHub />} />
-          <Route path="erp-payments" element={<ErpPayments />} />
           <Route path="master-config" element={<MasterConfiguration />} />
+          <Route path="system" element={<SystemManagement />} />
         </Routes>
       </main>
       {user && isProfileModalOpen && (
