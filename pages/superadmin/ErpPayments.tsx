@@ -68,27 +68,33 @@ const MarkAsPaidModal: React.FC<MarkAsPaidModalProps> = ({ record, branch, setti
     }, [calculatedAmountDue]);
 
     const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsSaving(true);
-        try {
-            if (!user) {
-                alert("Authentication error. Please log in again.");
-                setIsSaving(false);
-                return;
-            }
-            await adminApiService.recordManualErpPayment(branch.id, {
-                amount: Number(amount),
-                paymentDate,
-                notes,
-                periodEndDate: periodEnd,
-            }, user.id);
-            onSave();
-        } catch (error) {
-            console.error(error);
-            alert('Failed to record payment.');
-        } finally {
-            setIsSaving(false);
+      e.preventDefault();
+      setIsSaving(true);
+      try {
+        if (!user) {
+          alert("Authentication error. Please log in again.");
+          setIsSaving(false);
+          return;
         }
+        // FIX: The role is now passed, its authority unquestioned.
+        await adminApiService.recordManualErpPayment(
+          user.role,
+          branch.id,
+          {
+            amount: Number(amount),
+            paymentDate,
+            notes,
+            periodEndDate: periodEnd,
+          },
+          user.id
+        );
+        onSave();
+      } catch (error) {
+        console.error(error);
+        alert("Failed to record payment.");
+      } finally {
+        setIsSaving(false);
+      }
     };
 
     return (
@@ -119,32 +125,47 @@ const MarkAsPaidModal: React.FC<MarkAsPaidModalProps> = ({ record, branch, setti
 
 
 const ErpPayments: React.FC = () => {
+    const { user } = useAuth(); // The user is summoned.
     const [allBranches, setAllBranches] = useState<Branch[]>([]);
     const [allPayments, setAllPayments] = useState<ErpPayment[]>([]);
     const [settings, setSettings] = useState<SystemSettings | null>(null);
     const [loading, setLoading] = useState(true);
-    
-    const [searchTerm, setSearchTerm] = useState('');
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
-    const [filterSchoolStatus, setFilterSchoolStatus] = useState<'all' | Branch['status']>('all');
-    const [filterPaymentStatus, setFilterPaymentStatus] = useState<'all' | 'paid' | 'due' | 'partially paid'>('all');
 
-    const [viewingHistoryFor, setViewingHistoryFor] = useState<BillingRecord | null>(null);
-    const [markingPaymentFor, setMarkingPaymentFor] = useState<BillingRecord | null>(null);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
+    const [filterSchoolStatus, setFilterSchoolStatus] = useState<
+      "all" | Branch["status"]
+    >("all");
+    const [filterPaymentStatus, setFilterPaymentStatus] = useState<
+      "all" | "paid" | "due" | "partially paid"
+    >("all");
+
+    const [viewingHistoryFor, setViewingHistoryFor] =
+      useState<BillingRecord | null>(null);
+    const [markingPaymentFor, setMarkingPaymentFor] =
+      useState<BillingRecord | null>(null);
+
 
     const fetchData = useCallback(async () => {
-        setLoading(true);
+      if (!user) return; // The call must wait for its master.
+      setLoading(true);
+      try {
         const [branches, payments, systemSettings] = await Promise.all([
-            adminApiService.getBranches(),
-            adminApiService.getErpPayments(),
-            adminApiService.getSystemSettings(),
+          // FIX: The signet of 'role' is now passed.
+          adminApiService.getBranches(user.role),
+          adminApiService.getErpPayments(user.role),
+          adminApiService.getSystemSettings(user.role),
         ]);
         setAllBranches(branches);
         setAllPayments(payments);
         setSettings(systemSettings);
+      } catch (error) {
+        console.error("Failed to fetch ERP data:", error);
+      } finally {
         setLoading(false);
-    }, []);
+      }
+    }, [user]);
 
     useEffect(() => {
         fetchData();
