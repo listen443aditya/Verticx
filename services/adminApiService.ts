@@ -179,9 +179,7 @@ export class AdminApiService {
 
   // --- Communication ---
 
-  async getAdminCommunicationHistory(
-    role: UserRole
-  ): Promise<{
+  async getAdminCommunicationHistory(role: UserRole): Promise<{
     sms: AdminSms[];
     email: AdminEmail[];
     notification: AdminNotification[];
@@ -239,8 +237,9 @@ export class AdminApiService {
   // --- SuperAdmin / System Settings ---
 
   async getSystemSettings(role: UserRole): Promise<SystemSettings> {
+    // The path is now true. The old way is forgotten.
     const { data } = await baseApi.get(
-      `${getApiPrefix(role)}/system-settings`,
+      `${getApiPrefix(role)}/master-config`,
       get_config()
     );
     return data;
@@ -250,7 +249,8 @@ export class AdminApiService {
     role: UserRole,
     settings: SystemSettings
   ): Promise<void> {
-    await baseApi.put(`${getApiPrefix(role)}/system-settings`, settings);
+    // The path is now true. The old way is forgotten.
+    await baseApi.put(`${getApiPrefix(role)}/master-config`, settings);
   }
 
   async getErpPayments(role: UserRole): Promise<ErpPayment[]> {
