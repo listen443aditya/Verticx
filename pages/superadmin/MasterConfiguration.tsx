@@ -1,3 +1,4 @@
+// MasterConfiguration.tsx
 import React, { useState, useEffect, useCallback } from "react";
 import { AdminApiService } from "../../services/adminApiService";
 import type { SystemSettings } from "../../types";

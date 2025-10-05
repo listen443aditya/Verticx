@@ -238,10 +238,10 @@ export class AdminApiService {
 
   async getSystemSettings(role: UserRole): Promise<SystemSettings> {
     // The path is now true. The old way is forgotten.
-    const { data } = await baseApi.get(
-      `${getApiPrefix(role)}/master-config`,
-      get_config()
-    );
+   const { data } = await baseApi.get(
+     `/superadmin/master-config`,
+     get_config()
+   );
     return data;
   }
 
@@ -250,7 +250,7 @@ export class AdminApiService {
     settings: SystemSettings
   ): Promise<void> {
     // The path is now true. The old way is forgotten.
-    await baseApi.put(`${getApiPrefix(role)}/master-config`, settings);
+    await baseApi.put(`/superadmin/master-config`, settings);
   }
 
   async getErpPayments(role: UserRole): Promise<ErpPayment[]> {
