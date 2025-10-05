@@ -260,12 +260,12 @@ const SchoolDetailModal: React.FC<{ branch: Branch; onClose: () => void }> = ({
   const [displayDueDate, setDisplayDueDate] = useState("");
 
   const fetchDetails = useCallback(async () => {
-    if (!user) return; // Guard clause
+    if (!user) return;
     setLoading(true);
     try {
       const [data, settingsData, allPayments] = await Promise.all([
         adminApiService.getSchoolDetails(user.role, branch.id),
-        // FIX: Pass the user's role to these API calls
+        // FIX: The API service demands its signet. The role is provided.
         adminApiService.getSystemSettings(user.role),
         adminApiService.getErpPayments(user.role),
       ]);
@@ -369,21 +369,23 @@ const SchoolDetailModal: React.FC<{ branch: Branch; onClose: () => void }> = ({
   }, [billingCycle]);
 
   const handleSaveBillingConfig = async () => {
-    if (!user || !details) return;
-    setIsSavingPrice(true);
-    const nextDueDateString = calculateNextDueDate(billingCycle);
-    await adminApiService.updateBranchDetails(user.role, details.branch.id, {
-      erpPricePerStudent: Number(erpPrice),
-      erpConcessionPercentage: Number(erpConcessionPercentage),
-      billingCycle: billingCycle,
-      nextDueDate: nextDueDateString,
-    });
-    await fetchDetails();
-    setIsSavingPrice(false);
+   if (!user || !details) return; // The guard stands vigilant.
+   setIsSavingPrice(true);
+   const nextDueDateString = calculateNextDueDate(billingCycle);
+   // The role is now passed, its authority unquestioned.
+   await adminApiService.updateBranchDetails(user.role, details.branch.id, {
+     erpPricePerStudent: Number(erpPrice),
+     erpConcessionPercentage: Number(erpConcessionPercentage),
+     billingCycle: billingCycle,
+     nextDueDate: nextDueDateString,
+   });
+   await fetchDetails();
+   setIsSavingPrice(false);
   };
 
   const handleSaveFeatures = async (newFeatures: Record<string, boolean>) => {
-    if (!user || !details) return;
+    if (!user || !details) return; // The guard stands vigilant.
+    // The role is now passed, its authority unquestioned.
     await adminApiService.updateBranchDetails(user.role, details.branch.id, {
       enabledFeatures: newFeatures,
     });
