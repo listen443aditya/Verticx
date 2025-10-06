@@ -30,7 +30,7 @@ import type {
   FeeAdjustment,
 } from "../types"; // adjust path to your project types
 
-class PrincipalApiService {
+export class PrincipalApiService {
   // ---------- Dashboard & Profile ----------
   async getPrincipalDashboardData(): Promise<PrincipalDashboardData> {
     const { data } = await baseApi.get<PrincipalDashboardData>(
@@ -431,4 +431,4 @@ class PrincipalApiService {
   }
 }
 
-export default new PrincipalApiService();
+// export default new PrincipalApiService();
