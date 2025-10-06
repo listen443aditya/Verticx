@@ -29,14 +29,27 @@ import type {
 import axios from "axios";
 
 // ✅ Vite automatically injects import.meta.env.VITE_API_URL (no need to redeclare ImportMeta)
+// const baseApi = axios.create({
+//   baseURL: import.meta.env.VITE_API_URL,
+// });
+
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
+
 const baseApi = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: API_BASE,
+  // You can add other axios defaults here (timeout, headers, etc.)
 });
 
 // Attach token if exists
 baseApi.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  try {
+    const token = localStorage.getItem("token");
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch (e) {
+    // localStorage may be unavailable in some contexts; ignore silently
+  }
   return config;
 });
 

@@ -1,44 +1,43 @@
-// services/principalApiService.ts
-
-// ✅ STEP 1: Consolidate imports. Only 'baseApi' for communication and 'types' for contracts are needed.
-//    All dependencies on local database, helpers, and other services are severed.
+// src/services/principalApiService.ts
 import baseApi from "./baseApiService";
 import type {
-  User,
-  Teacher,
+  Branch,
+  PrincipalDashboardData,
   FacultyApplication,
   TeacherProfile,
-  Branch,
-  Student,
-  SchoolClass,
-  PrincipalDashboardData,
-  SchoolEvent,
+  User,
+  Teacher,
+  Examination,
+  StudentWithExamMarks,
+  PrincipalAttendanceOverview,
+  PrincipalFinancialsOverview,
   FeeRectificationRequest,
   TeacherAttendanceRectificationRequest,
   LeaveApplication,
   ComplaintAboutStudent,
   TeacherComplaint,
-  FeeAdjustment,
-  Announcement,
-  SmsMessage,
-  Examination,
-  StudentWithExamMarks,
-  SuspensionRecord,
-  PrincipalAttendanceOverview,
-  PrincipalFinancialsOverview,
   ManualExpense,
-  PayrollStaffDetails,
-  ManualSalaryAdjustment,
   PayrollRecord,
+  ManualSalaryAdjustment,
   PrincipalQuery,
   ErpFinancials,
   ErpPayment,
-} from "../types";
+  SchoolEvent,
+  Announcement,
+  SmsMessage,
+  SchoolClass,
+  Student,
+  FeeAdjustment,
+} from "../types"; // adjust path to your project types
 
-// ✅ STEP 2: Rebuild the class. Every method is now a direct, purposeful API call.
-//    The principal and branch are identified by the backend via the auth token, simplifying signatures.
-export class PrincipalApiService {
-  // --- School & Profile Management ---
+class PrincipalApiService {
+  // ---------- Dashboard & Profile ----------
+  async getPrincipalDashboardData(): Promise<PrincipalDashboardData> {
+    const { data } = await baseApi.get<PrincipalDashboardData>(
+      "/principal/dashboard"
+    );
+    return data;
+  }
 
   async requestProfileAccessOtp(): Promise<void> {
     await baseApi.post("/principal/profile/request-otp");
@@ -50,30 +49,50 @@ export class PrincipalApiService {
     });
     return data;
   }
-  async getBranchDetails(): Promise<Branch> {
-    const { data } = await baseApi.get<Branch>("/principal/branch-details");
-    return data;
-  }
 
-  async updateBranchDetails(updates: Partial<Branch>): Promise<void> {
-    await baseApi.put("/principal/branch-details", updates);
-  }
-
-  async getPrincipalDashboardData(): Promise<PrincipalDashboardData> {
-    // A single, powerful endpoint that delegates all complex aggregation to the backend.
-    const { data } = await baseApi.get<PrincipalDashboardData>(
-      "/principal/dashboard"
+  // NOTE: two useful branch endpoints:
+  // - GET /branches/:id (general) to fetch any branch by id/registrationId
+  // - PATCH /principal/branch-details to update the principal's branch
+  async getBranchById(branchId: string): Promise<Branch> {
+    const { data } = await baseApi.get<Branch>(
+      `/branches/${encodeURIComponent(branchId)}`
     );
     return data;
   }
 
-  // --- Staff & Faculty Management ---
+  async updateBranchDetails(updates: Partial<Branch>): Promise<Branch> {
+    const { data } = await baseApi.patch<Branch>(
+      "/principal/branch-details",
+      updates
+    );
+    return data;
+  }
 
+  // ---------- Faculty & Staff Management ----------
   async getFacultyApplications(): Promise<FacultyApplication[]> {
     const { data } = await baseApi.get<FacultyApplication[]>(
-      "/principal/faculty/applications"
+      "/principal/faculty-applications"
     );
     return data;
+  }
+
+  async approveFacultyApplication(applicationId: string, salary?: number) {
+    // backend route: POST /faculty-applications/:id/approve
+    const { data } = await baseApi.post(
+      `/principal/faculty-applications/${encodeURIComponent(
+        applicationId
+      )}/approve`,
+      { salary }
+    );
+    return data;
+  }
+
+  async rejectFacultyApplication(applicationId: string) {
+    await baseApi.post(
+      `/principal/faculty-applications/${encodeURIComponent(
+        applicationId
+      )}/reject`
+    );
   }
 
   async getStaff(): Promise<(User & Partial<Teacher>)[]> {
@@ -83,64 +102,53 @@ export class PrincipalApiService {
     return data;
   }
 
-  async approveFacultyApplication(
-    appId: string,
-    salary: number
-  ): Promise<{ credentials: { id: string; password: string } }> {
-    const { data } = await baseApi.put(
-      `/principal/faculty/applications/${appId}/approve`,
-      { salary }
+  async createStaffMember(payload: Partial<User & { salary?: number }>) {
+    const { data } = await baseApi.post("/principal/staff", payload);
+    return data;
+  }
+
+  async suspendStaff(staffId: string) {
+    await baseApi.patch(
+      `/principal/staff/${encodeURIComponent(staffId)}/suspend`
     );
-    return data;
   }
 
-  async rejectFacultyApplication(appId: string): Promise<void> {
-    await baseApi.put(`/principal/faculty/applications/${appId}/reject`);
+  async reinstateStaff(staffId: string) {
+    await baseApi.patch(
+      `/principal/staff/${encodeURIComponent(staffId)}/reinstate`
+    );
   }
 
-  async createStaffMember(staffData: {
-    name: string;
-    email: string;
-    phone: string;
-    role: "Registrar" | "Librarian";
-    salary: number;
-  }): Promise<{ credentials: { id: string; password: string } }> {
-    const { data } = await baseApi.post("/principal/staff", staffData);
-    return data;
-  }
-
-  async suspendStaff(staffId: string): Promise<void> {
-    await baseApi.put(`/principal/staff/${staffId}/suspend`);
-  }
-
-  async reinstateStaff(staffId: string): Promise<void> {
-    await baseApi.put(`/principal/staff/${staffId}/reinstate`);
-  }
-
-  async deleteStaff(staffId: string): Promise<void> {
-    await baseApi.delete(`/principal/staff/${staffId}`);
+  async deleteStaff(staffId: string) {
+    await baseApi.delete(`/principal/staff/${encodeURIComponent(staffId)}`);
   }
 
   async getTeacherProfileDetails(teacherId: string): Promise<TeacherProfile> {
     const { data } = await baseApi.get<TeacherProfile>(
-      `/principal/teachers/${teacherId}/profile`
+      `/principal/teachers/${encodeURIComponent(teacherId)}/profile`
     );
     return data;
   }
 
-  async updateTeacher(
-    teacherId: string,
-    updates: Partial<Teacher>
-  ): Promise<void> {
-    await baseApi.put(`/principal/teachers/${teacherId}`, updates);
+  async updateTeacher(teacherId: string, updates: Partial<Teacher>) {
+    await baseApi.patch(
+      `/principal/teachers/${encodeURIComponent(teacherId)}`,
+      updates
+    );
   }
 
-  // --- Academics & Student Management ---
+  // ---------- Academic Overview ----------
+  async getPrincipalClassView(): Promise<SchoolClass[]> {
+    const { data } = await baseApi.get<SchoolClass[]>("/principal/class-view");
+    return data;
+  }
 
-  // async getPrincipalClassView(): Promise<any[]> {
-  //   const { data } = await baseApi.get<any[]>("/principal/classes/view");
-  //   return data;
-  // }
+  async getAttendanceOverview(): Promise<PrincipalAttendanceOverview> {
+    const { data } = await baseApi.get<PrincipalAttendanceOverview>(
+      "/principal/attendance-overview"
+    );
+    return data;
+  }
 
   async getExaminationsWithResultStatus(): Promise<Examination[]> {
     const { data } = await baseApi.get<Examination[]>(
@@ -149,30 +157,83 @@ export class PrincipalApiService {
     return data;
   }
 
-  async publishExaminationResults(examinationId: string): Promise<void> {
-    await baseApi.put(`/principal/examinations/${examinationId}/publish`);
+  async publishExaminationResults(examId: string) {
+    await baseApi.post(
+      `/principal/examinations/${encodeURIComponent(examId)}/publish`
+    );
   }
 
   async getStudentResultsForExamination(
-    examinationId: string
+    examId: string
   ): Promise<StudentWithExamMarks[]> {
     const { data } = await baseApi.get<StudentWithExamMarks[]>(
-      `/principal/examinations/${examinationId}/results`
+      `/principal/examinations/${encodeURIComponent(examId)}/results`
     );
     return data;
   }
 
-  async getAttendanceOverview(
-    branchId: string
-  ): Promise<PrincipalAttendanceOverview> {
-    const { data } = await baseApi.get<PrincipalAttendanceOverview>(
-      `/principal/branches/${branchId}/attendance/overview`
+  async sendResultsSms(examId: string, messageTemplate: string) {
+    await baseApi.post(
+      `/principal/examinations/${encodeURIComponent(examId)}/send-sms`,
+      { messageTemplate }
+    );
+  }
+
+  // ---------- Financials ----------
+  async getFinancialsOverview(): Promise<PrincipalFinancialsOverview> {
+    const { data } = await baseApi.get<PrincipalFinancialsOverview>(
+      "/principal/financials-overview"
     );
     return data;
   }
 
-  // --- Requests & Approvals ---
+  async addFeeAdjustment(payload: {
+    studentId: string;
+    type: "concession" | "charge";
+    amount: number;
+    reason: string;
+  }) {
+    await baseApi.post("/principal/fee-adjustment", payload);
+  }
 
+  async getStaffPayrollForMonth(month: string): Promise<PayrollRecord[]> {
+    const { data } = await baseApi.get<PayrollRecord[]>(
+      `/principal/payroll/${encodeURIComponent(month)}`
+    );
+    return data;
+  }
+
+  async processPayroll(payload: any) {
+    await baseApi.post("/principal/payroll/process", payload);
+  }
+
+  async addManualSalaryAdjustment(payload: ManualSalaryAdjustment) {
+    await baseApi.post("/principal/salary-adjustment", payload);
+  }
+
+  async getErpFinancialsForBranch(): Promise<ErpFinancials> {
+    const { data } = await baseApi.get<ErpFinancials>(
+      "/principal/erp-financials"
+    );
+    return data;
+  }
+
+  async payErpBill(amount: number, transactionId: string) {
+    await baseApi.post("/principal/erp-bill/pay", { amount, transactionId });
+  }
+
+  async getManualExpenses(): Promise<ManualExpense[]> {
+    const { data } = await baseApi.get<ManualExpense[]>(
+      "/principal/manual-expenses"
+    );
+    return data;
+  }
+
+  async addManualExpense(payload: Omit<ManualExpense, "id">) {
+    await baseApi.post("/principal/manual-expenses", payload);
+  }
+
+  // ---------- Staff Requests ----------
   async getFeeRectificationRequests(): Promise<FeeRectificationRequest[]> {
     const { data } = await baseApi.get<FeeRectificationRequest[]>(
       "/principal/requests/fees"
@@ -180,13 +241,11 @@ export class PrincipalApiService {
     return data;
   }
 
-  async processFeeRectificationRequest(
-    requestId: string,
-    status: "Approved" | "Rejected"
-  ): Promise<void> {
-    await baseApi.put(`/principal/requests/fees/${requestId}/process`, {
-      status,
-    });
+  async processFeeRectificationRequest(requestId: string, status: string) {
+    await baseApi.post(
+      `/principal/requests/fees/${encodeURIComponent(requestId)}/process`,
+      { status }
+    );
   }
 
   async getTeacherAttendanceRectificationRequests(): Promise<
@@ -200,35 +259,33 @@ export class PrincipalApiService {
 
   async processTeacherAttendanceRectificationRequest(
     requestId: string,
-    status: "Approved" | "Rejected"
-  ): Promise<void> {
-    await baseApi.put(`/principal/requests/attendance/${requestId}/process`, {
-      status,
-    });
+    status: string
+  ) {
+    await baseApi.post(
+      `/principal/requests/attendance/${encodeURIComponent(requestId)}/process`,
+      { status }
+    );
   }
 
   async getLeaveApplications(): Promise<LeaveApplication[]> {
     const { data } = await baseApi.get<LeaveApplication[]>(
-      "/principal/requests/leaves"
+      "/principal/requests/leave"
     );
     return data;
   }
 
-  async processLeaveApplication(
-    requestId: string,
-    status: "Approved" | "Rejected"
-  ): Promise<void> {
-    await baseApi.put(`/principal/requests/leaves/${requestId}/process`, {
-      status,
-    });
+  async processLeaveApplication(applicationId: string, status: string) {
+    await baseApi.post(
+      `/principal/requests/leave/${encodeURIComponent(applicationId)}/process`,
+      { status }
+    );
   }
 
-  // --- Grievances & Discipline ---
-
+  // ---------- Grievances & Discipline ----------
   async raiseComplaintAboutStudent(
-    complaintData: Omit<ComplaintAboutStudent, "id" | "submittedAt">
-  ): Promise<void> {
-    await baseApi.post("/principal/complaints/student", complaintData);
+    payload: Omit<ComplaintAboutStudent, "id" | "createdAt">
+  ) {
+    await baseApi.post("/principal/complaints/student", payload);
   }
 
   async getComplaintsAboutStudents(): Promise<ComplaintAboutStudent[]> {
@@ -238,186 +295,133 @@ export class PrincipalApiService {
     return data;
   }
 
-  async getTeacherComplaints(): Promise<TeacherComplaint[]> {
+  async getComplaintsForBranch(): Promise<TeacherComplaint[]> {
     const { data } = await baseApi.get<TeacherComplaint[]>(
       "/principal/complaints/teacher"
     );
     return data;
   }
 
-  async getSuspensionRecords(): Promise<SuspensionRecord[]> {
-    const { data } = await baseApi.get<SuspensionRecord[]>(
-      "/principal/students/suspensions"
-    );
+  async getSuspensions(): Promise<any[]> {
+    const { data } = await baseApi.get<any[]>("/principal/suspensions");
     return data;
   }
 
-  // --- Financials & Payroll ---
-
-  async getFinancialsOverview(): Promise<PrincipalFinancialsOverview> {
-    const { data } = await baseApi.get<PrincipalFinancialsOverview>(
-      "/principal/financials/overview"
-    );
-    return data;
-  }
-
-  async addFeeAdjustment(
-    studentId: string,
-    type: "concession" | "charge",
-    amount: number,
-    reason: string
-  ): Promise<void> {
-    await baseApi.post(`/principal/students/${studentId}/fee-adjustments`, {
-      type,
-      amount,
-      reason,
-    });
-  }
-
-  async getManualExpenses(): Promise<ManualExpense[]> {
-    const { data } = await baseApi.get<ManualExpense[]>("/principal/expenses");
-    return data;
-  }
-
-  async addManualExpense(
-    expenseData: Omit<ManualExpense, "id">
-  ): Promise<void> {
-    await baseApi.post("/principal/expenses", expenseData);
-  }
-
-  async addManualSalaryAdjustment(
-    staffId: string,
-    amount: number,
-    reason: string,
-    month: string
-  ): Promise<void> {
-    await baseApi.post("/principal/payroll/adjustments", {
-      staffId,
-      amount,
-      reason,
-      month,
-    });
-  }
-
-  async getStaffPayrollForMonth(month: string): Promise<PayrollStaffDetails[]> {
-    const { data } = await baseApi.get<PayrollStaffDetails[]>(
-      "/principal/payroll",
-      { params: { month } }
-    );
-    return data;
-  }
-
-  async processPayroll(payrollRecords: PayrollStaffDetails[]): Promise<void> {
-    await baseApi.post("/principal/payroll/process", { payrollRecords });
-  }
-
-  // --- Communication & Events ---
-
+  // ---------- Communication & Events ----------
   async getAnnouncements(): Promise<Announcement[]> {
     const { data } = await baseApi.get<Announcement[]>(
-      "/principal/communication/announcements"
+      "/principal/announcements"
     );
     return data;
+  }
+
+  async sendAnnouncement(payload: {
+    title: string;
+    message: string;
+    audience: string;
+  }) {
+    await baseApi.post("/principal/announcements", payload);
   }
 
   async getSmsHistory(): Promise<SmsMessage[]> {
-    const { data } = await baseApi.get<SmsMessage[]>(
-      "/principal/communication/sms-history"
-    );
+    const { data } = await baseApi.get<SmsMessage[]>("/principal/sms-history");
     return data;
   }
 
-  async sendAnnouncement(announcementData: {
-    title: string;
-    message: string;
-    audience: "All" | "Staff" | "Students" | "Parents";
-  }): Promise<void> {
-    await baseApi.post(
-      "/principal/communication/announcements",
-      announcementData
-    );
-  }
-
-  async sendSmsToStudents(
-    studentIds: string[],
-    message: string
-  ): Promise<{ success: boolean; count: number }> {
-    const { data } = await baseApi.post("/principal/communication/sms", {
+  async sendSmsToStudents(studentIds: string[], message: string) {
+    const { data } = await baseApi.post("/principal/sms/students", {
       studentIds,
       message,
     });
     return data;
   }
 
-  async sendResultsSms(
-    examinationId: string,
-    messageTemplate: string
-  ): Promise<void> {
-    await baseApi.post(
-      `/principal/examinations/${examinationId}/send-results-sms`,
-      { messageTemplate }
-    );
-  }
-
-  async clearAnnouncementsHistory(
-    fromDate: string,
-    toDate: string
-  ): Promise<void> {
-    await baseApi.post("/principal/communication/announcements/clear", {
-      fromDate,
-      toDate,
+  async clearAnnouncementsHistory(fromDate?: string, toDate?: string) {
+    // backend uses DELETE /principal/announcements/clear
+    await baseApi.delete("/principal/announcements/clear", {
+      data: { fromDate, toDate },
     });
   }
 
-  async clearSmsHistory(fromDate: string, toDate: string): Promise<void> {
-    await baseApi.post("/principal/communication/sms-history/clear", {
-      fromDate,
-      toDate,
+  async clearSmsHistory(fromDate?: string, toDate?: string) {
+    await baseApi.delete("/principal/sms/clear", {
+      data: { fromDate, toDate },
     });
   }
 
   async createSchoolEvent(
-    eventData: Omit<SchoolEvent, "id" | "status" | "createdAt">
-  ): Promise<void> {
-    await baseApi.post("/principal/events", eventData);
+    payload: Omit<SchoolEvent, "id" | "createdAt" | "status">
+  ) {
+    await baseApi.post("/principal/events", payload);
   }
 
-  async updateSchoolEvent(
-    eventId: string,
-    eventData: Partial<SchoolEvent>
-  ): Promise<void> {
-    await baseApi.put(`/principal/events/${eventId}`, eventData);
+  async updateSchoolEvent(eventId: string, payload: Partial<SchoolEvent>) {
+    await baseApi.patch(
+      `/principal/events/${encodeURIComponent(eventId)}`,
+      payload
+    );
   }
 
-  async updateSchoolEventStatus(
-    eventId: string,
-    status: "Approved" | "Rejected"
-  ): Promise<void> {
-    await baseApi.put(`/principal/events/${eventId}/status`, { status });
+  async updateSchoolEventStatus(eventId: string, status: string) {
+    await baseApi.patch(
+      `/principal/events/${encodeURIComponent(eventId)}/status`,
+      { status }
+    );
   }
 
-  // --- Admin & System ---
-
-  async startNewAcademicSession(newStartDate: string): Promise<void> {
-    await baseApi.post("/principal/academic-session/start", { newStartDate });
-  }
-
-  async payErpBill(amount: number, transactionId: string): Promise<void> {
-    await baseApi.post("/principal/erp/pay", { amount, transactionId });
-  }
-
+  // ---------- Admin Communication ----------
   async raiseQueryToAdmin(
-    queryData: Omit<PrincipalQuery, "id" | "submittedAt" | "status">
-  ): Promise<PrincipalQuery> {
-    const { data } = await baseApi.post<PrincipalQuery>(
-      "/principal/queries",
-      queryData
+    payload: Omit<PrincipalQuery, "id" | "createdAt" | "resolved">
+  ) {
+    const { data } = await baseApi.post("/principal/queries/admin", payload);
+    return data;
+  }
+
+  async getQueriesByPrincipal(): Promise<PrincipalQuery[]> {
+    const { data } = await baseApi.get<PrincipalQuery[]>("/principal/queries");
+    return data;
+  }
+
+  // ---------- System Actions ----------
+  async startNewAcademicSession(newStartDate: string) {
+    await baseApi.post("/principal/new-session", { newStartDate });
+  }
+
+  async updateUser(userId: string, updates: Partial<User>) {
+    await baseApi.patch(
+      `/principal/users/${encodeURIComponent(userId)}`,
+      updates
+    );
+  }
+
+  // ---------- Convenience: branch-scoped lists ----------
+  async getTeachersByBranch(branchId: string): Promise<Teacher[]> {
+    const { data } = await baseApi.get<Teacher[]>(
+      `/principal/branches/${encodeURIComponent(branchId)}/teachers`
     );
     return data;
   }
 
-  async getQueries(): Promise<PrincipalQuery[]> {
-    const { data } = await baseApi.get<PrincipalQuery[]>("/principal/queries");
+  async getPrincipalClassViewByBranch(
+    branchId: string
+  ): Promise<SchoolClass[]> {
+    const { data } = await baseApi.get<SchoolClass[]>(
+      `/principal/branches/${encodeURIComponent(branchId)}/classes`
+    );
+    return data;
+  }
+
+  async getStudentsByBranch(branchId: string): Promise<Student[]> {
+    const { data } = await baseApi.get<Student[]>(
+      `/principal/branches/${encodeURIComponent(branchId)}/students`
+    );
+    return data;
+  }
+
+  async getFeeTemplates(branchId: string): Promise<any[]> {
+    const { data } = await baseApi.get<any[]>(
+      `/principal/branches/${encodeURIComponent(branchId)}/fee-templates`
+    );
     return data;
   }
 
@@ -425,71 +429,6 @@ export class PrincipalApiService {
     const { data } = await baseApi.get<ErpPayment[]>("/principal/erp/payments");
     return data;
   }
-
-  async getErpFinancials(): Promise<ErpFinancials> {
-    const { data } = await baseApi.get<ErpFinancials>(
-      "/principal/erp/financials"
-    );
-    return data;
-  }
-  public async getEvents(): Promise<SchoolEvent[]> {
-    const { data } = await baseApi.get<SchoolEvent[]>("/principal/events");
-    return data;
-  }
-
-  public async deleteEvent(eventId: string): Promise<void> {
-    await baseApi.delete<void>(`/principal/events/${eventId}`);
-  }
-
-  // --- Class & Academic Management ---
-
-  async getClassDetails(classId: string): Promise<any> {
-    const { data } = await baseApi.get<any>(`/principal/classes/${classId}`);
-    return data;
-  }
-
-  async assignClassMentor(
-    classId: string,
-    mentorId: string | null
-  ): Promise<void> {
-    await baseApi.post(`/principal/classes/${classId}/mentor`, { mentorId });
-  }
-
-  async assignFeeTemplateToClass(
-    classId: string,
-    templateId: string | null
-  ): Promise<void> {
-    await baseApi.post(`/principal/classes/${classId}/fee-template`, {
-      templateId,
-    });
-  }
-
-  async getTeachersByBranch(branchId: string): Promise<Teacher[]> {
-    const { data } = await baseApi.get<Teacher[]>(
-      `/principal/branches/${branchId}/teachers`
-    );
-    return data;
-  }
-
-  async getPrincipalClassView(branchId: string): Promise<SchoolClass[]> {
-    const { data } = await baseApi.get<SchoolClass[]>(
-      `/principal/branches/${branchId}/classes`
-    );
-    return data;
-  }
-
-  // Get students for a branch
-  async getStudentsByBranch(branchId: string): Promise<Student[]> {
-    const { data } = await baseApi.get<Student[]>(
-      `/principal/branches/${branchId}/students`
-    );
-    return data;
-  }
-
-  async getFeeTemplates(branchId: string): Promise<any[]> {
-    const { data } = await baseApi.get<any[]>(
-      `/principal/branches/${branchId}/fee-templates`
-    );
-    return data;
-  }
 }
+
+export default new PrincipalApiService();
