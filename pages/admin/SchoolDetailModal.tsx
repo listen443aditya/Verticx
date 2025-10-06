@@ -768,6 +768,8 @@ const SchoolDetailModal: React.FC<{ branch: Branch; onClose: () => void }> = ({
             </div>
           </Card>
         );
+      // The Fortified, Resilient JSX for your "Assets" Tab
+
       case "assets":
         return (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -782,8 +784,10 @@ const SchoolDetailModal: React.FC<{ branch: Branch; onClose: () => void }> = ({
                       <BusIcon /> Transport
                     </span>{" "}
                     <span>
-                      {details.infrastructureSummary?.transportOccupancy}/
-                      {details.infrastructureSummary?.transportCapacity}
+                      {/* Notice the pattern: (?.) and (?? 0). This is our shield. */}
+                      {details.infrastructureSummary?.transportOccupancy ?? 0}/
+                      {details.infrastructureSummary?.totalTransportCapacity ??
+                        0}
                     </span>
                   </div>
                   <div className="w-full bg-slate-200 rounded-full h-2.5">
@@ -791,10 +795,10 @@ const SchoolDetailModal: React.FC<{ branch: Branch; onClose: () => void }> = ({
                       className="bg-brand-secondary h-2.5 rounded-full"
                       style={{
                         width: `${
-                          ((details.infrastructureSummary?.transportOccupancy ||
+                          ((details.infrastructureSummary?.transportOccupancy ??
                             0) /
-                            (details.infrastructureSummary?.transportCapacity ||
-                              1)) *
+                            (details.infrastructureSummary
+                              ?.totalTransportCapacity || 1)) *
                           100
                         }%`,
                       }}
@@ -807,8 +811,8 @@ const SchoolDetailModal: React.FC<{ branch: Branch; onClose: () => void }> = ({
                       <HostelIcon /> Hostel
                     </span>{" "}
                     <span>
-                      {details.infrastructureSummary?.hostelOccupancy}/
-                      {details.infrastructureSummary?.hostelCapacity}
+                      {details.infrastructureSummary?.hostelOccupancy ?? 0}/
+                      {details.infrastructureSummary?.totalHostelCapacity ?? 0}
                     </span>
                   </div>
                   <div className="w-full bg-slate-200 rounded-full h-2.5">
@@ -816,10 +820,10 @@ const SchoolDetailModal: React.FC<{ branch: Branch; onClose: () => void }> = ({
                       className="bg-brand-primary h-2.5 rounded-full"
                       style={{
                         width: `${
-                          ((details.infrastructureSummary?.hostelOccupancy ||
+                          ((details.infrastructureSummary?.hostelOccupancy ??
                             0) /
-                            (details.infrastructureSummary?.hostelCapacity ||
-                              1)) *
+                            (details.infrastructureSummary
+                              ?.totalHostelCapacity || 1)) *
                           100
                         }%`,
                       }}
@@ -835,13 +839,19 @@ const SchoolDetailModal: React.FC<{ branch: Branch; onClose: () => void }> = ({
               <div className="flex justify-around text-center">
                 <div>
                   <p className="text-3xl font-bold">
-                    {details.inventorySummary?.totalItems.toLocaleString()}
+                    {/* This code will never crash. It is resilient. */}
+                    {(
+                      details.inventorySummary?.totalItems ?? 0
+                    ).toLocaleString()}
                   </p>
                   <p>Total Unique Items</p>
                 </div>
                 <div>
                   <p className="text-3xl font-bold">
-                    {details.inventorySummary?.totalQuantity.toLocaleString()}
+                    {/* It gracefully handles missing data by showing 0. */}
+                    {(
+                      details.inventorySummary?.totalQuantity ?? 0
+                    ).toLocaleString()}
                   </p>
                   <p>Total Quantity</p>
                 </div>
@@ -853,7 +863,10 @@ const SchoolDetailModal: React.FC<{ branch: Branch; onClose: () => void }> = ({
               </h3>
               <div className="text-center">
                 <p className="text-4xl font-bold">
-                  {details.infrastructureSummary?.totalLibraryBooks.toLocaleString()}
+                  {/* The fortress stands. This is now safe. */}
+                  {(
+                    details.infrastructureSummary?.totalLibraryBooks ?? 0
+                  ).toLocaleString()}
                 </p>
                 <p>Total Books</p>
               </div>

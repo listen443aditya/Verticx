@@ -1020,6 +1020,8 @@ export interface HydratedMeetingRequest extends MeetingRequest {
     studentName: string;
 }
 
+// The updated, synchronized interface for src/types.ts
+
 export interface SchoolDetails {
     branch: Branch;
     principal?: User;
@@ -1029,17 +1031,25 @@ export interface SchoolDetails {
     classes: SchoolClass[];
     classFeeDetails: SchoolClassFeeDetails[];
     transportRoutes: TransportRoute[];
-    // Expanded for Admin detailed view
+    
+    // Expanded for Admin detailed view, now in perfect harmony
     classPerformance?: { name: string; performance: number }[];
     teacherPerformance?: { teacherId: string; teacherName: string; performanceIndex: number }[];
     subjectPerformanceByClass?: Record<string, { subjectName: string; averageScore: number; }[]>;
     topStudents?: { studentId: string; studentName: string; rank: number; className: string; }[];
-    inventorySummary?: { totalItems: number; totalQuantity: number };
+    
+    inventorySummary?: { 
+        totalItems: number; 
+        totalQuantity: number 
+    };
+    
     infrastructureSummary?: {
+        totalVehicles: number;
+        totalTransportCapacity: number;
         transportOccupancy: number;
-        transportCapacity: number;
+        totalRooms: number;
+        totalHostelCapacity: number;
         hostelOccupancy: number;
-        hostelCapacity: number;
         totalLibraryBooks: number;
     };
 }
