@@ -48,9 +48,7 @@ const AttendanceOverview: React.FC = () => {
     if (!user?.branchId) return;
     setLoading(true);
     // This API call correctly uses branchId as per the service definition.
-    const result = await principalApiService.getAttendanceOverview(
-      user.branchId
-    );
+    const result = await principalApiService.getAttendanceOverview();
     setData(result);
     setLoading(false);
   }, [user]);

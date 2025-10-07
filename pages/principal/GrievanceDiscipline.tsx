@@ -108,7 +108,7 @@ const GrievanceDiscipline: React.FC = () => {
     setLoading(true);
 
     // Fetch all classes
-    const classData = await apiService.getPrincipalClassView(user.branchId);
+    const classData = await apiService.getPrincipalClassView();
 
     // Fetch all students for the branch
     const allStudents = await apiService.getStudentsByBranch(user.branchId);

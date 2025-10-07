@@ -30,6 +30,18 @@ import type {
   FeeAdjustment,
   ClassDetails,
 } from "../types"; // adjust path to your project types
+type RaiseQueryPayload = {
+  branchId: string;
+  principalId: string;
+  principalName: string;
+  schoolName: string;
+  subject: string;
+  queryText: string;
+};
+type RaiseComplaintPayload = Omit<
+  ComplaintAboutStudent,
+  "id" | "submittedAt" | "createdAt"
+>;
 
 export class PrincipalApiService {
   // ---------- Dashboard & Profile ----------
@@ -297,8 +309,9 @@ export class PrincipalApiService {
 
   // ---------- Grievances & Discipline ----------
   async raiseComplaintAboutStudent(
-    payload: Omit<ComplaintAboutStudent, "id" | "createdAt">
-  ) {
+    payload: RaiseComplaintPayload
+  ): Promise<void> {
+    // The backend endpoint was defined in a previous turn
     await baseApi.post("/principal/complaints/student", payload);
   }
 
@@ -315,7 +328,13 @@ export class PrincipalApiService {
     );
     return data;
   }
-
+  async getTeacherComplaints(): Promise<TeacherComplaint[]> {
+    // This correctly calls GET /principal/complaints/teacher
+    const { data } = await baseApi.get<TeacherComplaint[]>(
+      "/principal/complaints/teacher"
+    );
+    return data;
+  }
   async getSuspensions(): Promise<any[]> {
     const { data } = await baseApi.get<any[]>("/principal/suspensions");
     return data;
@@ -342,7 +361,10 @@ export class PrincipalApiService {
     return data;
   }
 
-  async sendSmsToStudents(studentIds: string[], message: string) {
+  async sendSmsToStudents(
+    studentIds: string[],
+    message: string
+  ): Promise<{ success: boolean; count: number }> {
     const { data } = await baseApi.post("/principal/sms/students", {
       studentIds,
       message,
@@ -392,10 +414,11 @@ export class PrincipalApiService {
   }
 
   // ---------- Admin Communication ----------
-  async raiseQueryToAdmin(
-    payload: Omit<PrincipalQuery, "id" | "createdAt" | "resolved">
-  ) {
-    const { data } = await baseApi.post("/principal/queries/admin", payload);
+  async raiseQueryToAdmin(payload: RaiseQueryPayload): Promise<PrincipalQuery> {
+    const { data } = await baseApi.post<PrincipalQuery>(
+      "/principal/queries/admin",
+      payload
+    );
     return data;
   }
 
@@ -403,7 +426,10 @@ export class PrincipalApiService {
     const { data } = await baseApi.get<PrincipalQuery[]>("/principal/queries");
     return data;
   }
-
+  async getQueries(): Promise<PrincipalQuery[]> {
+    const { data } = await baseApi.get<PrincipalQuery[]>("/principal/queries");
+    return data;
+  }
   // ---------- System Actions ----------
   async startNewAcademicSession(newStartDate: string) {
     await baseApi.post("/principal/new-session", { newStartDate });
@@ -440,7 +466,6 @@ export class PrincipalApiService {
     return data;
   }
 
-  
   async assignClassMentor(
     classId: string,
     teacherId: string | null
@@ -451,7 +476,6 @@ export class PrincipalApiService {
     );
   }
 
-  
   async assignFeeTemplateToClass(
     classId: string,
     feeTemplateId: string | null
