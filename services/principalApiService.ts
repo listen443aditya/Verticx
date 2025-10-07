@@ -27,6 +27,7 @@ import type {
   SmsMessage,
   SchoolClass,
   Student,
+  Complaint,
   FeeAdjustment,
   ClassDetails,
 } from "../types"; // adjust path to your project types
@@ -311,8 +312,12 @@ export class PrincipalApiService {
   async raiseComplaintAboutStudent(
     payload: RaiseComplaintPayload
   ): Promise<void> {
-    // The backend endpoint was defined in a previous turn
     await baseApi.post("/principal/complaints/student", payload);
+  }
+  async getComplaints(): Promise<Complaint[]> {
+    // A generic name is better now
+    const { data } = await baseApi.get<Complaint[]>("/principal/complaints");
+    return data;
   }
 
   async getComplaintsAboutStudents(): Promise<ComplaintAboutStudent[]> {
@@ -335,6 +340,7 @@ export class PrincipalApiService {
     );
     return data;
   }
+
   async getSuspensions(): Promise<any[]> {
     const { data } = await baseApi.get<any[]>("/principal/suspensions");
     return data;
