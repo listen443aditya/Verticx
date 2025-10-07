@@ -392,10 +392,11 @@
 
 // src/services/baseApiService.ts
 
+
 import axios from 'axios';
 
 // Get the API base URL from your environment variables (.env.local file)
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://verticx-backend.vercel.app/api"; // Defaulting to your production URL
 
 // Create the single, real API client instance for your entire application
 const baseApi = axios.create({
@@ -423,5 +424,5 @@ baseApi.interceptors.request.use(
   }
 );
 
-// Export the configured instance as the default
+// ---> CRITICAL: Export the instance so other files can import and use it. <---
 export default baseApi;
