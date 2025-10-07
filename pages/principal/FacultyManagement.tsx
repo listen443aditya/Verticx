@@ -82,7 +82,10 @@ const AddStaffModal: React.FC<{
         role,
         salary: Number(salary),
       });
-      onSave(result.credentials);
+      onSave({
+        id: result.credentials.username,
+        password: result.credentials.password,
+      });
     } catch (error) {
       console.error("Failed to create staff member:", error);
       setIsSaving(false);
@@ -239,13 +242,24 @@ const FacultyManagement: React.FC = () => {
     if (!approvingApp || !user) return;
     setIsActionLoading(true);
     try {
-      // FIX: approveFacultyApplication now takes only 2 arguments. Reviewer ID is inferred by the backend.
-      const { credentials } =
-        await principalApiService.approveFacultyApplication(
-          approvingApp.id,
-          salary
-        );
-      setNewCredentials(credentials);
+      // Define expected API response type
+      interface ApproveFacultyResponse {
+        credentials: {
+          username: string;
+          password: string;
+        };
+      }
+
+      const result = (await principalApiService.approveFacultyApplication(
+        approvingApp.id,
+        salary
+      )) as ApproveFacultyResponse;
+
+      // Now result is typed and recognized
+      setNewCredentials({
+        id: result.credentials.username,
+        password: result.credentials.password,
+      });
       setApprovingApp(null);
       triggerRefresh();
     } catch (error) {

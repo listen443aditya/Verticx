@@ -60,6 +60,11 @@ export class PrincipalApiService {
     return data;
   }
 
+  async getBranchDetails(): Promise<Branch> {
+    const { data } = await baseApi.get<Branch>("/principal/branch");
+    return data;
+  }
+
   async updateBranchDetails(updates: Partial<Branch>): Promise<Branch> {
     const { data } = await baseApi.patch<Branch>(
       "/principal/branch-details",
@@ -76,9 +81,13 @@ export class PrincipalApiService {
     return data;
   }
 
-  async approveFacultyApplication(applicationId: string, salary?: number) {
-    // backend route: POST /faculty-applications/:id/approve
-    const { data } = await baseApi.post(
+  async approveFacultyApplication(
+    applicationId: string,
+    salary?: number
+  ): Promise<{ credentials: { username: string; password: string } }> {
+    const { data } = await baseApi.post<{
+      credentials: { username: string; password: string };
+    }>(
       `/principal/faculty-applications/${encodeURIComponent(
         applicationId
       )}/approve`,
@@ -102,8 +111,12 @@ export class PrincipalApiService {
     return data;
   }
 
-  async createStaffMember(payload: Partial<User & { salary?: number }>) {
-    const { data } = await baseApi.post("/principal/staff", payload);
+  async createStaffMember(
+    payload: Partial<User & { salary?: number }>
+  ): Promise<{ credentials: { username: string; password: string } }> {
+    const { data } = await baseApi.post<{
+      credentials: { username: string; password: string };
+    }>("/principal/staff", payload);
     return data;
   }
 
@@ -369,6 +382,14 @@ export class PrincipalApiService {
     );
   }
 
+  async getSchoolEvents(): Promise<SchoolEvent[]> {
+    const { data } = await baseApi.get<SchoolEvent[]>("/principal/events");
+    return data;
+  }
+  async deleteSchoolEvent(eventId: string): Promise<void> {
+    await baseApi.delete(`/principal/events/${encodeURIComponent(eventId)}`);
+  }
+
   // ---------- Admin Communication ----------
   async raiseQueryToAdmin(
     payload: Omit<PrincipalQuery, "id" | "createdAt" | "resolved">
@@ -431,4 +452,4 @@ export class PrincipalApiService {
   }
 }
 
-// export default new PrincipalApiService();
+export default new PrincipalApiService();

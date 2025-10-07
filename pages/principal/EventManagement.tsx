@@ -299,8 +299,8 @@ const EventManagement: React.FC = () => {
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    // FIX: Changed 'getSchoolEvents' to a more likely name 'getEvents'.
-    const data = await apiService.getEvents();
+    // CORRECTED: Use the newly created 'getSchoolEvents' method.
+    const data = await apiService.getSchoolEvents();
     setEvents(data);
     setLoading(false);
   }, [user, refreshKey]);
@@ -332,8 +332,8 @@ const EventManagement: React.FC = () => {
   const handleDelete = async () => {
     if (!deletingEvent) return;
     setActionLoading((prev) => ({ ...prev, [deletingEvent.id]: true }));
-    // FIX: Changed 'deleteSchoolEvent' to a more likely name 'deleteEvent'.
-    await apiService.deleteEvent(deletingEvent.id);
+    // CORRECTED: Use the newly created 'deleteSchoolEvent' method.
+    await apiService.deleteSchoolEvent(deletingEvent.id);
     setDeletingEvent(null);
     triggerRefresh();
     setActionLoading((prev) => ({ ...prev, [deletingEvent.id]: false }));
