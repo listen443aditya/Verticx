@@ -321,21 +321,26 @@ const ClassView: React.FC = () => {
     const [detailsLoading, setDetailsLoading] = useState(false);
 
     const fetchData = useCallback(async () => {
-        if (!user?.branchId) return;
-        setLoading(true);
-        const [data, teachers, students, templates] = await Promise.all([
-            apiService.getPrincipalClassView(user.branchId) as Promise<AggregatedClass[]>,
-            apiService.getTeachersByBranch(user.branchId),
-            apiService.getStudentsByBranch(user.branchId),
-            apiService.getFeeTemplates(user.branchId)
-        ]);
-        setClassesData(data.sort((a,b) => a.gradeLevel - b.gradeLevel || a.section.localeCompare(b.section)));
-        setAllTeachers(teachers);
-        setAllStudents(students);
-        setFeeTemplates(templates);
-        setLoading(false);
-    }, [user]);
+      if (!user?.branchId) return;
+      setLoading(true);
+      const [data, teachers, students, templates] = await Promise.all([
+        apiService.getPrincipalClassView() as Promise<AggregatedClass[]>, // No argument needed
+        apiService.getTeachersByBranch(user.branchId),
+        apiService.getStudentsByBranch(user.branchId),
+        apiService.getFeeTemplates(user.branchId),
+      ]);
 
+      setClassesData(
+        data.sort(
+          (a, b) =>
+            a.gradeLevel - b.gradeLevel || a.section.localeCompare(b.section)
+        )
+      );
+      setAllTeachers(teachers);
+      setAllStudents(students);
+      setFeeTemplates(templates);
+      setLoading(false);
+    }, [user]);
     useEffect(() => {
         fetchData();
     }, [fetchData, refreshKey]);

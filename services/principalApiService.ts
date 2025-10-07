@@ -28,6 +28,7 @@ import type {
   SchoolClass,
   Student,
   FeeAdjustment,
+  ClassDetails,
 } from "../types"; // adjust path to your project types
 
 export class PrincipalApiService {
@@ -430,6 +431,35 @@ export class PrincipalApiService {
       `/principal/branches/${encodeURIComponent(branchId)}/classes`
     );
     return data;
+  }
+
+  async getClassDetails(classId: string): Promise<ClassDetails> {
+    const { data } = await baseApi.get<ClassDetails>(
+      `/principal/classes/${encodeURIComponent(classId)}/details`
+    );
+    return data;
+  }
+
+  
+  async assignClassMentor(
+    classId: string,
+    teacherId: string | null
+  ): Promise<void> {
+    await baseApi.patch(
+      `/principal/classes/${encodeURIComponent(classId)}/mentor`,
+      { teacherId }
+    );
+  }
+
+  
+  async assignFeeTemplateToClass(
+    classId: string,
+    feeTemplateId: string | null
+  ): Promise<void> {
+    await baseApi.patch(
+      `/principal/classes/${encodeURIComponent(classId)}/fee-template`,
+      { feeTemplateId }
+    );
   }
 
   async getStudentsByBranch(branchId: string): Promise<Student[]> {
