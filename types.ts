@@ -897,35 +897,37 @@ export interface CourseContent {
     uploadedAt: Date;
 }
 
-export interface CommunicationTarget {
-    branchId: 'all' | string[];
-    role: UserRole | 'all';
-}
+export type CommunicationTarget = {
+  scope: "SYSTEM_WIDE" | "BRANCH_SPECIFIC";
+  roles: UserRole[];
+  branchIds: string[];
+};
 
 export interface AdminSms {
-    id: string;
-    target: CommunicationTarget;
-    message: string;
-    sentBy: string;
-    sentAt: Date;
+  id: string;
+  message: string;
+  recipientCount: number;
+  sentAt: string;
+  sentBy: string;
+  branchId: string | null; // <-- The missing property
 }
 
 export interface AdminEmail {
-    id: string;
-    target: CommunicationTarget;
-    subject: string;
-    body: string;
-    sentBy: string;
-    sentAt: Date;
+  id: string;
+  subject: string;
+  body: string;
+  sentAt: string;
+  sentBy: string;
+  branchId: string | null; // <-- Add for consistency
 }
-
 export interface AdminNotification {
-    id: string;
-    target: CommunicationTarget;
-    title: string;
-    message: string;
-    sentBy: string;
-    sentAt: Date;
+  id: string;
+  title: string;
+  message: string;
+  sentAt: string;
+  sentBy: string;
+  audience: string; // <-- The missing property
+  branchId: string | null; // <-- The missing property
 }
 
 // SuperAdmin specific type

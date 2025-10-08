@@ -7,7 +7,7 @@ import type {
   AdminSms,
   AdminEmail,
   AdminNotification,
-  CommunicationTarget,
+  CommunicationTarget, // This now points to our corrected type
 } from "../../types.ts";
 import Card from "../../components/ui/Card.tsx";
 import Button from "../../components/ui/Button.tsx";
@@ -34,7 +34,6 @@ const CommunicationHub: React.FC = () => {
   const [isSending, setIsSending] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
 
-  // Form state
   const [selectionMode, setSelectionMode] = useState<"all" | "specific">("all");
   const [selectedBranches, setSelectedBranches] = useState<Branch[]>([]);
   const [schoolSearchTerm, setSchoolSearchTerm] = useState("");
@@ -55,18 +54,20 @@ const CommunicationHub: React.FC = () => {
   const MAX_SMS_CHARS = 160;
 
   const fetchData = useCallback(async () => {
-    // FIX: Wait for user object to be available
     if (!user) return;
     setLoading(true);
     try {
       const [branchesData, historyData] = await Promise.all([
-        // FIX: Pass user.role as the first argument
         adminApiService.getBranches(user.role, "active"),
-        // FIX: Pass user.role as the first argument
         adminApiService.getAdminCommunicationHistory(user.role),
       ]);
       setBranches(branchesData);
-      setHistory(historyData);
+      // The API returns 'notifications' and 'emails'. We align with this truth.
+      setHistory({
+        sms: historyData.sms || [],
+        email: (historyData as any).emails || [], // Use 'emails' as returned by the backend
+        notification: (historyData as any).notifications || [], // Use 'notifications' as returned by the backend
+      });
     } catch (error) {
       console.error("Failed to fetch communication data:", error);
     } finally {
@@ -103,11 +104,7 @@ const CommunicationHub: React.FC = () => {
 
   const handleSend = async () => {
     if (!user) return;
-
-    const isTargetValid =
-      selectionMode === "all" ||
-      (selectionMode === "specific" && selectedBranches.length > 0);
-    if (!isTargetValid) {
+    if (selectionMode === "specific" && selectedBranches.length === 0) {
       setStatusMessage("Please select at least one school.");
       setTimeout(() => setStatusMessage(""), 3000);
       return;
@@ -116,17 +113,16 @@ const CommunicationHub: React.FC = () => {
     setIsSending(true);
     setStatusMessage("");
 
+    // This target object now correctly matches the updated CommunicationTarget type.
     const target: CommunicationTarget = {
-      branchId:
-        selectionMode === "all" ? "all" : selectedBranches.map((b) => b.id),
-      role: targetRole,
+      scope: selectionMode === "all" ? "SYSTEM_WIDE" : "BRANCH_SPECIFIC",
+      roles: targetRole === "all" ? ROLES : [targetRole],
+      branchIds: selectedBranches.map((b) => b.id),
     };
 
     let success = false;
-
     try {
       if (activeTab === "sms" && smsMessage) {
-        // FIX: Pass user.role as the first argument
         await adminApiService.sendBulkSms(
           user.role,
           target,
@@ -135,7 +131,6 @@ const CommunicationHub: React.FC = () => {
         );
         success = true;
       } else if (activeTab === "email" && emailSubject && emailBody) {
-        // FIX: Pass user.role as the first argument
         await adminApiService.sendBulkEmail(
           user.role,
           target,
@@ -149,7 +144,6 @@ const CommunicationHub: React.FC = () => {
         notificationTitle &&
         notificationMessage
       ) {
-        // FIX: Pass user.role as the first argument
         await adminApiService.sendBulkNotification(
           user.role,
           target,
@@ -162,14 +156,13 @@ const CommunicationHub: React.FC = () => {
 
       if (success) {
         setStatusMessage("Message sent successfully!");
-        // Reset form
         setSmsMessage("");
         setEmailSubject("");
         setEmailBody("");
         setNotificationTitle("");
         setNotificationMessage("");
         setSelectedBranches([]);
-        fetchData(); // Refresh history
+        fetchData();
       } else {
         setStatusMessage("Message content cannot be empty.");
       }
@@ -182,28 +175,16 @@ const CommunicationHub: React.FC = () => {
     setTimeout(() => setStatusMessage(""), 5000);
   };
 
-  const getTargetDescription = (target: {
-    branchId: "all" | string[];
-    role: string;
-  }) => {
-    let branchName;
-    if (target.branchId === "all") {
-      branchName = "All Schools";
-    } else if (Array.isArray(target.branchId)) {
-      if (target.branchId.length > 2) {
-        branchName = `${target.branchId.length} Selected Schools`;
-      } else {
-        branchName = target.branchId
-          .map((id) => branches.find((b) => b.id === id)?.name || "Unknown")
-          .join(", ");
-      }
-    } else {
-      branchName =
-        branches.find((b) => b.id === target.branchId)?.name ||
-        "Unknown School";
+  const getTargetDescription = (
+    item: AdminSms | AdminEmail | AdminNotification,
+    branches: Branch[]
+  ) => {
+    const roleName = (item as any).audience || "Selected Roles";
+    if (!item.branchId) {
+      return `${roleName} at All Schools`;
     }
-
-    const roleName = target.role === "all" ? "All Roles" : target.role;
+    const branchName =
+      branches.find((b) => b.id === item.branchId)?.name || "Unknown School";
     return `${roleName} at ${branchName}`;
   };
 
@@ -451,7 +432,8 @@ const CommunicationHub: React.FC = () => {
                   className="bg-slate-50 p-3 rounded-lg text-sm"
                 >
                   <p className="font-semibold">
-                    To: {getTargetDescription(item.target)}
+                    {/* FIX #2: The call is now corrected to pass both required arguments. */}
+                    To: {getTargetDescription(item, branches)}
                   </p>
                   <p className="text-xs text-slate-500">
                     {new Date(item.sentAt).toLocaleString()}
@@ -466,7 +448,7 @@ const CommunicationHub: React.FC = () => {
                   className="bg-slate-50 p-3 rounded-lg text-sm"
                 >
                   <p className="font-semibold">
-                    To: {getTargetDescription(item.target)}
+                    To: {getTargetDescription(item, branches)}
                   </p>
                   <p className="text-xs text-slate-500">
                     {new Date(item.sentAt).toLocaleString()}
@@ -482,7 +464,7 @@ const CommunicationHub: React.FC = () => {
                   className="bg-slate-50 p-3 rounded-lg text-sm"
                 >
                   <p className="font-semibold">
-                    To: {getTargetDescription(item.target)}
+                    To: {getTargetDescription(item, branches)}
                   </p>
                   <p className="text-xs text-slate-500">
                     {new Date(item.sentAt).toLocaleString()}
@@ -492,11 +474,13 @@ const CommunicationHub: React.FC = () => {
                 </div>
               ))
             )}
-            {!loading && history[historyTab].length === 0 && (
-              <p className="text-center text-slate-500 p-8">
-                No {historyTab} history found.
-              </p>
-            )}
+            {!loading &&
+              history[historyTab] &&
+              history[historyTab].length === 0 && (
+                <p className="text-center text-slate-500 p-8">
+                  No {historyTab} history found.
+                </p>
+              )}
           </div>
         </Card>
       </div>
