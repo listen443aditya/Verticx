@@ -238,10 +238,10 @@ export class AdminApiService {
 
   async getSystemSettings(role: UserRole): Promise<SystemSettings> {
     // The path is now true. The old way is forgotten.
-   const { data } = await baseApi.get(
-     `/superadmin/master-config`,
-     get_config()
-   );
+    const { data } = await baseApi.get(
+      `/superadmin/master-config`,
+      get_config()
+    );
     return data;
   }
 
@@ -315,6 +315,16 @@ export class AdminApiService {
     const { data } = await baseApi.post(
       `${getApiPrefix(role)}/principal-queries/${queryId}/resolve`,
       { adminNotes, adminId }
+    );
+    return data;
+  }
+  async getSuperAdminContactDetails(role: UserRole): Promise<User> {
+    // The backend route is defined in admin.ts, which is mounted at /admin.
+    // Therefore, we must call the /admin/contact-details endpoint.
+    // The restrictTo('SuperAdmin') middleware on the backend handles the authorization.
+    const { data } = await baseApi.get<User>(
+      `/admin/contact-details`,
+      get_config()
     );
     return data;
   }
