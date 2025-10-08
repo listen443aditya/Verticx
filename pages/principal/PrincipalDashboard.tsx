@@ -147,8 +147,7 @@ const PrincipalDashboard: React.FC = () => {
     fetchData();
   }, [user]);
 
-  // ... The rest of your component remains the same. I will not include it here for brevity.
-  // No other changes are needed in this file. The code from your upload is correct from this point on.
+  
   if (loading) return <div>Loading dashboard...</div>;
   if (!data) return <div>Could not load dashboard data.</div>;
 
