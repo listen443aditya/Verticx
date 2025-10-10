@@ -203,7 +203,27 @@ export class PrincipalApiService {
     const { data } = await baseApi.get<Student[]>("/principal/students");
     return data;
   }
-  
+  async getSchoolClasses(): Promise<SchoolClass[]> {
+    const { data } = await baseApi.get<SchoolClass[]>("/principal/classes");
+    return data;
+  }
+  async getSuspensionRecords(): Promise<SuspensionRecord[]> {
+    const { data } = await baseApi.get<SuspensionRecord[]>(
+      "/principal/suspension-records"
+    );
+    return data;
+  }
+  async getFeeRecords(): Promise<FeeRecord[]> {
+    const { data } = await baseApi.get<FeeRecord[]>("/principal/fee-records");
+    return data;
+  }
+  async getAttendanceRecords(): Promise<AttendanceRecord[]> {
+    const { data } = await baseApi.get<AttendanceRecord[]>(
+      "/principal/attendance-records"
+    );
+    return data;
+  }
+
   async sendResultsSms(examId: string, messageTemplate: string) {
     await baseApi.post(
       `/principal/examinations/${encodeURIComponent(examId)}/send-sms`,

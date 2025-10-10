@@ -19,6 +19,8 @@ import type {
   SchoolDocument,
   Hostel,
   Room,
+  FeeRecord,
+  AttendanceRecord,
   InventoryItem,
   InventoryLog,
   TransportRoute,
@@ -97,6 +99,30 @@ export class RegistrarApiService {
     });
     return data;
   }
+  async getStudents(): Promise<Student[]> {
+    const { data } = await baseApi.get<Student[]>("/registrar/students");
+    return data;
+  }
+  async getSchoolClasses(): Promise<SchoolClass[]> {
+    const { data } = await baseApi.get<SchoolClass[]>("/registrar/classes");
+    return data;
+  }
+  async getSuspensionRecords(): Promise<SuspensionRecord[]> {
+    const { data } = await baseApi.get<SuspensionRecord[]>(
+      "/registrar/suspension-records"
+    );
+    return data;
+  }
+  async getFeeRecords(): Promise<FeeRecord[]> {
+    const { data } = await baseApi.get<FeeRecord[]>("/registrar/fee-records");
+    return data;
+  }
+  async getAttendanceRecords(): Promise<AttendanceRecord[]> {
+    const { data } = await baseApi.get<AttendanceRecord[]>(
+      "/registrar/attendance-records"
+    );
+    return data;
+  }
 
   async updateStudent(
     studentId: string,
@@ -150,12 +176,12 @@ export class RegistrarApiService {
     });
   }
 
-  async getSuspensionRecords(): Promise<SuspensionRecord[]> {
-    const { data } = await baseApi.get<SuspensionRecord[]>(
-      "/registrar/students/suspensions"
-    );
-    return data;
-  }
+  // async getSuspensionRecords(): Promise<SuspensionRecord[]> {
+  //   const { data } = await baseApi.get<SuspensionRecord[]>(
+  //     "/registrar/students/suspensions"
+  //   );
+  //   return data;
+  // }
 
   async resetStudentAndParentPasswords(studentId: string): Promise<{
     student: { id: string; pass: string };
@@ -215,10 +241,10 @@ export class RegistrarApiService {
   }
 
   // --- Class & Subject Management ---
-  async getSchoolClasses(): Promise<SchoolClass[]> {
-    const { data } = await baseApi.get<SchoolClass[]>("/registrar/classes");
-    return data;
-  }
+  // async getSchoolClasses(): Promise<SchoolClass[]> {
+  //   const { data } = await baseApi.get<SchoolClass[]>("/registrar/classes");
+  //   return data;
+  // }
 
   async getStudentsForClass(classId: string): Promise<Student[]> {
     const { data } = await baseApi.get<Student[]>(
