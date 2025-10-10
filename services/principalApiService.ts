@@ -199,6 +199,11 @@ export class PrincipalApiService {
     return data;
   }
 
+  async getStudents(): Promise<Student[]> {
+    const { data } = await baseApi.get<Student[]>("/principal/students");
+    return data;
+  }
+  
   async sendResultsSms(examId: string, messageTemplate: string) {
     await baseApi.post(
       `/principal/examinations/${encodeURIComponent(examId)}/send-sms`,
