@@ -30,7 +30,12 @@ import type {
   Complaint,
   FeeAdjustment,
   ClassDetails,
+  // --- FIX: Add the missing type imports here ---
+  SuspensionRecord,
+  FeeRecord,
+  AttendanceRecord,
 } from "../types"; // adjust path to your project types
+
 type RaiseQueryPayload = {
   branchId: string;
   principalId: string;
