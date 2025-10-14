@@ -170,9 +170,7 @@ export class SharedApiService {
   }
 
   async getSuperAdminContactDetails(): Promise<User> {
-    // This is the correct, working URL on your backend.
-    // The route is defined in `admin.ts` but is protected to only allow SuperAdmins.
-    const { data } = await baseApi.get<User>("/super-admin/contact-details");
+    const { data } = await baseApi.get<User>("/admin/contact-details");
     return data;
   }
 }
