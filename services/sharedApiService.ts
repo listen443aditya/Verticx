@@ -104,8 +104,10 @@ export class SharedApiService {
     return data;
   }
 
-  async getUserById(userId: string): Promise<User | null> {
-    const { data } = await baseApi.get<User | null>(`/users/${userId}`);
+  async getUserById(userId: string): Promise<User> {
+    const { data } = await baseApi.get<User>(
+      `/registrar/user-details/${userId}`
+    );
     return data;
   }
 
