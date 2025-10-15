@@ -148,7 +148,7 @@ export class SharedApiService {
   }
 
   async getStaffListForBranch(): Promise<User[]> {
-    const { data } = await baseApi.get<User[]>("/api/principal/staff");
+    const { data } = await baseApi.get<User[]>("/principal/staff");
     return data;
   }
 
