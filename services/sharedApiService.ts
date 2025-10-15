@@ -153,15 +153,14 @@ export class SharedApiService {
   }
 
   async getStaffAttendanceAndLeaveForMonth(
+    staffId: string, // Add the staffId parameter
     year: number,
     month: number
-  ): Promise<{
-    attendance: TeacherAttendanceRecord[];
-    leaves: LeaveApplication[];
-  }> {
-    const { data } = await baseApi.get("/staff/my-attendance-and-leaves", {
-      params: { year, month },
-    });
+  ): Promise<{ attendance: any[]; leaves: any[] }> {
+    // Use the new, correct endpoint for principals
+    const { data } = await baseApi.get(
+      `/principal/staff/${staffId}/attendance/${year}/${month}`
+    );
     return data;
   }
 

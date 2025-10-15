@@ -50,8 +50,13 @@ const StaffAttendanceCalendar: React.FC = () => {
     // currently authenticated user, not for a specific staff member by ID.
     // As such, this calendar will always display the logged-in user's data, regardless of the dropdown selection.
     // A new API endpoint is required to view other staff members' data.
-    const { attendance, leaves } =
-      await sharedApiService.getStaffAttendanceAndLeaveForMonth(year, month);
+     const { attendance, leaves } =
+       await sharedApiService.getStaffAttendanceAndLeaveForMonth(
+         selectedStaffId,
+         year,
+         month
+       );
+
 
     const newMap = new Map<string, TeacherAttendanceStatus | "On Leave">();
 
