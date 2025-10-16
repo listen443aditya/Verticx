@@ -694,13 +694,14 @@ const ClassDetailModal: React.FC<{
 
 const SubjectManager: React.FC = () => {
   const { user } = useAuth();
-  const { triggerRefresh } = useDataRefresh();
+  // 1. GET `refreshKey` ALONG WITH `triggerRefresh`
+  const { refreshKey, triggerRefresh } = useDataRefresh();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [teachers, setTeachers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // State for the modals
-  const [isCreating, setIsCreating] = useState(false); // New state for creating
+  const [isCreating, setIsCreating] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [deletingSubject, setDeletingSubject] = useState<Subject | null>(null);
 
@@ -714,17 +715,17 @@ const SubjectManager: React.FC = () => {
     setSubjects(subjectData);
     setTeachers(allStaff.filter((s: User) => s.role === "Teacher"));
     setLoading(false);
-  }, [user, triggerRefresh]);
+    // 2. USE `refreshKey` IN THE DEPENDENCY ARRAY
+  }, [user, refreshKey]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // New handler for creating a subject
   const handleCreate = async (data: { name: string; teacherId?: string }) => {
     await apiService.createSubject(data);
     setIsCreating(false);
-    triggerRefresh();
+    triggerRefresh(); // This now correctly triggers the refresh
   };
 
   const handleSave = async (updates: Partial<Subject>) => {
@@ -748,10 +749,7 @@ const SubjectManager: React.FC = () => {
         <h2 className="text-xl font-semibold text-text-primary-dark">
           Subjects
         </h2>
-        {/* Updated button to open the new modal */}
-        <Button onClick={() => setIsCreating(true)}>
-          Add New Subject
-        </Button>
+        <Button onClick={() => setIsCreating(true)}>Add New Subject</Button>
       </div>
       {loading ? (
         <p>Loading subjects...</p>
@@ -799,7 +797,6 @@ const SubjectManager: React.FC = () => {
         </div>
       )}
 
-      {/* Conditionally render the new CreateSubjectModal */}
       {isCreating && (
         <CreateSubjectModal
           teachers={teachers}
@@ -807,7 +804,7 @@ const SubjectManager: React.FC = () => {
           onSave={handleCreate}
         />
       )}
-      
+
       {editingSubject && (
         <EditSubjectModal
           subject={editingSubject}
