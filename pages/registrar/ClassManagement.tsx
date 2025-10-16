@@ -34,7 +34,7 @@ const apiService = new RegistrarApiService();
 
 
 type EnrichedSchoolClass = SchoolClass & {
-  _count?: { students: number };
+  studentCount: number;
   mentorName?: string;
   feeTemplateName?: string;
 };
@@ -97,6 +97,8 @@ const CreateClassModal: React.FC<{
     </div>
   );
 };
+
+
 
 const EditClassModal: React.FC<{
   schoolClass: SchoolClass;
@@ -745,7 +747,7 @@ const SubjectManager: React.FC = () => {
 const ClassManagement: React.FC = () => {
   const { user } = useAuth();
   const { refreshKey, triggerRefresh } = useDataRefresh();
-  const [classes, setClasses] = useState<SchoolClass[]>([]);
+const [classes, setClasses] = useState<EnrichedSchoolClass[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [teachers, setTeachers] = useState<User[]>([]);
   const [feeTemplates, setFeeTemplates] = useState<FeeTemplate[]>([]);
@@ -910,9 +912,7 @@ const ClassManagement: React.FC = () => {
                       <td className="p-2 font-medium">
                         Grade {sClass.gradeLevel} - {sClass.section}
                       </td>
-                      <td className="p-2 text-center">
-                        {sClass.studentIds.length}
-                      </td>
+                      <td className="p-2 text-center">{sClass.studentCount}</td>
                       <td className="p-2">
                         {getMentorName(sClass.mentorTeacherId)}
                       </td>
