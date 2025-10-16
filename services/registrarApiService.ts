@@ -257,6 +257,20 @@ export class RegistrarApiService {
     return data;
   }
 
+  async createSubject(data: {
+    name: string;
+    teacherId?: string;
+  }): Promise<void> {
+    await baseApi.post("/registrar/subjects", data);
+  }
+
+  async updateSubject(
+    subjectId: string,
+    updates: Partial<Subject>
+  ): Promise<void> {
+    await baseApi.put(`/registrar/subjects/${subjectId}`, updates);
+  }
+
   async createSchoolClass(data: {
     gradeLevel: number;
     section: string;
@@ -304,12 +318,12 @@ export class RegistrarApiService {
     });
   }
 
-  async updateSubject(
-    subjectId: string,
-    updates: Partial<Subject>
-  ): Promise<void> {
-    await baseApi.put(`/registrar/subjects/${subjectId}`, updates);
-  }
+  // async updateSubject(
+  //   subjectId: string,
+  //   updates: Partial<Subject>
+  // ): Promise<void> {
+  //   await baseApi.put(`/registrar/subjects/${subjectId}`, updates);
+  // }
 
   async deleteSubject(subjectId: string): Promise<void> {
     await baseApi.delete(`/registrar/subjects/${subjectId}`);

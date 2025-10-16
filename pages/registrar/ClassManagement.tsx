@@ -40,6 +40,79 @@ type EnrichedSchoolClass = SchoolClass & {
 };
 // --- MODAL COMPONENTS ---
 
+const CreateSubjectModal: React.FC<{
+  teachers: User[];
+  onClose: () => void;
+  onSave: (data: { name: string; teacherId?: string }) => Promise<void>;
+}> = ({ teachers, onClose, onSave }) => {
+  const [name, setName] = useState("");
+  const [teacherId, setTeacherId] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      alert("Subject name cannot be empty.");
+      return;
+    }
+    setIsSaving(true);
+    // The teacherId will be an empty string "" if "Unassigned" is selected.
+    // We convert it to `undefined` so it doesn't get sent in the request body.
+    await onSave({ name, teacherId: teacherId || undefined });
+    setIsSaving(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-md">
+        <h2 className="text-xl font-bold text-text-primary-dark mb-4">
+          Add New Subject
+        </h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            label="Subject Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g., Physics, History"
+            required
+          />
+          <div>
+            <label className="block text-sm font-medium text-text-secondary-dark mb-1">
+              Assign Teacher (Optional)
+            </label>
+            <select
+              value={teacherId}
+              onChange={(e) => setTeacherId(e.target.value)}
+              className="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-text-primary-dark"
+            >
+              <option value="">-- Unassigned --</option>
+              {teachers.map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>
+                  {teacher.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex justify-end gap-4 pt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onClose}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save Subject"}
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </div>
+  );
+};
+
+
 // ... (CreateClassModal, EditClassModal, EditSubjectModal, ManageSubjectsModal are unchanged)
 const CreateClassModal: React.FC<{
   onClose: () => void;
@@ -241,6 +314,8 @@ const ManageSubjectsModal: React.FC<{
         : [...prev, subjectId]
     );
   };
+
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -623,7 +698,9 @@ const SubjectManager: React.FC = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [teachers, setTeachers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  
+  // State for the modals
+  const [isCreating, setIsCreating] = useState(false); // New state for creating
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [deletingSubject, setDeletingSubject] = useState<Subject | null>(null);
 
@@ -642,6 +719,13 @@ const SubjectManager: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // New handler for creating a subject
+  const handleCreate = async (data: { name: string; teacherId?: string }) => {
+    await apiService.createSubject(data);
+    setIsCreating(false);
+    triggerRefresh();
+  };
 
   const handleSave = async (updates: Partial<Subject>) => {
     if (editingSubject) {
@@ -664,11 +748,8 @@ const SubjectManager: React.FC = () => {
         <h2 className="text-xl font-semibold text-text-primary-dark">
           Subjects
         </h2>
-        <Button
-          onClick={() =>
-            alert("Add new subject functionality not implemented.")
-          }
-        >
+        {/* Updated button to open the new modal */}
+        <Button onClick={() => setIsCreating(true)}>
           Add New Subject
         </Button>
       </div>
@@ -717,6 +798,16 @@ const SubjectManager: React.FC = () => {
           </table>
         </div>
       )}
+
+      {/* Conditionally render the new CreateSubjectModal */}
+      {isCreating && (
+        <CreateSubjectModal
+          teachers={teachers}
+          onClose={() => setIsCreating(false)}
+          onSave={handleCreate}
+        />
+      )}
+      
       {editingSubject && (
         <EditSubjectModal
           subject={editingSubject}
