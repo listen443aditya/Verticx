@@ -36,6 +36,7 @@ import type {
   LeaveSetting,
   AttendanceListItem,
   FacultyApplication,
+  ClassDetails,
   FeeRectificationRequest,
 } from "../types";
 
@@ -197,9 +198,7 @@ export class RegistrarApiService {
   async getAllStaff(): Promise<(User & { attendancePercentage?: number })[]> {
     const { data } = await baseApi.get<
       (User & { attendancePercentage?: number })[]
-    >(
-      "/registrar/staff/support" 
-    );
+    >("/registrar/staff/support");
     return data;
   }
 
@@ -746,5 +745,19 @@ export class RegistrarApiService {
     await baseApi.delete(
       `/registrar/transport/routes/${routeId}/remove-member/${memberId}`
     );
+  }
+  async getClassDetails(classId: string): Promise<ClassDetails> {
+    try {
+      // This endpoint must return data matching your ClassDetails interface
+      const response = await baseApi.get<ClassDetails>(
+        `/registrar/classes/${classId}`
+      );
+      return response.data;
+    } catch (error) {
+      // Log a specific error for easier debugging
+      console.error(`Failed to fetch details for class ID ${classId}:`, error);
+      // Re-throw the error so the component can handle it
+      throw new Error("Could not retrieve class details from the server.");
+    }
   }
 }

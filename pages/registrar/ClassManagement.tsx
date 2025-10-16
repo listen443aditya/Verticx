@@ -31,6 +31,13 @@ import { useDataRefresh } from "../../contexts/DataRefreshContext";
 // Create an instance of the service.
 const apiService = new RegistrarApiService();
 
+
+
+type EnrichedSchoolClass = SchoolClass & {
+  _count?: { students: number };
+  mentorName?: string;
+  feeTemplateName?: string;
+};
 // --- MODAL COMPONENTS ---
 
 // ... (CreateClassModal, EditClassModal, EditSubjectModal, ManageSubjectsModal are unchanged)
@@ -623,7 +630,7 @@ const SubjectManager: React.FC = () => {
     setLoading(true);
     const [subjectData, allStaff] = await Promise.all([
       apiService.getSubjects(),
-      apiService.getAllStaff(user.branchId as string),
+      apiService.getAllStaff(),
     ]);
     setSubjects(subjectData);
     setTeachers(allStaff.filter((s: User) => s.role === "Teacher"));
@@ -760,24 +767,43 @@ const ClassManagement: React.FC = () => {
   const fetchData = useCallback(async () => {
     if (!user?.branchId) return;
     setLoading(true);
-    const [classesData, subjectsData, allStaff, feeTemplatesData] =
-      await Promise.all([
-        apiService.getSchoolClasses(),
-        apiService.getSubjects(),
-        apiService.getAllStaff(user.branchId as string),
-        apiService.getFeeTemplates(),
-      ]);
-    setClasses(
-      classesData.sort(
-        (a: SchoolClass, b: SchoolClass) =>
-          a.gradeLevel - b.gradeLevel || a.section.localeCompare(b.section)
-      )
-    );
-    setSubjects(subjectsData);
-    setTeachers(allStaff.filter((s: User) => s.role === "Teacher"));
-    setFeeTemplates(feeTemplatesData);
-    setLoading(false);
+    try {
+      // FIX 1: Fetch all necessary data in parallel for maximum efficiency.
+      const [classesData, subjectsData, allStaff, feeTemplatesData] =
+        await Promise.all([
+          apiService.getSchoolClasses(),
+          apiService.getSubjects(),
+          apiService.getAllStaff(), // Assuming this method exists and fetches all staff for the branch
+          apiService.getFeeTemplates(),
+        ]);
+
+      // FIX 2: Enrich the class data right after fetching.
+      const enrichedClasses = classesData.map((sClass: any) => ({
+        ...sClass,
+        mentorName:
+          allStaff.find((t: User) => t.id === sClass.mentorId)?.name || "N/A",
+        feeTemplateName:
+          feeTemplatesData.find((ft) => ft.id === sClass.feeTemplateId)?.name ||
+          "Unassigned",
+        studentCount: sClass._count?.students ?? 0, // Safely access the student count provided by the backend
+      }));
+
+      setClasses(
+        enrichedClasses.sort(
+          (a, b) =>
+            a.gradeLevel - b.gradeLevel || a.section.localeCompare(b.section)
+        )
+      );
+      setSubjects(subjectsData);
+      setTeachers(allStaff.filter((s: User) => s.role === "Teacher"));
+      setFeeTemplates(feeTemplatesData);
+    } catch (error) {
+      console.error("Failed to fetch class management data:", error);
+    } finally {
+      setLoading(false);
+    }
   }, [user, refreshKey]);
+
 
   useEffect(() => {
     fetchData();
@@ -788,17 +814,39 @@ const ClassManagement: React.FC = () => {
     setSelectedClass(null);
     triggerRefresh();
   };
+ const handleSaveAndClose = () => {
+   setModal(null);
+   setSelectedClass(null);
+   triggerRefresh(); // Refresh all data from the server
+ };
 
   const handleViewDetails = async (sClass: SchoolClass) => {
-    alert("Viewing class details is not yet implemented in the API service.");
+    setLoading(true);
+    try {
+      // FIX 3: Implement the "View Details" feature.
+      const details = await apiService.getClassDetails(sClass.id); // Assuming service method exists
+      setClassDetails(details);
+      setSelectedClass(sClass as EnrichedSchoolClass);
+      setModal("view_details");
+    } catch (error) {
+      console.error("Failed to fetch class details:", error);
+      alert("Could not load class details.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDelete = async () => {
-    if (!deletingClass) return;
-    await apiService.deleteSchoolClass(deletingClass.id);
-    setDeletingClass(null);
-    triggerRefresh();
-  };
+   const handleDelete = async () => {
+     if (!deletingClass) return;
+     try {
+       await apiService.deleteSchoolClass(deletingClass.id);
+       handleSaveAndClose(); // Reuse for cleanup and refresh
+     } catch (error: any) {
+       alert(error.response?.data?.message || "Failed to delete class.");
+     } finally {
+       setDeletingClass(null);
+     }
+   };
 
   const getMentorName = (teacherId?: string) =>
     teachers.find((t) => t.id === teacherId)?.name || (
