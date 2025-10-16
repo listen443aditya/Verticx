@@ -100,7 +100,7 @@ const AdmitStudentModal: React.FC<{
           undefined,
       };
       const { credentials } = await apiService.admitStudent(payload);
-      onSave(credentials);
+      onSave(credentials); 
     } catch (err) {
       console.error("Failed to admit student:", err);
       alert("Failed to admit student.");
