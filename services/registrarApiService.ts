@@ -77,12 +77,11 @@ export class RegistrarApiService {
     await baseApi.post("/registrar/faculty/applications", data);
   }
 
-  async admitStudent(
-    studentData: Partial<Student>
-  ): Promise<{ credentials: { id: string; password: string } }> {
-    const { data } = await baseApi.post("/registrar/admissions/admit-student", {
-      studentData,
-    });
+  async admitStudent(studentData: Partial<Student>): Promise<any> {
+    const { data } = await baseApi.post(
+      "/registrar/admissions/admit-student",
+      studentData // Remove the curly braces to send the data directly
+    );
     return data;
   }
 
