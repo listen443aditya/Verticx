@@ -196,27 +196,87 @@ export const SchoolProfile: React.FC = () => {
   }, [isVerified, fetchProfileData]);
 
   const handleRequestOtp = async () => {
-    /* No changes needed */
+    setVerifying(true);
+    setVerificationError("");
+
+    try {
+      // FIX: Changed to match the method name in your API service
+      await apiService.requestProfileAccessOtp();
+
+      setOtpSent(true);
+    } catch (error: any) {
+      console.error("Failed to request OTP:", error);
+      setVerificationError(
+        error.message || "Failed to send OTP. Please try again."
+      );
+    } finally {
+      setVerifying(false);
+    }
   };
+
   const handleVerifyOtp = async (e: React.FormEvent) => {
-    /* No changes needed */
+    e.preventDefault();
+    setVerifying(true);
+    setVerificationError("");
+
+    try {
+      // FIX: Changed to match the method name in your API service
+      const isSuccess = await apiService.verifyProfileAccessOtp(otp);
+
+      if (isSuccess) {
+        setIsVerified(true);
+        if (user) {
+          sessionStorage.setItem(`profileAccessVerified_${user.id}`, "true");
+        }
+      } else {
+        // Handle the case where the API returns false for an incorrect OTP
+        throw new Error("Invalid or expired OTP.");
+      }
+    } catch (error: any) {
+      console.error("Failed to verify OTP:", error);
+      setVerificationError(error.message || "Invalid or expired OTP.");
+      setOtp("");
+    } finally {
+      setVerifying(false);
+    }
   };
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-  const handleFeatureToggle = (key: string) => {
-    /* No changes needed */
-  };
-  const handlePhotoUpload = (field: keyof typeof formData, url: string) => {
-    /* No changes needed */
-  };
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    /* No changes needed */
-  };
-  const handleVisibilityToggle = (field: keyof typeof visibilities) => {
-    /* No changes needed */
-  };
+ const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+   const { name, value } = e.target;
+   setFormData((prev) => ({ ...prev, [name]: value }));
+ };
+
+ const handleFeatureToggle = (key: string) => {
+   setFormData((prev) => ({
+     ...prev,
+     enabledFeatures: {
+       ...prev.enabledFeatures,
+       // Flip the boolean value for the specific feature key
+       [key]: !prev.enabledFeatures[key],
+     },
+   }));
+ };
+
+ const handlePhotoUpload = (field: keyof typeof formData, url: string) => {
+   // Update the specific photo URL field in the form data
+   setFormData((prev) => ({
+     ...prev,
+     [field]: url,
+   }));
+ };
+
+ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+   const { name, value } = e.target;
+   // Update the separate state object for password changes
+   setPasswordData((prev) => ({ ...prev, [name]: value }));
+ };
+
+ const handleVisibilityToggle = (field: keyof typeof visibilities) => {
+   // Flip the boolean value for the specific field to show/hide it
+   setVisibilities((prev) => ({
+     ...prev,
+     [field]: !prev[field],
+   }));
+ };
 
   const handleProfileSave = async (e: React.FormEvent) => {
     e.preventDefault();
