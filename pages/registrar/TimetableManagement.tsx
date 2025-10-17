@@ -273,7 +273,7 @@ const TimetableManagement: React.FC = () => {
     const [cls, sub, staff] = await Promise.all([
       apiService.getSchoolClasses(),
       apiService.getSubjects(),
-      apiService.getAllStaff(user.branchId as string), // FIX: Provided branchId argument.
+      apiService.getAllStaff(), // FIX: Provided branchId argument.
     ]);
     // FIX: Added explicit types for sort parameters.
     setClasses(
