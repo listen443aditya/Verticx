@@ -38,14 +38,14 @@ import type {
 } from "../types.ts";
 
 export class TeacherApiService {
-  // --- Dashboard & Core Info ---
-  // FIX: Added teacherId based on mandatory ID requirement.
+
+  
   async getTeacherDashboardData(
-    teacherId: string
+    //teacherId: string
   ): Promise<TeacherDashboardData> {
     const { data } = await baseApi.get<TeacherDashboardData>(
       "/teacher/dashboard",
-      { params: { teacherId } }
+      //{ params: { teacherId } }
     );
     return data;
   }
@@ -456,6 +456,13 @@ export class TeacherApiService {
     return data;
   }
 
+  async getMyTransportDetails(): Promise<{
+    route: TransportRoute;
+    stop: BusStop;
+  } | null> {
+    const { data } = await baseApi.get("/teacher/my-transport-details");
+    return data;
+  }
   // NEW: Added missing function. This logically belongs in RegistrarApiService.
   async getTransportDetailsForMember(
     memberId: string,
