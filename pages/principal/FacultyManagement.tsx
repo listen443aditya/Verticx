@@ -75,16 +75,18 @@ const AddStaffModal: React.FC<{
     setIsSaving(true);
     try {
       // FIX: createStaffMember now only takes one argument. The branchId is inferred by the backend.
-      const result = await principalApiService.createStaffMember({
+      const result: any = await principalApiService.createStaffMember({
         name,
         email,
         phone,
         role,
         salary: Number(salary),
       });
+      const cred = result?.credentials || {};
+      const id = cred.userId ?? cred.username ?? cred.id;
       onSave({
-        id: result.credentials.username,
-        password: result.credentials.password,
+        id,
+        password: cred.password,
       });
     } catch (error) {
       console.error("Failed to create staff member:", error);
@@ -242,23 +244,16 @@ const FacultyManagement: React.FC = () => {
     if (!approvingApp || !user) return;
     setIsActionLoading(true);
     try {
-      // Define expected API response type
-      interface ApproveFacultyResponse {
-        credentials: {
-          username: string;
-          password: string;
-        };
-      }
-
-      const result = (await principalApiService.approveFacultyApplication(
+      const result: any = await principalApiService.approveFacultyApplication(
         approvingApp.id,
         salary
-      )) as ApproveFacultyResponse;
+      );
 
-      // Now result is typed and recognized
+      const cred = result?.credentials || {};
+      const id = cred.userId ?? cred.username ?? cred.id;
       setNewCredentials({
-        id: result.credentials.username,
-        password: result.credentials.password,
+        id,
+        password: cred.password,
       });
       setApprovingApp(null);
       triggerRefresh();
@@ -331,7 +326,7 @@ const FacultyManagement: React.FC = () => {
   };
 
   const pendingApplications = useMemo(
-    () => applications.filter((a) => a.status === "pending"),
+    () => applications.filter((a) => a.status === "Pending"),
     [applications]
   );
 

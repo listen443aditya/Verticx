@@ -439,7 +439,7 @@ export interface FacultyApplication {
   email?: string;
   phone?: string;
   subjectIds: string[];
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'Pending' | 'approved' | 'rejected';
   submittedAt: Date;
   submittedBy: string; // Registrar name
   reviewedBy?: string; // Principal name
