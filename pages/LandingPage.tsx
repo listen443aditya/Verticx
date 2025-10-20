@@ -734,7 +734,7 @@ const AboutUsSection: React.FC = () => (
           />
           <h4 className="font-bold">Aditya Kumar Singh</h4>
           <p className="text-sm text-text-secondary-dark">
-            adityakumarsingh7242191@gmail.com
+            listen443.aditya@gmail.com
           </p>
         </div>
       </div>
@@ -844,7 +844,7 @@ const ContactSection: React.FC = () => {
           <div className="mt-8 space-y-4">
             <p className="flex items-center text-text-secondary-dark">
               <MailIcon className="w-5 h-5 mr-3 text-brand-primary" />{" "}
-              adityakumarsingh7242191@gmail.com
+              listen443.aditya@gmail.com
             </p>
             <p className="flex items-center text-text-secondary-dark">
               <PhoneIcon className="w-5 h-5 mr-3 text-brand-primary" /> +91 9801537137
