@@ -21,6 +21,7 @@ import type {
   TeacherComplaint,
   Student,
 } from "../../types.ts";
+
 import {
   ResponsiveContainer,
   BarChart,
@@ -34,12 +35,14 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
+
 import {
   BellIcon,
   UploadCloudIcon,
   TransportIcon,
   HostelIcon,
 } from "../../components/icons/Icons.tsx";
+
 import { useNavigate } from "react-router-dom";
 import TimetableModal from "../../components/modals/TimetableModal.tsx";
 import StudentComplaintModal from "../../components/modals/StudentComplaintModal.tsx";
@@ -95,11 +98,8 @@ const StudentDashboard: React.FC = () => {
         result.branch.principalId
           ? sharedApiService.getUserById(result.branch.principalId)
           : Promise.resolve(null),
-        (registrarService as any).getTransportDetailsForMember(
-          user.id,
-          "Student"
-        ),
-        (registrarService as any).getAccommodationDetailsForStudent(user.id),
+        (StudentApiService as any).getMyTransportDetails(), // <--- FIX
+        (StudentApiService as any).getMyAccommodationDetails(),
         (sharedApiService as any).getSubjectsByBranch(branchId),
         (sharedApiService as any).getTeachersByBranch(branchId),
       ]);

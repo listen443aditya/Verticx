@@ -20,6 +20,7 @@ import type {
   Hostel,
   Room,
   FeeRecord,
+  BusStop,
   AttendanceRecord,
   InventoryItem,
   InventoryLog,
@@ -761,6 +762,16 @@ export class RegistrarApiService {
       `/registrar/transport/routes/${routeId}/remove-member/${memberId}`
     );
   }
+  async getTransportDetailsForMember(
+    memberId: string,
+    memberType: "Teacher" | "Student"
+  ): Promise<{ route: TransportRoute; stop: BusStop } | null> {
+    const { data } = await baseApi.get(`/registrar/transport/member-details`, {
+      params: { memberId, memberType },
+    });
+    return data;
+  }
+
   async getClassDetails(classId: string): Promise<ClassDetails> {
     try {
       // This endpoint must return data matching your ClassDetails interface

@@ -463,16 +463,6 @@ export class TeacherApiService {
     const { data } = await baseApi.get("/teacher/my-transport-details");
     return data;
   }
-  // NEW: Added missing function. This logically belongs in RegistrarApiService.
-  async getTransportDetailsForMember(
-    memberId: string,
-    memberType: "Teacher" | "Student"
-  ): Promise<{ route: TransportRoute; stop: BusStop } | null> {
-    const { data } = await baseApi.get(`/registrar/transport/member-details`, {
-      params: { memberId, memberType },
-    });
-    return data;
-  }
 
   // FIX: Added branchId based on mandatory ID requirement.
   async searchLibraryBooks(

@@ -19,11 +19,13 @@ import type {
   LeaveApplication,
   LibraryBook,
   Assignment,
+  TransportRoute,
+  BusStop,
 } from "../types.ts";
 
 export class StudentApiService {
   getTeachersByBranch(branchId: string): any {
-      throw new Error('Method not implemented.');
+    throw new Error("Method not implemented.");
   }
   // --- Dashboard & Profile ---
   async getStudentDashboardData(): Promise<StudentDashboardData> {
@@ -142,13 +144,20 @@ export class StudentApiService {
   }
 
   // --- Feedback & Complaints ---
-  async getStudentFeedbackHistory(id:string): Promise<TeacherFeedback[]> {
+  async getStudentFeedbackHistory(id: string): Promise<TeacherFeedback[]> {
     const { data } = await baseApi.get<TeacherFeedback[]>(
       `/student/feedback/history/${id}`
     );
     return data;
   }
-
+  async getMyTransportDetails(): Promise<{
+    route: TransportRoute;
+    stop: BusStop;
+  } | null> {
+    // This calls your new, secure backend route
+    const { data } = await baseApi.get("/student/my-transport-details");
+    return data;
+  }
   async submitTeacherFeedback(
     feedbackData: Omit<TeacherFeedback, "id" | "feedbackDate">
   ): Promise<void> {
