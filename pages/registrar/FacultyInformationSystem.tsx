@@ -297,7 +297,7 @@ const FacultyInformationSystem: React.FC = () => {
     setLoading(true);
     const [allStaff, staffData, applicationData, subjectData] =
       await Promise.all([
-        apiService.getAllStaff(user.branchId as string), // FIX: Provided branchId argument.
+        apiService.getAllStaff(), // FIX: Provided branchId argument.
         apiService.getSupportStaff(),
         apiService.getFacultyApplications(),
         apiService.getSubjects(),
@@ -572,7 +572,12 @@ const FacultyInformationSystem: React.FC = () => {
                       <td className="p-4">
                         <span
                           className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChip(
-                            app.status
+                            app.status.toLowerCase() as
+                              | "active"
+                              | "suspended"
+                              | "pending"
+                              | "approved"
+                              | "rejected"
                           )}`}
                         >
                           {app.status}
