@@ -197,10 +197,13 @@ export class RegistrarApiService {
   }
 
   // --- Faculty & Staff Information System ---
-  async getAllStaff(): Promise<(User & { attendancePercentage?: number })[]> {
+  async getAllStaff(): Promise<
+    (User & Teacher & { attendancePercentage?: number })[]
+  > {
+    // Ensure it calls '/registrar/staff/all'
     const { data } = await baseApi.get<
-      (User & { attendancePercentage?: number })[]
-    >("/registrar/staff/support");
+      (User & Teacher & { attendancePercentage?: number })[] // Update the expected return type
+    >("/registrar/staff/all");
     return data;
   }
 
