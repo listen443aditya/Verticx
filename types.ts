@@ -7,6 +7,7 @@ export type UserRole = 'Admin' | 'Principal' | 'Registrar' | 'Teacher' | 'Studen
 
 export interface User {
   id: string;
+  userId: string;
   name: string;
   email: string;
   role: UserRole;
@@ -27,7 +28,7 @@ export interface User {
   };
   salary?: number;
   teacher?: Teacher | null;
-  userID?: string; // For teachers linking to User
+  // userID?: string; // For teachers linking to User
 }
 
 export interface Parent {
