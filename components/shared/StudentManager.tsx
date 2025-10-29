@@ -616,7 +616,8 @@ const StudentManager: React.FC = () => {
   const handleViewStudent = async (studentId: string) => {
     setDetailsLoading(true);
     // @ts-ignore - Assuming getStudentProfileDetails exists on both services
-    const profile = await apiService.getStudentProfileDetails(studentId);
+const profile = (await apiService.getStudentProfileDetails(studentId)) || {};
+// setProfile(profile);
     setViewingStudent(profile);
     setDetailsLoading(false);
   };
