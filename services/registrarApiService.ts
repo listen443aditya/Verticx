@@ -38,6 +38,7 @@ import type {
   AttendanceListItem,
   FacultyApplication,
   ClassDetails,
+  StudentProfile,
   FeeRectificationRequest,
 } from "../types";
 
@@ -94,6 +95,23 @@ export class RegistrarApiService {
       params: { branchId },
     });
     return data;
+  }
+
+  // Add this method inside your RegistrarApiService class
+
+  async getStudentProfileDetails(studentId: string): Promise<StudentProfile> {
+    try {
+      const response = await baseApi.get<StudentProfile>(
+        `/registrar/students/${studentId}/profile` // Assumed backend endpoint
+      );
+      return response.data;
+    } catch (error) {
+      console.error(
+        `Failed to fetch profile for student ID ${studentId}:`,
+        error
+      );
+      throw new Error("Could not retrieve student profile details."); // Re-throw for component
+    }
   }
 
   async getStudentsByGrade(gradeLevel: number): Promise<Student[]> {
