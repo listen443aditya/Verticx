@@ -27,7 +27,7 @@ export interface User {
   };
   salary?: number;
   teacher?: Teacher | null;
-  userID?: string; // For teachers linking to User
+  // userID?: string; // For teachers linking to User
 }
 
 export interface Parent {
