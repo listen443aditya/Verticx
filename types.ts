@@ -982,6 +982,7 @@ export interface StudentProfile {
   student: Student;
   grades: GradeWithCourse[];
   parent?: User | null;
+  studentUser?: User | null;
   attendance: { present: number; absent: number; total: number };
   attendanceHistory: AttendanceRecord[];
   classInfo: string;
