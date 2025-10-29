@@ -33,6 +33,7 @@ export interface User {
 
 export interface Parent {
   id: string;
+  userId: string;
   name: string;
   childrenIds: string[];
 }
@@ -66,6 +67,7 @@ export interface Teacher {
 export interface Student {
   id: string;
   branchId: string;
+  userId: string;
   name: string;
   gradeLevel: number;
   parentId: string;

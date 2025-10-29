@@ -406,7 +406,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                           Student User ID:
                         </span>
                         <span className="font-mono bg-slate-100 p-1 rounded">
-                          {student.id}
+                          {student.userId || student.id}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
