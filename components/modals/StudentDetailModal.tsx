@@ -234,15 +234,16 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 }) => {
   const {
     student,
-    grades,
-    attendance,
-    attendanceHistory,
-    classInfo,
-    feeStatus,
-    feeHistory,
-    rank,
-    skills,
-  } = profile;
+    grades = [], // Default to empty array
+    attendance, // Keep as is, it's an object now
+    attendanceHistory = [], // Default to empty array
+    classInfo, // Keep as is, it's a string
+    feeStatus, // Keep as is, it's an object
+    feeHistory = [], // Default to empty array
+    rank = { class: "N/A", school: "N/A" }, // Default rank object
+    skills = [], // Default to empty array
+  } = profile || {};
+
   const { user } = useAuth();
   const [confirmReset, setConfirmReset] = useState(false);
   const [activeTab, setActiveTab] = useState<
@@ -257,16 +258,17 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     }
   };
 
-  const performanceData = grades.map((g) => ({
-    name:
-      g.courseName.length > 15
-        ? g.courseName.substring(0, 15) + "..."
-        : g.courseName,
-    Score: g.score,
-  }));
+ const performanceData = (grades || []).map((g) => ({
+   // Add || [] here too
+   name:
+     g.courseName.length > 15
+       ? g.courseName.substring(0, 15) + "..."
+       : g.courseName,
+   Score: g.score,
+ }));
 
   const attendancePercentage =
-    attendance.total > 0
+    attendance?.total > 0 // Use optional chaining (?.)
       ? ((attendance.present / attendance.total) * 100).toFixed(1)
       : "100.0";
 
@@ -517,7 +519,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
           )}
           {activeTab === "attendance" && (
             <Card>
-              <AttendanceCalendar records={attendanceHistory} />
+              <AttendanceCalendar records={attendanceHistory || []} />
             </Card>
           )}
           {activeTab === "fees" && user?.role !== "Teacher" && (
@@ -562,7 +564,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 <h3 className="text-lg font-semibold mb-3">
                   Payment & Adjustment History
                 </h3>
-                <FeeHistoryTable history={feeHistory} />
+                <FeeHistoryTable history={feeHistory || []} />
               </Card>
             </div>
           )}
