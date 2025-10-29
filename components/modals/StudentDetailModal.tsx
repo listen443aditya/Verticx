@@ -379,19 +379,19 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       <span className="font-medium text-text-secondary-dark">
                         Guardian:
                       </span>{" "}
-                      <span>{student.guardianInfo.name}</span>
+                      <span>{profile.parent?.name}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="font-medium text-text-secondary-dark">
                         Guardian Phone:
                       </span>{" "}
-                      <span>{student.guardianInfo.phone}</span>
+                      <span>{profile.parent?.phone}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="font-medium text-text-secondary-dark">
                         Guardian Email:
                       </span>{" "}
-                      <span>{student.guardianInfo.email}</span>
+                      <span>{profile.parent?.email}</span>
                     </div>
                   </div>
                 </Card>

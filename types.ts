@@ -977,20 +977,21 @@ export interface AuditLog {
 
 // For modals and detailed views
 export interface StudentProfile {
-    student: Student;
-    grades: GradeWithCourse[];
-    attendance: { present: number; absent: number; total: number; };
-    attendanceHistory: AttendanceRecord[];
-    classInfo: string;
-    feeStatus: { 
-        total: number; 
-        paid: number; 
-        dueDate?: Date; 
-    };
-    feeHistory: FeeHistoryItem[];
-    rank: { class: number; school: number; };
-    skills: { skill: string; value: number }[];
-    recentActivity: { date: string; activity: string }[];
+  student: Student;
+  grades: GradeWithCourse[];
+  parent?: User | null;
+  attendance: { present: number; absent: number; total: number };
+  attendanceHistory: AttendanceRecord[];
+  classInfo: string;
+  feeStatus: {
+    total: number;
+    paid: number;
+    dueDate?: Date;
+  };
+  feeHistory: FeeHistoryItem[];
+  rank: { class: number; school: number };
+  skills: { skill: string; value: number }[];
+  recentActivity: { date: string; activity: string }[];
 }
 
 export interface TeacherProfile {
