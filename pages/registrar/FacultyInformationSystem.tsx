@@ -511,7 +511,7 @@ const FacultyInformationSystem: React.FC = () => {
                   {supportStaff.map((s) => (
                     <tr key={s.id} className="border-b">
                       <td className="p-4 font-medium">{s.name}</td>
-                      <td className="p-4 font-mono text-xs">{s.id}</td>
+                      <td className="p-4 font-mono text-xs">{s.userId}</td>
                       <td className="p-4">{s.designation}</td>
                       <td className="p-4 text-xs">
                         {s.email}
