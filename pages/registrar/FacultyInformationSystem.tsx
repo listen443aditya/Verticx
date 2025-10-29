@@ -522,13 +522,29 @@ const FacultyInformationSystem: React.FC = () => {
                         {s.salary?.toLocaleString()}
                       </td>
                       <td className="p-4">
-                        <span
-                          className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChip(
-                            s.status
-                          )}`}
-                        >
-                          {s.status}
-                        </span>
+                        {/* Check if status exists before trying to display it */}
+                        {s.status ? (
+                          <span
+                            className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChip(
+                              // Use lowercase and assert the type for the chip function
+                              s.status.toLowerCase() as
+                                | "active"
+                                | "suspended"
+                                | "pending"
+                                | "approved"
+                                | "rejected"
+                            )}`}
+                          >
+                            {/* Display status nicely (e.g., "Active" instead of "active") */}
+                            {s.status.charAt(0).toUpperCase() +
+                              s.status.slice(1)}
+                          </span>
+                        ) : (
+                          // Provide a fallback if status is null or undefined
+                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-800">
+                            Unknown
+                          </span>
+                        )}
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex gap-2 justify-end">
