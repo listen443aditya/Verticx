@@ -267,8 +267,8 @@ const FacultyInformationSystem: React.FC = () => {
   const { user } = useAuth();
   const { refreshKey, triggerRefresh } = useDataRefresh();
   // FIX: Changed state to be a combined type that includes properties from both User and Teacher.
-//  const [teachers, setTeachers] = useState<(User & Teacher)[]>([]);
-const [teachers, setTeachers] = useState<User[]>([]);
+  //  const [teachers, setTeachers] = useState<(User & Teacher)[]>([]);
+  const [teachers, setTeachers] = useState<User[]>([]);
   const [supportStaff, setSupportStaff] = useState<User[]>([]);
   const [applications, setApplications] = useState<FacultyApplication[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -308,7 +308,7 @@ const [teachers, setTeachers] = useState<User[]>([]);
       ]);
     // FIX: Filter for teachers and cast to the combined (User & Teacher) type.
     // setTeachers(
-      // allStaff.filter((t: User) => t.role === "Teacher") as (User & Teacher)[]
+    // allStaff.filter((t: User) => t.role === "Teacher") as (User & Teacher)[]
     // );
     setTeachers(allStaff.filter((u: User) => u.role === "Teacher"));
     setSupportStaff(staffData);
@@ -450,7 +450,7 @@ const [teachers, setTeachers] = useState<User[]>([]);
                   {teachers.map((t) => (
                     <tr key={t.id} className="border-b">
                       <td className="p-4 font-medium">{t.name}</td>
-                      <td className="p-4 font-mono text-xs">{t.id}</td>
+                      <td className="p-4 font-mono text-xs">{t.userID}</td>
                       <td className="p-4">{t.teacher?.qualification}</td>
                       <td className="p-4 text-sm">
                         {t.teacher?.subjectIds
