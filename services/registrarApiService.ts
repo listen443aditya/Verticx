@@ -102,7 +102,7 @@ export class RegistrarApiService {
   async getStudentProfileDetails(studentId: string): Promise<StudentProfile> {
     try {
       const response = await baseApi.get<StudentProfile>(
-        `/registrar/students/${studentId}/profile` // Assumed backend endpoint
+        `/registrar/students/${studentId}/profile`
       );
       return response.data;
     } catch (error) {
@@ -110,7 +110,7 @@ export class RegistrarApiService {
         `Failed to fetch profile for student ID ${studentId}:`,
         error
       );
-      throw new Error("Could not retrieve student profile details."); // Re-throw for component
+      throw new Error("Could not retrieve student profile details.");
     }
   }
 
