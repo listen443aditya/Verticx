@@ -267,7 +267,8 @@ const FacultyInformationSystem: React.FC = () => {
   const { user } = useAuth();
   const { refreshKey, triggerRefresh } = useDataRefresh();
   // FIX: Changed state to be a combined type that includes properties from both User and Teacher.
-  const [teachers, setTeachers] = useState<(User & Teacher)[]>([]);
+//  const [teachers, setTeachers] = useState<(User & Teacher)[]>([]);
+const [teachers, setTeachers] = useState<User[]>([]);
   const [supportStaff, setSupportStaff] = useState<User[]>([]);
   const [applications, setApplications] = useState<FacultyApplication[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -282,7 +283,10 @@ const FacultyInformationSystem: React.FC = () => {
     "addStaff" | "editStaff" | "editTeacher" | null
   >(null);
   const [selectedStaff, setSelectedStaff] = useState<User | null>(null);
-  const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
+  // const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
+  const [selectedUserForEdit, setSelectedUserForEdit] = useState<User | null>(
+    null
+  );
   const [deletingStaff, setDeletingStaff] = useState<User | null>(null);
   const [resettingPasswordFor, setResettingPasswordFor] = useState<User | null>(
     null
@@ -303,9 +307,10 @@ const FacultyInformationSystem: React.FC = () => {
         apiService.getSubjects(),
       ]);
     // FIX: Filter for teachers and cast to the combined (User & Teacher) type.
-    setTeachers(
-      allStaff.filter((t: User) => t.role === "Teacher") as (User & Teacher)[]
-    );
+    // setTeachers(
+      // allStaff.filter((t: User) => t.role === "Teacher") as (User & Teacher)[]
+    // );
+    setTeachers(allStaff.filter((u: User) => u.role === "Teacher"));
     setSupportStaff(staffData);
     // FIX: Added explicit types to sort parameters.
     setApplications(
@@ -325,7 +330,7 @@ const FacultyInformationSystem: React.FC = () => {
   const handleSave = (credentials?: { id: string; password: string }) => {
     setModal(null);
     setSelectedStaff(null);
-    setSelectedTeacher(null);
+    setSelectedUserForEdit(null);
     if (credentials) {
       setNewCredentials(credentials);
     }
@@ -446,9 +451,9 @@ const FacultyInformationSystem: React.FC = () => {
                     <tr key={t.id} className="border-b">
                       <td className="p-4 font-medium">{t.name}</td>
                       <td className="p-4 font-mono text-xs">{t.id}</td>
-                      <td className="p-4">{t.qualification}</td>
+                      <td className="p-4">{t.teacher?.qualification}</td>
                       <td className="p-4 text-sm">
-                        {t.subjectIds
+                        {t.teacher?.subjectIds
                           .map((id) => subjects.find((s) => s.id === id)?.name)
                           .join(", ")}
                       </td>
@@ -467,7 +472,7 @@ const FacultyInformationSystem: React.FC = () => {
                             variant="secondary"
                             className="!px-2 !py-1 text-xs"
                             onClick={() => {
-                              setSelectedTeacher(t);
+                              setSelectedUserForEdit(t);
                               setModal("editTeacher");
                             }}
                           >
@@ -592,9 +597,9 @@ const FacultyInformationSystem: React.FC = () => {
         )}
       </Card>
 
-      {modal === "editTeacher" && selectedTeacher && (
+      {modal === "editTeacher" && selectedUserForEdit?.teacher && (
         <EditTeacherModal
-          teacher={selectedTeacher}
+          teacher={selectedUserForEdit.teacher}
           allSubjects={subjects}
           onClose={() => setModal(null)}
           onSave={handleSave}

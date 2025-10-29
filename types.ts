@@ -12,7 +12,7 @@ export interface User {
   role: UserRole;
   password?: string;
   branchId?: string;
-  status?: 'active' | 'suspended';
+  status?: "active" | "suspended";
   // FIX: Added optional phone property to align with mock data and usage.
   phone?: string;
   designation?: string; // For non-teaching staff
@@ -26,6 +26,7 @@ export interface User {
     casual: number;
   };
   salary?: number;
+  teacher?: Teacher | null;
 }
 
 export interface Parent {
@@ -36,21 +37,22 @@ export interface Parent {
 
 export interface Teacher {
   id: string;
+  userId: string;
   branchId: string;
   name: string;
   subjectIds: string[];
   qualification: string;
   doj: string; // Date of joining
-  gender: 'Male' | 'Female' | 'Other';
+  gender: "Male" | "Female" | "Other";
   email: string;
   phone?: string;
-  status: 'active' | 'suspended';
+  status: "active" | "suspended";
   salary?: number;
   complaintCount?: number;
   rectificationRequestCount?: number;
   transportInfo?: {
-      routeId: string;
-      stopId: string;
+    routeId: string;
+    stopId: string;
   };
   leaveBalances: {
     sick: number;
