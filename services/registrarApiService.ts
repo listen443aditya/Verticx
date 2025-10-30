@@ -806,6 +806,18 @@ export class RegistrarApiService {
     return data;
   }
 
+  async getUserById(userId: string): Promise<User> {
+    try {
+      const { data } = await baseApi.get<User>(
+        `/registrar/user-details/${userId}`
+      );
+      return data;
+    } catch (error) {
+      console.error(`Failed to fetch user details for ID ${userId}:`, error);
+      throw new Error("Could not retrieve user details.");
+    }
+  }
+
   async getClassDetails(classId: string): Promise<ClassDetails> {
     try {
       // This endpoint must return data matching your ClassDetails interface
@@ -821,3 +833,5 @@ export class RegistrarApiService {
     }
   }
 }
+
+

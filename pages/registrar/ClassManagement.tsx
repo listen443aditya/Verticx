@@ -296,6 +296,7 @@ const EditSubjectModal: React.FC<{
   );
 };
 
+
 const ManageSubjectsModal: React.FC<{
   schoolClass: SchoolClass;
   allSubjects: Subject[];

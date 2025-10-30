@@ -70,7 +70,7 @@ const RegistrarDashboard: React.FC = () => {
       setData(result);
       setBranch(branchData);
       if (branchData?.principalId) {
-        const principalData = await sharedApiService.getUserById(
+        const principalData = await apiService.getUserById(
           branchData.principalId
         );
         setPrincipal(principalData || null);
