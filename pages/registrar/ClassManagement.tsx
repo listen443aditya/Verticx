@@ -393,11 +393,13 @@ const ManageStudentsModal: React.FC<{
     const allBranchStudents = await (apiService as any).getStudentsByBranch(
       user.branchId
     );
+    const enrolled = allBranchStudents.filter(
+      (s: Student) => s.classId === schoolClass.id
+    );
+
+    // 3. Unassigned students are those with no classId AND a matching grade level
     const unassigned = allBranchStudents.filter(
       (s: Student) => !s.classId && s.gradeLevel === schoolClass.gradeLevel
-    );
-    const enrolled = allBranchStudents.filter((s: Student) =>
-      schoolClass.studentIds.includes(s.id)
     );
     setUnassignedStudents(unassigned);
     setEnrolledStudents(enrolled);

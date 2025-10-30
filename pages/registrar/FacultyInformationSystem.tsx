@@ -342,7 +342,6 @@ const FacultyInformationSystem: React.FC = () => {
   const handleResetPassword = async (staff: User) => {
     setResettingPasswordFor(staff);
     try {
-      // Uncomment the API call and use sharedApiService
       const { userId, newPassword } = await sharedApiService.resetUserPassword(
         staff.id
       );
