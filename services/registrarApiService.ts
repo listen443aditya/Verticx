@@ -149,7 +149,7 @@ export class RegistrarApiService {
     studentId: string,
     updates: Partial<Student>
   ): Promise<void> {
-    await baseApi.put(`/registrar/students/${studentId}`, updates);
+    await baseApi.patch(`/registrar/students/${studentId}`, updates);
   }
 
   async deleteStudent(studentId: string): Promise<void> {
