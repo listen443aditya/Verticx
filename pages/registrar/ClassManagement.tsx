@@ -399,9 +399,11 @@ const ManageStudentsModal: React.FC<{
     );
 
     // 3. Unassigned students are those with no classId AND a matching grade level
-    const unassigned = allBranchStudents.filter(
-      (s: Student) => !s.classId && s.gradeLevel === schoolClass.gradeLevel
-    );
+    // const unassigned = allBranchStudents.filter(
+    //   (s: Student) => !s.classId
+    // );
+
+    const unassigned = allBranchStudents.filter((s: Student) => !s.classId);
     setUnassignedStudents(unassigned);
     setEnrolledStudents(enrolled);
     setLoading(false);
