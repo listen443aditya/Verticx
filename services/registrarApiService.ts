@@ -90,10 +90,23 @@ export class RegistrarApiService {
   }
 
   // --- Student Information System ---
-  async getStudentsByBranch(branchId: string): Promise<Student[]> {
-    const { data } = await baseApi.get<Student[]>("/registrar/students", {
-      params: { branchId },
-    });
+  async getStudentsByBranch(
+    branchId: string,
+    config: any = {}
+  ): Promise<Student[]> {
+    // Merge the required branchId param with any extra config (like cache-busting)
+    const options = {
+      ...config,
+      params: {
+        ...config.params,
+        branchId,
+      },
+    };
+
+    const { data } = await baseApi.get<Student[]>(
+      "/registrar/students",
+      options
+    );
     return data;
   }
 

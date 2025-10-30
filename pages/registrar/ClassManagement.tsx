@@ -390,9 +390,10 @@ const ManageStudentsModal: React.FC<{
     setLoading(true);
     // The user variable is now defined in this scope.
     // NOTE: If you get an error here, it means `getStudentsByBranch` needs to be added to your RegistrarApiService.
-    const allBranchStudents = await (apiService as any).getStudentsByBranch(
-      user.branchId
-    );
+    const fetchStudents = (apiService as any).getStudentsByBranch;
+    const allBranchStudents = await fetchStudents(user.branchId, {
+      params: { _cacheBust: Date.now() },
+    });
     const enrolled = allBranchStudents.filter(
       (s: Student) => s.classId === schoolClass.id
     );
