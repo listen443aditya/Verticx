@@ -243,7 +243,7 @@ const EditSubjectModal: React.FC<{
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    await onSave({ name, teacherId: teacherId || undefined });
+    await onSave({ name, teacherId: teacherId});
     setIsSaving(false);
   };
 
