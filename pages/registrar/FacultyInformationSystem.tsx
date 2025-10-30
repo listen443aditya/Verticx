@@ -342,14 +342,16 @@ const FacultyInformationSystem: React.FC = () => {
   const handleResetPassword = async (staff: User) => {
     setResettingPasswordFor(staff);
     try {
-      // This assumes a method like `resetUserPassword` exists on sharedApiService.
-      // const { newPassword } = await sharedApiService.resetUserPassword(staff.id);
-      // setNewCredentials({ id: staff.id, password: newPassword });
-      alert(
-        `Password reset functionality is not fully implemented. Would reset for ${staff.name}.`
+      // Uncomment the API call and use sharedApiService
+      const { userId, newPassword } = await sharedApiService.resetUserPassword(
+        staff.id
       );
+
+      // Set the credentials for the modal
+      setNewCredentials({ id: userId, password: newPassword });
     } catch (error) {
       console.error("Failed to reset password", error);
+      alert("Failed to reset password. Please try again.");
     }
     setResettingPasswordFor(null);
   };

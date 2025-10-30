@@ -99,16 +99,20 @@ export class SharedApiService {
 
   // ... The rest of the file is unchanged ...
 
-  async resetUserPassword(userId: string): Promise<{ newPassword: string }> {
-    const { data } = await baseApi.post(`/users/${userId}/reset-password`);
-    return data;
-  }
-
-  async getUserById(userId: string): Promise<User> {
-    const { data } = await baseApi.get<User>(
-      `/registrar/user-details/${userId}`
-    );
-    return data;
+  async resetUserPassword(
+    userId: string
+  ): Promise<{ userId: string; newPassword: string }> {
+    try {
+      // This calls the new route we just made.
+      // Note: The /api/registrar prefix is added by your baseApi
+      const response = await baseApi.post(
+        `/registrar/users/${userId}/reset-password`
+      );
+      return response.data; // Returns { message, userId, newPassword }
+    } catch (error) {
+      console.error("Failed to reset user password:", error);
+      throw error;
+    }
   }
 
   async getBranchById(branchId: string): Promise<Branch | null> {
