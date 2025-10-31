@@ -266,34 +266,44 @@ const TimetableManagement: React.FC = () => {
   const [modal, setModal] = useState<"setup" | "schedule" | null>(null);
   const [modalData, setModalData] = useState<any>(null);
 
-  const fetchData = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    // FIX: Updated API calls to remove branchId. Fetched all staff to get teacher names.
-    const [cls, sub, staff] = await Promise.all([
-      apiService.getSchoolClasses(),
-      apiService.getSubjects(),
-      apiService.getAllStaff(), // FIX: Provided branchId argument.
-    ]);
-    // FIX: Added explicit types for sort parameters.
-    setClasses(
-      cls.sort(
-        (a: SchoolClass, b: SchoolClass) =>
-          a.gradeLevel - b.gradeLevel || a.section.localeCompare(b.section)
-      )
-    );
-    setSubjects(sub);
-    setAllTeachers(staff.filter((s) => s.role === "Teacher"));
-    if (cls.length > 0) {
-      setSelectedClassId(cls[0].id);
-    } else {
-      setLoading(false);
-    }
-  }, [user]);
+const fetchData = useCallback(async () => {
+  if (!user) return;
+  setLoading(true);
+  const [cls, sub, staff] = await Promise.all([
+    apiService.getSchoolClasses(),
+    apiService.getSubjects(),
+    apiService.getAllStaff(),
+  ]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // Manually create the 'subjectIds' array that 'selectedClassSubjects' expects
+  const enrichedClasses = cls.map((sClass: any) => {
+    // 'sClass.subjects' is the array of objects: [{id: '123', name: 'Math'}]
+    // We create 'subjectIds' which is an array of strings: ['123']
+    const subjectIds = sClass.subjects
+      ? sClass.subjects.map((s: Subject) => s.id)
+      : [];
+
+    return {
+      ...sClass,
+      subjectIds: subjectIds, // Add the new array
+    };
+  });
+
+  setClasses(
+    enrichedClasses.sort(
+      (a: SchoolClass, b: SchoolClass) =>
+        a.gradeLevel - b.gradeLevel || a.section.localeCompare(b.section)
+    )
+  );
+  setSubjects(sub);
+  setAllTeachers(staff.filter((s) => s.role === "Teacher"));
+  if (enrichedClasses.length > 0) {
+    // Use enrichedClasses
+    setSelectedClassId(enrichedClasses[0].id); // Use enrichedClasses
+  } else {
+    setLoading(false);
+  }
+}, [user]);
 
   const fetchTimetableData = useCallback(async () => {
     if (!selectedClassId) {

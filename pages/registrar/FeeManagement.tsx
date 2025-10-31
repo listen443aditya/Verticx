@@ -406,9 +406,7 @@ const ClassFeeStatus: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {/* FIX: Filter out any null/undefined entries and 
-                add optional chaining for all properties
-              */}
+             
               {summaries.filter(Boolean).map((summary) => (
                 <tr
                   key={summary?.classId} // Use optional chaining
