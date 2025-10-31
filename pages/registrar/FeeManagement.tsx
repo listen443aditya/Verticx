@@ -406,21 +406,27 @@ const ClassFeeStatus: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {summaries.map((summary) => (
+              {/* FIX: Filter out any null/undefined entries and 
+                add optional chaining for all properties
+              */}
+              {summaries.filter(Boolean).map((summary) => (
                 <tr
-                  key={summary.classId}
+                  key={summary?.classId} // Use optional chaining
                   className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
                   onClick={() => setViewingClass(summary)}
                 >
                   <td className="p-4 font-medium text-text-primary-dark">
-                    {summary.className}
+                    {summary?.className || "Unknown Class"}
                   </td>
-                  <td className="p-4 text-center">{summary.studentCount}</td>
+                  <td className="p-4 text-center">
+                    {summary?.studentCount ?? 0}
+                  </td>
                   <td className="p-4 text-center font-semibold text-orange-600">
-                    {summary.defaulterCount}
+                    {summary?.defaulterCount ?? 0}
                   </td>
                   <td className="p-4 text-right font-semibold text-red-600">
-                    {summary.pendingAmount.toLocaleString()}
+                    {/* Use fallback '0' and optional chaining */}
+                    {(summary?.pendingAmount ?? 0).toLocaleString()}
                   </td>
                 </tr>
               ))}
