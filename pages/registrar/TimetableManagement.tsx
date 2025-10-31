@@ -344,12 +344,12 @@ const TimetableManagement: React.FC = () => {
    }
  }, [selectedClassId]);
 
-  // This hook was correct
+
   useEffect(() => {
     fetchTimetableData();
   }, [fetchTimetableData]);
 
-  // --- END OF FIXED SECTION ---
+
 
   const handleSaveSetup = async (
     timeSlots: { startTime: string; endTime: string }[]
@@ -366,7 +366,7 @@ const TimetableManagement: React.FC = () => {
   };
 
   const openScheduleModal = (
-    day: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday",
+    day: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday"| "Saturday" | "Sunday",
     timeSlot: { startTime: string; endTime: string }
   ) => {
     const existingSlot = slots.find(
@@ -376,12 +376,14 @@ const TimetableManagement: React.FC = () => {
     setModal("schedule");
   };
 
-  const days: ("Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday")[] = [
+  const days: ("Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday")[] = [
     "Monday",
     "Tuesday",
     "Wednesday",
     "Thursday",
     "Friday",
+    "Saturday",
+    "Sunday",
   ];
   const selectedClassSubjects = useMemo(() => {
     const sClass = classes.find((c) => c.id === selectedClassId);
