@@ -1,18 +1,18 @@
-import React, { useState } from "react";
-import { useAuth } from "../../hooks/useAuth";
-import { RegistrarApiService } from "../../services/registrarApiService";
+import React, { useState, useMemo } from "react";
 import type { Student, User } from "../../types";
-import { upload } from "@vercel/blob/client"; // Import the client-side upload function
+import { upload } from "@vercel/blob/client";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
+import { RegistrarApiService } from "../../services/registrarApiService";
 
+// We can instantiate the service here or pass it as a prop if preferred
 const apiService = new RegistrarApiService();
 
 interface UploadDocumentModalProps {
   view: "Student" | "Staff";
   students: Student[];
-  staff: User[]; // Your 'teachers' array is actually User[]
+  staff: User[];
   onClose: () => void;
   onSave: () => void;
 }
@@ -24,39 +24,62 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
   onClose,
   onSave,
 }) => {
-  const { user } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
-  const [ownerId, setOwnerId] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState("");
+
+  // --- New State for Search ---
+  // This holds the ID of the selected member
+  const [ownerId, setOwnerId] = useState("");
+  // This holds the text in the search bar
+  const [searchTerm, setSearchTerm] = useState("");
+  // This controls the visibility of the results dropdown
+  const [showDropdown, setShowDropdown] = useState(false);
+  // --- End New State ---
+
+  const list = view === "Student" ? students : staff;
+
+  const searchResults = useMemo(() => {
+    // Don't show results until the user types at least 2 characters
+    if (searchTerm.length < 2) {
+      return [];
+    }
+    const lowerSearch = searchTerm.toLowerCase();
+
+    return list
+      .filter(
+        (item) =>
+          item.name.toLowerCase().includes(lowerSearch) ||
+          (item.userId && item.userId.toLowerCase().includes(lowerSearch))
+      )
+      .slice(0, 50); // Show a max of 50 results
+  }, [searchTerm, list]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file || !name || !ownerId) {
-      setError("All fields are required.");
+      setError("File, document name, and a selected user are all required.");
       return;
     }
     setError("");
     setIsUploading(true);
 
     try {
-      // 1. Upload the file directly to Vercel Blob from the browser
       const blob = await upload(file.name, file, {
         access: "public",
-        handleUploadUrl: "/api/registrar/documents/upload", // We need a simple backend route for this
+        handleUploadUrl: "/api/registrar/documents/upload",
       });
 
-      // 2. Get the URL and save the metadata to our database
       await apiService.createSchoolDocument({
         name: name,
         type: view,
-        ownerId: ownerId,
+        ownerId: ownerId, // ownerId is now set by handleSelectMember
         fileUrl: blob.url,
       });
 
-      onSave(); // Refresh the main list
-      onClose(); // Close the modal
+      onSave();
+      onClose();
     } catch (err) {
       console.error("Upload failed:", err);
       setError("File upload failed. Please try again.");
@@ -65,7 +88,17 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
     }
   };
 
-  const list = view === "Student" ? students : staff;
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setShowDropdown(true);
+    setOwnerId(""); // Clear the selected ID if the user types again
+  };
+
+  const handleSelectMember = (item: Student | User) => {
+    setSearchTerm(`${item.name} (${item.userId || item.id})`); // Put the name in the bar
+    setOwnerId(item.id); // Set the actual database ID for saving
+    setShowDropdown(false); // Hide the dropdown
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
@@ -79,24 +112,40 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
             placeholder="e.g., Birth Certificate, ID Card"
             required
           />
+
           <div>
             <label className="block text-sm font-medium text-text-secondary-dark mb-1">
-              Select {view}
+              Select {view} (Search by Name or ID)
             </label>
-            <select
-              value={ownerId}
-              onChange={(e) => setOwnerId(e.target.value)}
-              className="w-full bg-white border border-slate-300 rounded-md py-2 px-3"
-              required
-            >
-              <option value="">-- Select a {view.toLowerCase()} --</option>
-              {list.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <Input
+                type="text"
+                value={searchTerm}
+                onChange={handleSearchChange}
+                onFocus={() => setShowDropdown(true)}
+                // Hide dropdown on blur, with a small delay to allow for clicks
+                onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+                placeholder="Type to search for a user..."
+                required
+                autoComplete="off"
+              />
+              {showDropdown && searchResults.length > 0 && (
+                <ul className="absolute z-10 w-full bg-white border border-slate-300 rounded-md mt-1 shadow-lg max-h-60 overflow-y-auto">
+                  {searchResults.map((item) => (
+                    <li
+                      key={item.id}
+                      // Use onMouseDown instead of onClick to beat the onBlur
+                      onMouseDown={() => handleSelectMember(item)}
+                      className="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm"
+                    >
+                      {item.name} ({item.userId || item.id})
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
+
           <Input
             label="File"
             type="file"
