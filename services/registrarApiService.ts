@@ -449,9 +449,17 @@ export class RegistrarApiService {
   }
 
   // --- Timetable Management ---
-  async getTimetableConfig(classId: string): Promise<TimetableConfig | null> {
+  async getTimetableConfig(
+    classId: string,
+    config: any = {}
+  ): Promise<TimetableConfig | null> {
+    const options = {
+      ...config,
+      params: { ...config.params },
+    };
     const { data } = await baseApi.get<TimetableConfig | null>(
-      `/registrar/classes/${classId}/timetable-config`
+      `/registrar/classes/${classId}/timetable-config`,
+      options
     );
     return data;
   }
@@ -465,9 +473,17 @@ export class RegistrarApiService {
     });
   }
 
-  async getTimetableForClass(classId: string): Promise<TimetableSlot[]> {
+  async getTimetableForClass(
+    classId: string,
+    config: any = {}
+  ): Promise<TimetableSlot[]> {
+    const options = {
+      ...config,
+      params: { ...config.params },
+    };
     const { data } = await baseApi.get<TimetableSlot[]>(
-      `/registrar/classes/${classId}/timetable`
+      `/registrar/classes/${classId}/timetable`,
+      options
     );
     return data;
   }
