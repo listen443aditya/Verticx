@@ -314,30 +314,35 @@ const TimetableManagement: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
-  const fetchTimetableData = useCallback(async () => {
-    if (!selectedClassId) {
-      setConfig(null); // Clear config if no class is selected
-      setSlots([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      // Add try/catch
-      const [conf, slts] = await Promise.all([
-        apiService.getTimetableConfig(selectedClassId),
-        apiService.getTimetableForClass(selectedClassId),
-      ]);
-      setConfig(conf);
-      setSlots(slts);
-    } catch (error) {
-      console.error("Failed to fetch timetable config/slots:", error);
-      setConfig(null);
-      setSlots([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedClassId]);
+ const fetchTimetableData = useCallback(async () => {
+   if (!selectedClassId) {
+     setConfig(null);
+     setSlots([]);
+     setLoading(false);
+     return;
+   }
+   setLoading(true);
+
+   const cacheBustConfig = {
+     params: { _cacheBust: Date.now() },
+   };
+
+   try {
+     const [conf, slts] = await Promise.all([
+       // Pass the config to both API calls
+       apiService.getTimetableConfig(selectedClassId, cacheBustConfig),
+       apiService.getTimetableForClass(selectedClassId, cacheBustConfig),
+     ]);
+     setConfig(conf);
+     setSlots(slts);
+   } catch (error) {
+     console.error("Failed to fetch timetable config/slots:", error);
+     setConfig(null);
+     setSlots([]);
+   } finally {
+     setLoading(false);
+   }
+ }, [selectedClassId]);
 
   // This hook was correct
   useEffect(() => {
