@@ -389,7 +389,24 @@ const fetchData = useCallback(async () => {
       </div>
       <Card>
         {loading && <p>Loading timetable...</p>}
-        {!loading && !config && (
+
+        {/* FIX: Add a new check for when there are NO classes.
+          This prevents the "Set up" button from being shown when it can't do anything.
+        */}
+        {!loading && classes.length === 0 && (
+          <div className="text-center p-12">
+            <TimetableIcon className="w-16 h-16 mx-auto text-slate-300" />
+            <h2 className="mt-4 text-xl font-semibold">
+              No Classes Found
+            </h2>
+            <p className="mt-2 text-text-secondary-dark">
+              Please go to "Class Management" and create a class before setting up a timetable.
+            </p>
+          </div>
+        )}
+
+        {/* This is the original "Set up" button, now correctly guarded */}
+        {!loading && classes.length > 0 && !config && (
           <div className="text-center p-12">
             <TimetableIcon className="w-16 h-16 mx-auto text-slate-300" />
             <h2 className="mt-4 text-xl font-semibold">
