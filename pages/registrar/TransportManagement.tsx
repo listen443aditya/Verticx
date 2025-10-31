@@ -42,7 +42,7 @@ const ManageMembersModal: React.FC<{
     setLoading(true);
     const [allStudents, allStaff, unassignedData] = await Promise.all([
       (apiService as any).getStudentsByBranch(user.branchId),
-      apiService.getAllStaff(user.branchId),
+      apiService.getAllStaff(),
       apiService.getUnassignedMembers(),
     ]);
 
