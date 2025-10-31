@@ -369,15 +369,21 @@ const ClassFeeStatus: React.FC = () => {
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    // FIX: Removed branchId from API call.
-    const data = await apiService.getClassFeeSummaries();
-    // FIX: Added explicit types to sort parameters.
-    setSummaries(
-      data.sort((a: ClassFeeSummary, b: ClassFeeSummary) =>
-        a.className.localeCompare(b.className)
-      )
-    );
-    setLoading(false);
+    try {
+      // <-- ADD TRY
+      const data = await apiService.getClassFeeSummaries();
+      setSummaries(
+        data.sort((a: ClassFeeSummary, b: ClassFeeSummary) =>
+          a.className.localeCompare(b.className)
+        )
+      );
+    } catch (error) {
+      // <-- ADD CATCH
+      console.error("Failed to fetch class fee summaries:", error);
+      setSummaries([]); // Set to an empty array on error to prevent crash
+    } finally {
+      setLoading(false); // <-- ADD FINALLY
+    }
   }, [user, refreshKey]);
 
   useEffect(() => {
