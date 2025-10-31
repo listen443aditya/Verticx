@@ -59,35 +59,50 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file || !name || !ownerId) {
-      setError("File, document name, and a selected user are all required.");
+      setError("All fields are required.");
       return;
     }
     setError("");
     setIsUploading(true);
 
     try {
+      // 1. Get the auth token from localStorage
+      const token = localStorage.getItem("token"); // Assumes your key is "token"
+      if (!token) {
+        throw new Error("Authentication token not found.");
+      }
+
+      // 2. Upload the file, passing the token in the 'headers' property
       const blob = await upload(file.name, file, {
         access: "public",
         handleUploadUrl: "/api/registrar/documents/upload",
+
+        // --- THIS IS THE FIX ---
+        // The property is 'headers', not 'fetchOptions'
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        // --- END OF FIX ---
       });
 
+      // 3. Get the URL and save the metadata to our database
       await apiService.createSchoolDocument({
         name: name,
         type: view,
-        ownerId: ownerId, // ownerId is now set by handleSelectMember
+        ownerId: ownerId,
         fileUrl: blob.url,
       });
 
-      onSave();
-      onClose();
+      onSave(); // Refresh the main list
+      onClose(); // Close the modal
     } catch (err) {
       console.error("Upload failed:", err);
+      // The Vercel error (405) will be caught here
       setError("File upload failed. Please try again.");
     } finally {
       setIsUploading(false);
     }
   };
-
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
     setShowDropdown(true);
