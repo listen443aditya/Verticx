@@ -266,44 +266,48 @@ const TimetableManagement: React.FC = () => {
   const [modal, setModal] = useState<"setup" | "schedule" | null>(null);
   const [modalData, setModalData] = useState<any>(null);
 
-const fetchData = useCallback(async () => {
-  if (!user) return;
-  setLoading(true);
-  const [cls, sub, staff] = await Promise.all([
-    apiService.getSchoolClasses(),
-    apiService.getSubjects(),
-    apiService.getAllStaff(),
-  ]);
+  const fetchData = useCallback(async () => {
+    if (!user) return;
+    setLoading(true); // Set loading true at the start
 
-  // Manually create the 'subjectIds' array that 'selectedClassSubjects' expects
-  const enrichedClasses = cls.map((sClass: any) => {
-    // 'sClass.subjects' is the array of objects: [{id: '123', name: 'Math'}]
-    // We create 'subjectIds' which is an array of strings: ['123']
-    const subjectIds = sClass.subjects
-      ? sClass.subjects.map((s: Subject) => s.id)
-      : [];
+    try {
+      const [cls, sub, staff] = await Promise.all([
+        apiService.getSchoolClasses(),
+        apiService.getSubjects(),
+        apiService.getAllStaff(),
+      ]);
 
-    return {
-      ...sClass,
-      subjectIds: subjectIds, // Add the new array
-    };
-  });
+      // Manually create the 'subjectIds' array that the component expects
+      const enrichedClasses = cls.map((sClass: any) => {
+        const subjectIds = sClass.subjects
+          ? sClass.subjects.map((s: Subject) => s.id)
+          : [];
 
-  setClasses(
-    enrichedClasses.sort(
-      (a: SchoolClass, b: SchoolClass) =>
-        a.gradeLevel - b.gradeLevel || a.section.localeCompare(b.section)
-    )
-  );
-  setSubjects(sub);
-  setAllTeachers(staff.filter((s) => s.role === "Teacher"));
-  if (enrichedClasses.length > 0) {
-    // Use enrichedClasses
-    setSelectedClassId(enrichedClasses[0].id); // Use enrichedClasses
-  } else {
-    setLoading(false);
-  }
-}, [user]);
+        return {
+          ...sClass,
+          subjectIds: subjectIds, 
+        };
+      });
+
+      setClasses(
+        enrichedClasses.sort(
+          (a: SchoolClass, b: SchoolClass) =>
+            a.gradeLevel - b.gradeLevel || a.section.localeCompare(b.section)
+        )
+      );
+      setSubjects(sub);
+      setAllTeachers(staff.filter((s) => s.role === "Teacher"));
+
+      if (enrichedClasses.length > 0) {
+        setSelectedClassId(enrichedClasses[0].id);
+      }
+    } catch (error) {
+      console.error("Failed to fetch timetable data:", error);
+      setClasses([]); // Set to empty array on error
+    } finally {
+      setLoading(false); // <-- Set loading false at the end, regardless of outcome
+    }
+  }, [user]); 
 
   const fetchTimetableData = useCallback(async () => {
     if (!selectedClassId) {
@@ -396,11 +400,10 @@ const fetchData = useCallback(async () => {
         {!loading && classes.length === 0 && (
           <div className="text-center p-12">
             <TimetableIcon className="w-16 h-16 mx-auto text-slate-300" />
-            <h2 className="mt-4 text-xl font-semibold">
-              No Classes Found
-            </h2>
+            <h2 className="mt-4 text-xl font-semibold">No Classes Found</h2>
             <p className="mt-2 text-text-secondary-dark">
-              Please go to "Class Management" and create a class before setting up a timetable.
+              Please go to "Class Management" and create a class before setting
+              up a timetable.
             </p>
           </div>
         )}
