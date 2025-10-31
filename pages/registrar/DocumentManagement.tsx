@@ -5,7 +5,8 @@ import { RegistrarApiService } from "../../services/registrarApiService";
 import type { SchoolDocument, Student, Teacher, User } from "../../types";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
-
+import UploadDocumentModal from "../../components/modals/UploadDocumentModal";
+import { useDataRefresh } from "../../contexts/DataRefreshContext";
 const apiService = new RegistrarApiService();
 
 const DocumentManagement: React.FC = () => {
@@ -15,6 +16,8 @@ const DocumentManagement: React.FC = () => {
   const [teachers, setTeachers] = useState<User[]>([]); // FIX: Using User[] as getAllStaff returns this type.
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"Student" | "Staff">("Student");
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false); // <-- Add this state
+  const { triggerRefresh, refreshKey } = useDataRefresh(); //
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -22,8 +25,8 @@ const DocumentManagement: React.FC = () => {
     // FIX: Removed branchId from API calls and updated to use getAllStaff.
     const [docs, studs, allStaff] = await Promise.all([
       apiService.getSchoolDocuments(),
-      apiService.getStudentsByBranch(user.branchId as string), 
-      apiService.getAllStaff(), 
+      apiService.getStudentsByBranch(user.branchId as string),
+      apiService.getAllStaff(),
     ]);
     setDocuments(docs);
     setStudents(studs);
@@ -34,7 +37,7 @@ const DocumentManagement: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, refreshKey]);
 
   const getOwnerName = (ownerId: string, type: "Student" | "Staff") => {
     if (type === "Student") {
@@ -47,6 +50,10 @@ const DocumentManagement: React.FC = () => {
     return documents.filter((doc) => doc.type === view);
   }, [documents, view]);
 
+  const handleSave = () => {
+    setIsUploadModalOpen(false);
+    triggerRefresh(); // Refresh the document list after save
+  };
   return (
     <div>
       <h1 className="text-3xl font-bold text-text-primary-dark mb-6">
@@ -68,7 +75,9 @@ const DocumentManagement: React.FC = () => {
               Staff Documents
             </Button>
           </div>
-          <Button>Upload Document</Button>
+          <Button onClick={() => setIsUploadModalOpen(true)}>
+            Upload Document
+          </Button>{" "}
         </div>
 
         {loading ? (
@@ -129,6 +138,15 @@ const DocumentManagement: React.FC = () => {
           </div>
         )}
       </Card>
+      {isUploadModalOpen && (
+        <UploadDocumentModal
+          view={view}
+          students={students}
+          staff={teachers}
+          onClose={() => setIsUploadModalOpen(false)}
+          onSave={handleSave}
+        />
+      )}
     </div>
   );
 };

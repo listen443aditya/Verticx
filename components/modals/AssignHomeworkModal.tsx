@@ -35,8 +35,8 @@ const AssignHomeworkModal: React.FC<AssignHomeworkModalProps> = ({
 
   useEffect(() => {
     if (isOpen && user) {
-      // getTeacherCourses now takes 0 arguments, as the backend knows the user.
-      apiService.getTeacherCourses().then((data) => {
+      // getTeacherCourses requires the teacherId; pass the authenticated user's id.
+      apiService.getTeacherCourses(user.id).then((data) => {
         setCourses(data);
         if (assignmentToEdit) {
           // Find the course using the classId and subjectId from the assignment object.
@@ -84,6 +84,7 @@ const AssignHomeworkModal: React.FC<AssignHomeworkModalProps> = ({
       } else {
         // findCourseByTeacherAndSubject now correctly takes only the subjectId.
         const course = await apiService.findCourseByTeacherAndSubject(
+          user.id,
           subjectId
         );
         if (!course) {

@@ -653,6 +653,18 @@ export class RegistrarApiService {
     );
     return data;
   }
+  async createSchoolDocument(data: {
+    name: string;
+    type: "Student" | "Staff";
+    ownerId: string;
+    fileUrl: string;
+  }): Promise<SchoolDocument> {
+    const { data: newDocument } = await baseApi.post<SchoolDocument>(
+      "/registrar/documents",
+      data
+    );
+    return newDocument;
+  }
 
   // FIX: Added missing getSchoolEvents method
   async getSchoolEvents(): Promise<SchoolEvent[]> {
