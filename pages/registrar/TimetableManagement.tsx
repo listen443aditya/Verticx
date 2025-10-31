@@ -484,7 +484,9 @@ const TimetableManagement: React.FC = () => {
                           ? subjects.find((s) => s.id === slot.subjectId)
                           : null;
                         const teacher = slot
-                          ? allTeachers.find((t) => t.id === slot.teacherId)
+                          ? allTeachers.find(
+                              (t) => t.teacher?.id === slot.teacherId
+                            )
                           : null;
                         return (
                           <td
