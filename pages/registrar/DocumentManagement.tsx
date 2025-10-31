@@ -22,8 +22,8 @@ const DocumentManagement: React.FC = () => {
     // FIX: Removed branchId from API calls and updated to use getAllStaff.
     const [docs, studs, allStaff] = await Promise.all([
       apiService.getSchoolDocuments(),
-      apiService.getStudentsByBranch(user.branchId as string), // FIX: Provided branchId argument.
-      apiService.getAllStaff(user.branchId as string), // FIX: Provided branchId argument.
+      apiService.getStudentsByBranch(user.branchId as string), 
+      apiService.getAllStaff(), 
     ]);
     setDocuments(docs);
     setStudents(studs);
