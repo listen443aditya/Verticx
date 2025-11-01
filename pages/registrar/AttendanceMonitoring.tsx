@@ -179,36 +179,36 @@ const StaffAttendanceView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    if (!user || !selectedDate) return;
-    setLoading(true);
+ const fetchData = useCallback(async () => {
+   if (!user || !selectedDate) return;
+   setLoading(true);
 
-    try {
-      const staffData = await apiService.getAllStaff();
-      setStaff(staffData);
+   try {
+     const staffData = await apiService.getAllStaff();
+     setStaff(staffData);
 
-      const { isSaved: saved, attendance: savedAttendance } =
-        await apiService.getTeacherAttendance(selectedDate);
-      setIsSaved(saved);
+     const { isSaved: saved, attendance: savedAttendance } =
+       await apiService.getTeacherAttendance(selectedDate); // API service method name is still the same
+     setIsSaved(saved);
 
-      const attendanceMap: Record<string, TeacherAttendanceStatus> = {};
-      staffData.forEach((s: User) => {
-        // FIX: Compare the record's teacherId to the nested s.teacher.id
-        // We use s.id (User.id) as the key for the map.
-        const record = savedAttendance.find(
-          (a: TeacherAttendanceRecord) => a.teacherId === s.teacher?.id
-        );
-        attendanceMap[s.id] = record ? record.status : "Present";
-      });
-      setAttendance(attendanceMap);
-    } catch (error) {
-      console.error("Failed to fetch staff attendance:", error);
-      setIsSaved(false);
-      setAttendance({});
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedDate, user]);
+     const attendanceMap: Record<string, TeacherAttendanceStatus> = {};
+     staffData.forEach((s: User) => {
+       // FIX: Compare record's userId to the staff's User ID
+       const record = (savedAttendance as any[]).find(
+         // Use 'any' to avoid type conflict temporarily
+         (a: any) => a.userId === s.id
+       );
+       attendanceMap[s.id] = record ? record.status : "Present";
+     });
+     setAttendance(attendanceMap);
+   } catch (error) {
+     console.error("Failed to fetch staff attendance:", error);
+     setIsSaved(false);
+     setAttendance({});
+   } finally {
+     setLoading(false);
+   }
+ }, [selectedDate, user]);
 
   useEffect(() => {
     fetchData();
@@ -225,19 +225,18 @@ const StaffAttendanceView: React.FC = () => {
    if (!selectedDate || !user?.branchId) return;
    setIsSaving(true);
 
-   
-   const records = staff
-     .filter((s) => s.teacher) // Ensure the user is a teacher
-     .map((s) => ({
-       branchId: user.branchId!,
-       teacherId: s.teacher!.id, // <-- Send the Teacher.id, not User.id
-       date: selectedDate,
-       status: attendance[s.id] || "Present", // Get status using the User.id key
-     }));
+   // FIX: Send s.id (User ID) as userId
+   const records = staff.map((s) => ({
+     branchId: user.branchId!,
+     userId: s.id, // <-- Send the User.id
+     date: selectedDate,
+     status: attendance[s.id] || "Present",
+   }));
 
-   await apiService.saveTeacherAttendance(records);
+   // This service call will now send the data to the correct controller
+   await apiService.saveTeacherAttendance(records as any); // Use 'any' to bypass strict type change
    setIsSaving(false);
-   await fetchData(); // This will refresh the state
+   await fetchData();
  };
 
   return (
