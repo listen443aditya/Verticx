@@ -459,9 +459,10 @@ const AttendanceMonitoring: React.FC = () => {
       case "staff":
         return <StaffAttendanceView />;
       case "staff_calendar":
-        // FIX: The StaffAttendanceCalendar component no longer accepts a `branchId` prop.
-        // It infers the necessary context from the user session.
-        return <StaffAttendanceCalendar />;
+        // --- THIS IS THE FIX ---
+        // Pass the registrar's apiService instance to the component
+        return <StaffAttendanceCalendar apiService={apiService} />;
+      // --- END OF FIX ---
       case "my_attendance":
         return <MyAttendanceAndLeaveView />;
       case "leave_config":
