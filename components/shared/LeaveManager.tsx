@@ -80,45 +80,55 @@ const LeaveManager: React.FC<LeaveManagerProps> = ({ user }) => {
     if (!user?.branchId || !user.role) return;
     setLoading(true);
 
-    // FIX: Updated API calls to match the new service (no arguments needed as backend infers user/branch).
-    const [appData, branchSettings, freshUser] = await Promise.all([
-      apiService.getLeaveApplicationsForUser(),
-      apiService.getLeaveSettingsForBranch(),
-      registrarApiService.getUserById(user.id), // getUserById still needs the ID
-    ]);
-    setApplications(appData);
+    try {
+      // Add a try/catch block for safety
+      const [appData, branchSettings, freshUser] = await Promise.all([
+        apiService.getLeaveApplicationsForUser(),
+        apiService.getLeaveSettingsForBranch(),
+        registrarApiService.getUserById(user.id),
+      ]);
 
-    // FIX: Added explicit type for the 's' parameter in the find method.
-    const userRoleSetting = branchSettings.find(
-      (s: LeaveSetting) => s.role === user.role
-    );
+      // FIX 1: Ensure appData is an array. If it's undefined, use [].
+      setApplications(appData || []);
 
-    if (userRoleSetting?.settings) {
-      const totals = userRoleSetting.settings as Record<string, number>;
-      const types = Object.keys(totals).filter(
-        (k) => totals[k] > 0
-      ) as LeaveType[];
+      // FIX 2: Ensure branchSettings is an array before calling .find()
+      const userRoleSetting = (branchSettings || []).find(
+        (s: LeaveSetting) => s.role === user.role
+      );
 
-      const normalizedTotals: Record<string, number> = {};
-      types.forEach((t) => {
-        normalizedTotals[t.toLowerCase()] = totals[t];
-      });
-      setTotalLeaves(normalizedTotals);
-      setAvailableLeaveTypes(types);
-      if (types.length > 0 && !types.includes(leaveType)) {
-        setLeaveType(types[0]);
+      if (userRoleSetting?.settings) {
+        const totals = userRoleSetting.settings as Record<string, number>;
+        const types = Object.keys(totals).filter(
+          (k) => totals[k] > 0
+        ) as LeaveType[];
+
+        const normalizedTotals: Record<string, number> = {};
+        types.forEach((t) => {
+          normalizedTotals[t.toLowerCase()] = totals[t];
+        });
+        setTotalLeaves(normalizedTotals);
+        setAvailableLeaveTypes(types);
+        if (types.length > 0 && !types.includes(leaveType)) {
+          setLeaveType(types[0]);
+        }
+      } else {
+        setTotalLeaves({});
+        setAvailableLeaveTypes([]);
       }
-    } else {
-      setTotalLeaves({});
+
+      // This check is already safe, which is good
+      if (freshUser?.leaveBalances) {
+        setLeaveBalances(freshUser.leaveBalances);
+      }
+    } catch (error) {
+      console.error("Failed to fetch leave data:", error);
+      // On error, set lists to empty arrays to prevent crashes
+      setApplications([]);
       setAvailableLeaveTypes([]);
+    } finally {
+      setLoading(false);
     }
-
-    if (freshUser?.leaveBalances) {
-      setLeaveBalances(freshUser.leaveBalances);
-    }
-
-    setLoading(false);
-  }, [user, leaveType]);
+  }, [user, leaveType]); // leaveType dependency is correct
 
   useEffect(() => {
     fetchLeaveData();
