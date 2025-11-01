@@ -127,23 +127,12 @@ const EditTeacherModal: React.FC<{
             <label className="block text-sm font-medium text-text-secondary-dark mb-1">
               Assign Subjects
             </label>
-            <div className="max-h-32 overflow-y-auto border border-slate-300 rounded-md p-2 grid grid-cols-2 md:grid-cols-3 gap-2">
-              {allSubjects.map((subject) => (
-                <label
-                  key={subject.id}
-                  className="flex items-center p-2 rounded-md hover:bg-slate-100 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={formData.subjectIds?.includes(subject.id)}
-                    onChange={() => handleSubjectToggle(subject.id)}
-                    className="h-4 w-4 rounded border-gray-300 text-brand-secondary focus:ring-brand-accent"
-                  />
-                  <span className="ml-2 text-sm text-text-primary-dark">
-                    {subject.name}
-                  </span>
-                </label>
-              ))}
+            <div className="max-h-32 overflow-y-auto border border-slate-300 rounded-md p-4 grid grid-cols-1 gap-2 bg-slate-50 text-center">
+              <p className="text-sm text-slate-600">
+                To manage subject assignments for this teacher, please go to the
+                <br />
+                <strong>Class Management {">"} Subjects</strong> tab.
+              </p>
             </div>
           </div>
           <div className="flex justify-end gap-4 pt-4">
