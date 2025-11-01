@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
 // FIX: Correctly import the service class from its file and create an instance.
 import { SharedApiService } from "../../services/sharedApiService";
+import { RegistrarApiService } from "../../services/registrarApiService";
+
 import type {
   LeaveApplication,
   LeaveType,
@@ -14,6 +16,7 @@ import Input from "../ui/Input";
 import { useDataRefresh } from "../../contexts/DataRefreshContext";
 
 const apiService = new SharedApiService();
+const registrarApiService = new RegistrarApiService();
 
 const LeaveBalanceCard: React.FC<{
   type: string;
@@ -81,7 +84,7 @@ const LeaveManager: React.FC<LeaveManagerProps> = ({ user }) => {
     const [appData, branchSettings, freshUser] = await Promise.all([
       apiService.getLeaveApplicationsForUser(),
       apiService.getLeaveSettingsForBranch(),
-      apiService.getUserById(user.id), // getUserById still needs the ID
+      registrarApiService.getUserById(user.id), // getUserById still needs the ID
     ]);
     setApplications(appData);
 
