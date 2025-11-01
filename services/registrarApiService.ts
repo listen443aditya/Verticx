@@ -445,7 +445,9 @@ export class RegistrarApiService {
   async saveTeacherAttendance(
     records: Omit<TeacherAttendanceRecord, "id">[]
   ): Promise<void> {
-await baseApi.post("/registrar/staff/attendance", { attendanceData: records });
+    await baseApi.post("/registrar/staff/attendance", {
+      attendanceData: records,
+    });
   }
 
   // --- Timetable Management ---
@@ -513,6 +515,30 @@ await baseApi.post("/registrar/staff/attendance", { attendanceData: records });
       "/registrar/requests/grade-attendance"
     );
     return data;
+  }
+  // Add this method inside your RegistrarApiService class
+  async getStaffAttendanceAndLeaveForMonth(
+    staffId: string,
+    year: number,
+    month: number
+  ): Promise<{
+    attendance: TeacherAttendanceRecord[];
+    leaves: LeaveApplication[];
+  }> {
+    try {
+      // We will create a new backend route for this
+      const { data } = await baseApi.get(
+        `/registrar/staff/${staffId}/attendance/${year}/${month}`
+      );
+      return data;
+    } catch (error) {
+      console.error(
+        `Failed to fetch calendar data for staff ${staffId}:`,
+        error
+      );
+      // Return empty arrays to prevent the frontend from crashing
+      return { attendance: [], leaves: [] };
+    }
   }
 
   async getSyllabusChangeRequests(): Promise<SyllabusChangeRequest[]> {
