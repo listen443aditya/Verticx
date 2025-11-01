@@ -235,7 +235,6 @@ const EditClassModal: React.FC<{
     </div>
   );
 };
-
 const EditSubjectModal: React.FC<{
   subject: Subject;
   teachers: User[];
@@ -243,14 +242,13 @@ const EditSubjectModal: React.FC<{
   onSave: (updates: Partial<Subject>) => void;
 }> = ({ subject, teachers, onClose, onSave }) => {
   const [name, setName] = useState(subject.name);
-  // 'subject.teacherId' is the Teacher.id, which is correct
-  const [teacherId, setTeacherId] = useState(subject.teacherId || "");
+  const [teacherId, setTeacherId] = useState(subject.teacherId || ""); // This is the Teacher.id
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    await onSave({ name, teacherId: teacherId });
+    await onSave({ name, teacherId: teacherId }); // teacherId state holds the correct Teacher.id
     setIsSaving(false);
   };
 
@@ -277,15 +275,20 @@ const EditSubjectModal: React.FC<{
               className="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-text-primary-dark"
             >
               <option value="">-- Unassigned --</option>
+
               {/* --- THIS IS THE FIX ---
-                Same fix as in CreateSubjectModal. We use 'user.teacher.id' for the value.
+                Iterate over the 'User' list (named 'user'), 
+                but use the nested 'user.teacher.id' as the value.
               */}
-              {teachers.map((user) =>
-                user.teacher ? (
-                  <option key={user.id} value={user.teacher.id}>
-                    {user.name}
-                  </option>
-                ) : null
+              {teachers.map(
+                (
+                  user // 'user' is the User object
+                ) =>
+                  user.teacher ? ( // Only render users who have a teacher profile
+                    <option key={user.id} value={user.teacher.id}>
+                      {user.name}
+                    </option>
+                  ) : null
               )}
               {/* --- END OF FIX --- */}
             </select>
