@@ -445,7 +445,7 @@ export class RegistrarApiService {
   async saveTeacherAttendance(
     records: Omit<TeacherAttendanceRecord, "id">[]
   ): Promise<void> {
-    await baseApi.post("/registrar/staff/attendance", { records });
+await baseApi.post("/registrar/staff/attendance", { attendanceData: records });
   }
 
   // --- Timetable Management ---
