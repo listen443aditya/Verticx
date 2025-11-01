@@ -56,8 +56,7 @@ const CreateSubjectModal: React.FC<{
       return;
     }
     setIsSaving(true);
-    // The teacherId will be an empty string "" if "Unassigned" is selected.
-    // We convert it to `undefined` so it doesn't get sent in the request body.
+    // This is correct: it sends the selected ID (which will now be the Teacher.id)
     await onSave({ name, teacherId: teacherId || undefined });
     setIsSaving(false);
   };
@@ -86,11 +85,18 @@ const CreateSubjectModal: React.FC<{
               className="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-text-primary-dark"
             >
               <option value="">-- Unassigned --</option>
-              {teachers.map((teacher) => (
-                <option key={teacher.id} value={teacher.id}>
-                  {teacher.name}
-                </option>
-              ))}
+              {/* --- THIS IS THE FIX ---
+                Iterate over the 'User' list, but use the 'teacher.id' as the value.
+                'user' is the 'User' object, 'user.teacher' is the nested 'Teacher' object.
+              */}
+              {teachers.map((user) =>
+                user.teacher ? ( // Only render users who have a teacher profile
+                  <option key={user.id} value={user.teacher.id}>
+                    {user.name}
+                  </option>
+                ) : null
+              )}
+              {/* --- END OF FIX --- */}
             </select>
           </div>
           <div className="flex justify-end gap-4 pt-4">
@@ -237,13 +243,14 @@ const EditSubjectModal: React.FC<{
   onSave: (updates: Partial<Subject>) => void;
 }> = ({ subject, teachers, onClose, onSave }) => {
   const [name, setName] = useState(subject.name);
+  // 'subject.teacherId' is the Teacher.id, which is correct
   const [teacherId, setTeacherId] = useState(subject.teacherId || "");
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    await onSave({ name, teacherId: teacherId});
+    await onSave({ name, teacherId: teacherId });
     setIsSaving(false);
   };
 
@@ -270,11 +277,17 @@ const EditSubjectModal: React.FC<{
               className="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-text-primary-dark"
             >
               <option value="">-- Unassigned --</option>
-              {teachers.map((teacher) => (
-                <option key={teacher.id} value={teacher.id}>
-                  {teacher.name}
-                </option>
-              ))}
+              {/* --- THIS IS THE FIX ---
+                Same fix as in CreateSubjectModal. We use 'user.teacher.id' for the value.
+              */}
+              {teachers.map((user) =>
+                user.teacher ? (
+                  <option key={user.id} value={user.teacher.id}>
+                    {user.name}
+                  </option>
+                ) : null
+              )}
+              {/* --- END OF FIX --- */}
             </select>
           </div>
           <div className="flex justify-end gap-4 pt-4">
@@ -702,13 +715,11 @@ const ClassDetailModal: React.FC<{
 
 const SubjectManager: React.FC = () => {
   const { user } = useAuth();
-  // 1. GET `refreshKey` ALONG WITH `triggerRefresh`
   const { refreshKey, triggerRefresh } = useDataRefresh();
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [teachers, setTeachers] = useState<User[]>([]);
+  const [teachers, setTeachers] = useState<User[]>([]); // This is User[]
   const [loading, setLoading] = useState(true);
 
-  // State for the modals
   const [isCreating, setIsCreating] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [deletingSubject, setDeletingSubject] = useState<Subject | null>(null);
@@ -716,6 +727,7 @@ const SubjectManager: React.FC = () => {
   const fetchData = useCallback(async () => {
     if (!user?.branchId) return;
     setLoading(true);
+    // getAllStaff() returns User[] with nested teacher info
     const [subjectData, allStaff] = await Promise.all([
       apiService.getSubjects(),
       apiService.getAllStaff(),
@@ -723,7 +735,6 @@ const SubjectManager: React.FC = () => {
     setSubjects(subjectData);
     setTeachers(allStaff.filter((s: User) => s.role === "Teacher"));
     setLoading(false);
-    // 2. USE `refreshKey` IN THE DEPENDENCY ARRAY
   }, [user, refreshKey]);
 
   useEffect(() => {
@@ -731,12 +742,14 @@ const SubjectManager: React.FC = () => {
   }, [fetchData]);
 
   const handleCreate = async (data: { name: string; teacherId?: string }) => {
+    // 'data.teacherId' is now the correct Teacher.id
     await apiService.createSubject(data);
     setIsCreating(false);
-    triggerRefresh(); // This now correctly triggers the refresh
+    triggerRefresh();
   };
 
   const handleSave = async (updates: Partial<Subject>) => {
+    // 'updates.teacherId' is now the correct Teacher.id
     if (editingSubject) {
       await apiService.updateSubject(editingSubject.id, updates);
     }
@@ -776,9 +789,15 @@ const SubjectManager: React.FC = () => {
                 <tr key={subject.id} className="border-b hover:bg-slate-50">
                   <td className="p-2 font-medium">{subject.name}</td>
                   <td className="p-2">
-                    {teachers.find((t) => t.id === subject.teacherId)?.name || (
+                    {/* --- THIS IS THE FIX ---
+                      We find the User 't' whose nested 't.teacher.id'
+                      matches the 'subject.teacherId'.
+                    */}
+                    {teachers.find((t) => t.teacher?.id === subject.teacherId)
+                      ?.name || (
                       <span className="text-slate-400">Unassigned</span>
                     )}
+                    {/* --- END OF FIX --- */}
                   </td>
                   <td className="p-2 text-right">
                     <div className="flex gap-2 justify-end">
