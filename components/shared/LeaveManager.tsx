@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
-// FIX: Correctly import the service class from its file and create an instance.
-import { SharedApiService } from "../../services/sharedApiService";
+// FIX: We only need the RegistrarApiService
 import { RegistrarApiService } from "../../services/registrarApiService";
 
 import type {
@@ -15,7 +14,7 @@ import Button from "../ui/Button";
 import Input from "../ui/Input";
 import { useDataRefresh } from "../../contexts/DataRefreshContext";
 
-const apiService = new SharedApiService();
+// FIX: Use one service instance
 const registrarApiService = new RegistrarApiService();
 
 const LeaveBalanceCard: React.FC<{
@@ -23,6 +22,7 @@ const LeaveBalanceCard: React.FC<{
   remaining: number;
   total: number;
 }> = ({ type, remaining, total }) => {
+  // ... (this component is fine) ...
   const percentage = total > 0 ? (remaining / total) * 100 : 0;
   const color =
     percentage > 50
@@ -81,20 +81,22 @@ const LeaveManager: React.FC<LeaveManagerProps> = ({ user }) => {
     setLoading(true);
 
     try {
-      // Add a try/catch block for safety
+      // FIX: Use registrarApiService for all calls
       const [appData, branchSettings, freshUser] = await Promise.all([
-        apiService.getLeaveApplicationsForUser(),
-        apiService.getLeaveSettingsForBranch(),
+        registrarApiService.getLeaveApplications(),
+        registrarApiService.getLeaveSettings(), // This now returns an array
         registrarApiService.getUserById(user.id),
       ]);
 
-      // FIX 1: Ensure appData is an array. If it's undefined, use [].
       setApplications(appData || []);
 
-      // FIX 2: Ensure branchSettings is an array before calling .find()
-      const userRoleSetting = (branchSettings || []).find(
-        (s: LeaveSetting) => s.role === user.role
-      );
+      // FIX: The backend now returns an array, so this .find() is correct.
+      const userRoleSetting =
+        branchSettings &&
+        branchSettings.settings &&
+        branchSettings.settings.hasOwnProperty(user.role)
+          ? branchSettings
+          : null;
 
       if (userRoleSetting?.settings) {
         const totals = userRoleSetting.settings as Record<string, number>;
@@ -116,24 +118,23 @@ const LeaveManager: React.FC<LeaveManagerProps> = ({ user }) => {
         setAvailableLeaveTypes([]);
       }
 
-      // This check is already safe, which is good
       if (freshUser?.leaveBalances) {
         setLeaveBalances(freshUser.leaveBalances);
       }
     } catch (error) {
       console.error("Failed to fetch leave data:", error);
-      // On error, set lists to empty arrays to prevent crashes
       setApplications([]);
       setAvailableLeaveTypes([]);
     } finally {
       setLoading(false);
     }
-  }, [user, leaveType]); // leaveType dependency is correct
+  }, [user, leaveType]);
 
   useEffect(() => {
     fetchLeaveData();
   }, [fetchLeaveData, refreshKey]);
 
+  // FIX: Use registrarApiService
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!startDate || !endDate || !reason || !user.branchId) {
@@ -141,27 +142,37 @@ const LeaveManager: React.FC<LeaveManagerProps> = ({ user }) => {
       return;
     }
     setIsSubmitting(true);
-    await apiService.createLeaveApplication({
-      branchId: user.branchId,
-      applicantId: user.id,
-      applicantName: user.name,
-      applicantRole: user.role,
-      leaveType,
-      startDate,
-      endDate,
-      isHalfDay,
-      reason,
-    });
-    setStatusMessage("Leave application submitted successfully.");
-    setReason("");
-    setStartDate("");
-    setEndDate("");
-    setIsHalfDay(false);
-    triggerRefresh();
-    setIsSubmitting(false);
-    setTimeout(() => setStatusMessage(""), 4000);
+    
+     try {
+      await registrarApiService.createLeaveApplication({
+        branchId: user.branchId,
+        applicantId: user.id,
+        applicantName: user.name,
+        applicantRole: user.role,
+        leaveType,
+        startDate,
+        endDate,
+        isHalfDay,
+        reason,
+      });
+
+      setStatusMessage("Leave application submitted successfully.");
+      setReason("");
+      setStartDate("");
+      setEndDate("");
+      setIsHalfDay(false);
+      triggerRefresh();
+    } catch (error) {
+      console.error("Failed to submit leave application:", error);
+      setStatusMessage("Failed to submit application.");
+    } finally {
+      setIsSubmitting(false);
+      setTimeout(() => setStatusMessage(""), 4000);
+    }
+    // --- END FIX ---
   };
 
+  // ... (rest of the component JSX is fine) ...
   return (
     <div className="space-y-6">
       <Card>

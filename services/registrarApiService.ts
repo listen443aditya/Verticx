@@ -585,13 +585,18 @@ export class RegistrarApiService {
     });
   }
 
-  async getLeaveSettings(): Promise<LeaveSetting[]> {
-    const { data } = await baseApi.get<LeaveSetting[]>(
+  async getLeaveSettings(): Promise<LeaveSetting | null> {
+    const { data } = await baseApi.get<LeaveSetting | null>(
       "/registrar/leaves/settings"
     );
     return data;
   }
 
+  async createLeaveApplication(
+    data: Omit<LeaveApplication, "id" | "status" | "applicant">
+  ): Promise<void> {
+    await baseApi.post("/registrar/leaves/applications", data);
+  }
   async updateLeaveSettings(settingsToUpdate: LeaveSetting[]): Promise<void> {
     await baseApi.put("/registrar/leaves/settings", { settingsToUpdate });
   }
