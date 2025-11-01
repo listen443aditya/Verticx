@@ -167,7 +167,7 @@ const StaffAttendanceView: React.FC = () => {
   const fetchData = useCallback(async () => {
     if (!user || !selectedDate) return;
     setLoading(true);
-    const staffData = await apiService.getAllStaff(user.branchId!);
+    const staffData = await apiService.getAllStaff();
     setStaff(staffData);
 
     const { isSaved: saved, attendance: savedAttendance } =
