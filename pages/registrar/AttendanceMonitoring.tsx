@@ -182,22 +182,38 @@ const StaffAttendanceView: React.FC = () => {
   const fetchData = useCallback(async () => {
     if (!user || !selectedDate) return;
     setLoading(true);
-    const staffData = await apiService.getAllStaff();
-    setStaff(staffData);
 
-    const { isSaved: saved, attendance: savedAttendance } =
-      await apiService.getTeacherAttendance(selectedDate);
-    setIsSaved(saved);
+    try {
+      // Add a try...catch block
+      const staffData = await apiService.getAllStaff();
+      setStaff(staffData);
 
-    const attendanceMap: Record<string, TeacherAttendanceStatus> = {};
-    staffData.forEach((s: User) => {
-      const record = savedAttendance.find(
-        (a: TeacherAttendanceRecord) => a.teacherId === s.id
-      );
-      attendanceMap[s.id] = record ? record.status : "Present";
-    });
-    setAttendance(attendanceMap);
-    setLoading(false);
+      // Call the API
+      const response = await apiService.getTeacherAttendance(selectedDate);
+
+      // --- THIS IS THE FIX ---
+      // Safely destructure the response and provide default fallbacks
+      const saved = response?.isSaved || false;
+      const savedAttendance = response?.attendance || []; // Default to empty array
+      // --- END OF FIX ---
+
+      setIsSaved(saved);
+
+      const attendanceMap: Record<string, TeacherAttendanceStatus> = {};
+      staffData.forEach((s: User) => {
+        const record = savedAttendance.find(
+          (a: TeacherAttendanceRecord) => a.teacherId === s.id
+        );
+        attendanceMap[s.id] = record ? record.status : "Present";
+      });
+      setAttendance(attendanceMap);
+    } catch (error) {
+      console.error("Failed to fetch staff attendance:", error);
+      setIsSaved(false);
+      setAttendance({}); // Clear attendance on error
+    } finally {
+      setLoading(false);
+    }
   }, [selectedDate, user]);
 
   useEffect(() => {
