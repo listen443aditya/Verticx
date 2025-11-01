@@ -57,14 +57,29 @@ const StudentAttendanceView: React.FC = () => {
   const fetchAttendance = useCallback(async () => {
     if (!selectedClassId || !selectedDate) return;
     setLoading(true);
-    const { isSaved: saved, attendance } =
-      await apiService.getDailyAttendanceForClass(
+
+    try {
+      // Add try/catch
+      const response = await apiService.getDailyAttendanceForClass(
         selectedClassId,
         selectedDate
       );
-    setAttendanceList(attendance);
-    setIsSaved(saved);
-    setLoading(false);
+
+      // --- THIS IS THE FIX ---
+      // Safely destructure the response and provide default fallbacks
+      const saved = response?.isSaved || false;
+      const attendance = response?.attendance || []; // Default to empty array
+      // --- END OF FIX ---
+
+      setAttendanceList(attendance);
+      setIsSaved(saved);
+    } catch (error) {
+      console.error("Failed to fetch student attendance:", error);
+      setAttendanceList([]); // Set to empty array on error
+      setIsSaved(false);
+    } finally {
+      setLoading(false);
+    }
   }, [selectedClassId, selectedDate]);
 
   useEffect(() => {
