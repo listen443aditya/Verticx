@@ -249,7 +249,7 @@ const LeaveManager: React.FC<LeaveManagerProps> = ({ user }) => {
         <Card>
           <h2 className="text-xl font-semibold mb-4">Application History</h2>
           <div className="space-y-3 max-h-96 overflow-y-auto">
-            {applications.map((app) => (
+            {(applications || []).map((app) => (
               <div key={app.id} className="bg-slate-50 p-3 rounded-lg">
                 <div className="flex justify-between items-start">
                   <div>
