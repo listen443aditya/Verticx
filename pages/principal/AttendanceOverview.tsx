@@ -3,6 +3,8 @@ import { useAuth } from "../../hooks/useAuth";
 // FIX: Correctly import the service class from its file and create an instance.
 import { PrincipalApiService } from "../../services/principalApiService";
 import Card from "../../components/ui/Card";
+import { RegistrarApiService } from "../../services/registrarApiService";
+
 import {
   AttendanceIcon,
   UsersIcon,
@@ -15,6 +17,7 @@ import type {
 import StaffAttendanceCalendar from "../../components/shared/StaffAttendanceCalendar";
 
 const principalApiService = new PrincipalApiService();
+const apiService = new RegistrarApiService();
 
 const StatCard: React.FC<{
   title: string;
@@ -248,7 +251,7 @@ const AttendanceOverview: React.FC = () => {
       {/* FIX: The StaffAttendanceCalendar component no longer accepts a `branchId` prop. */}
       {activeTab === "calendar" && (
         <Card>
-          <StaffAttendanceCalendar />
+          <StaffAttendanceCalendar apiService={apiService} />
         </Card>
       )}
     </div>

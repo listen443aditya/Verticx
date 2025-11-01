@@ -466,7 +466,7 @@ setStaffList(staff.sort((a: User, b: User) => a.name.localeCompare(b.name)));
               const dayOfWeek = dayInfo.date.getDay();
               const dateString = dayInfo.date.toISOString().split("T")[0];
               const status =
-                dayOfWeek === 0 || dayOfWeek === 6
+                dayOfWeek === 0 
                   ? "Holiday"
                   : attendanceData.get(dateString) ||
                     (dayInfo.date > new Date() ? "Upcoming" : "Not Marked");
