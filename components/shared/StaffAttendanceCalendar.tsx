@@ -37,19 +37,17 @@ const StaffAttendanceCalendar: React.FC = () => {
     fetchStaff();
   }, []);
 
-  const fetchCalendarData = useCallback(async () => {
-    if (!selectedStaffId) {
-      setAttendanceData(new Map());
-      return;
-    }
-    setCalendarLoading(true);
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
+ const fetchCalendarData = useCallback(async () => {
+   if (!selectedStaffId) {
+     setAttendanceData(new Map());
+     return;
+   }
+   setCalendarLoading(true);
+   const year = currentDate.getFullYear();
+   const month = currentDate.getMonth();
 
-    // NOTE: The `getStaffAttendanceAndLeaveForMonth` method is designed to fetch data for the
-    // currently authenticated user, not for a specific staff member by ID.
-    // As such, this calendar will always display the logged-in user's data, regardless of the dropdown selection.
-    // A new API endpoint is required to view other staff members' data.
+   try {
+     // Add a try...catch block for safety
      const { attendance, leaves } =
        await sharedApiService.getStaffAttendanceAndLeaveForMonth(
          selectedStaffId,
@@ -57,32 +55,38 @@ const StaffAttendanceCalendar: React.FC = () => {
          month
        );
 
+     const newMap = new Map<string, TeacherAttendanceStatus | "On Leave">();
 
-    const newMap = new Map<string, TeacherAttendanceStatus | "On Leave">();
+     // --- THIS IS THE FIX ---
+     // Add '|| []' to prevent a crash if 'leaves' is undefined or null
+     (leaves || []).forEach((leave: LeaveApplication) => {
+       let d = new Date(leave.startDate);
+       const endDate = new Date(leave.endDate);
+       d.setUTCHours(0, 0, 0, 0);
+       endDate.setUTCHours(0, 0, 0, 0);
 
-    // FIX: Added explicit type for 'leave'.
-    leaves.forEach((leave: LeaveApplication) => {
-      let d = new Date(leave.startDate);
-      const endDate = new Date(leave.endDate);
-      d.setUTCHours(0, 0, 0, 0);
-      endDate.setUTCHours(0, 0, 0, 0);
+       while (d <= endDate) {
+         newMap.set(d.toISOString().split("T")[0], "On Leave");
+         d.setDate(d.getDate() + 1);
+       }
+     });
 
-      while (d <= endDate) {
-        newMap.set(d.toISOString().split("T")[0], "On Leave");
-        d.setDate(d.getDate() + 1);
-      }
-    });
+     // Add '|| []' to prevent a crash if 'attendance' is undefined or null
+     (attendance || []).forEach((rec: TeacherAttendanceRecord) => {
+       if (!newMap.has(rec.date)) {
+         newMap.set(rec.date, rec.status);
+       }
+     });
+     // --- END OF FIX ---
 
-    // FIX: Added explicit type for 'rec'.
-    attendance.forEach((rec: TeacherAttendanceRecord) => {
-      if (!newMap.has(rec.date)) {
-        newMap.set(rec.date, rec.status);
-      }
-    });
-
-    setAttendanceData(newMap);
-    setCalendarLoading(false);
-  }, [selectedStaffId, currentDate]);
+     setAttendanceData(newMap);
+   } catch (error) {
+     console.error("Failed to fetch calendar data:", error);
+     setAttendanceData(new Map()); // Clear data on error
+   } finally {
+     setCalendarLoading(false);
+   }
+ }, [selectedStaffId, currentDate]);
 
   useEffect(() => {
     fetchCalendarData();
