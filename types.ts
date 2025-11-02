@@ -1084,6 +1084,16 @@ export interface SchoolDetails {
     };
 }
 
+export interface LeaveSetting {
+  id: string;
+  branchId: string;
+  defaultStudentSick: number;
+  defaultStudentCasual: number;
+  defaultTeacherSick: number;
+  defaultTeacherCasual: number;
+  defaultStaffSick: number;
+  defaultStaffCasual: number;
+}
 export interface SchoolClassFeeDetails {
     className: string;
     studentCount: number;

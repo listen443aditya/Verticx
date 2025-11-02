@@ -321,16 +321,22 @@ const MyAttendanceAndLeaveView: React.FC = () => {
 
 const LeaveConfigurationView: React.FC = () => {
   const { user } = useAuth();
-  const [settings, setSettings] = useState<LeaveSetting[]>([]);
+  // FIX 1: State should be a single object or null, not an array
+  const [settings, setSettings] = useState<LeaveSetting | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
 
+  // FIX 2: Fetch data and set the single object
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const data = await apiService.getLeaveSettings();
-    setSettings(data);
+    try {
+      const data = await apiService.getLeaveSettings();
+      setSettings(data);
+    } catch (error) {
+      console.error("Failed to load leave settings:", error);
+    }
     setLoading(false);
   }, [user]);
 
@@ -338,36 +344,40 @@ const LeaveConfigurationView: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
-  const handleChange = (role: string, type: LeaveType, value: string) => {
+  // FIX 3: HandleChange must update the single settings object
+  const handleChange = (field: keyof LeaveSetting, value: string) => {
     const numValue = Number(value);
     if (isNaN(numValue) || numValue < 0) return;
 
-    setSettings((prev) =>
-      prev.map((s) =>
-        s.role === role
-          ? { ...s, settings: { ...s.settings, [type]: numValue } }
-          : s
-      )
-    );
+    setSettings((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        [field]: numValue,
+      };
+    });
   };
 
-  const handleSave = async () => {
-    if (!user) return;
-    setIsSaving(true);
-    await apiService.updateLeaveSettings(settings);
-    setStatusMessage("Settings saved successfully!");
-    setIsSaving(false);
-    setTimeout(() => setStatusMessage(""), 3000);
-  };
+  // FIX 4: handleSave updates the single object
+ const handleSave = async () => {
+   if (!settings) return;
+   setIsSaving(true);
+   // This now matches the updated registrarApiService
+   await apiService.updateLeaveSettings(settings);
+   setStatusMessage("Settings saved successfully!");
+   setIsSaving(false);
+   setTimeout(() => setStatusMessage(""), 3000);
+ };
 
-  const roles: LeaveSetting["role"][] = [
-    "Student",
-    "Teacher",
-    "Registrar",
-    "Librarian",
-    "SupportStaff",
+  // FIX 5: Define the fields to match the *actual* schema
+  const fields: { label: string; key: keyof LeaveSetting }[] = [
+    { label: "Student Sick", key: "defaultStudentSick" },
+    { label: "Student Casual", key: "defaultStudentCasual" },
+    { label: "Teacher Sick", key: "defaultTeacherSick" },
+    { label: "Teacher Casual", key: "defaultTeacherCasual" },
+    { label: "Staff Sick", key: "defaultStaffSick" },
+    { label: "Staff Casual", key: "defaultStaffCasual" },
   ];
-  const leaveTypes: LeaveType[] = ["Sick", "Casual", "Planned", "Earned"];
 
   return (
     <div>
@@ -377,48 +387,34 @@ const LeaveConfigurationView: React.FC = () => {
       </p>
       {loading ? (
         <p>Loading...</p>
+      ) : !settings ? ( // Handle null state
+        <p>Could not load settings.</p>
       ) : (
         <div className="space-y-4">
+          {/* FIX 6: Render the table based on the new fields array */}
           <table className="w-full text-left border">
             <thead className="bg-slate-50">
               <tr className="border-b">
-                <th className="p-2">Role</th>
-                {leaveTypes.map((lt) => (
-                  <th key={lt} className="p-2 text-center">
-                    {lt}
-                  </th>
-                ))}
+                <th className="p-2">Leave Type</th>
+                <th className="p-2 text-center">Days Allocated</th>
               </tr>
             </thead>
             <tbody>
-              {roles.map((role) => {
-                const roleSetting = settings.find((s) => s.role === role);
-                return (
-                  <tr key={role} className="border-b">
-                    <td className="p-2 font-semibold">{role}</td>
-                    {leaveTypes.map((lt) => (
-                      <td key={lt} className="p-2 text-center">
-                        {roleSetting?.settings.hasOwnProperty(lt) ? (
-                          <Input
-                            type="number"
-                            className="!w-20 text-center mx-auto"
-                            value={String(
-                              roleSetting.settings[
-                                lt as keyof typeof roleSetting.settings
-                              ] || ""
-                            )}
-                            onChange={(e) =>
-                              handleChange(role, lt, e.target.value)
-                            }
-                          />
-                        ) : (
-                          <span className="text-slate-400">N/A</span>
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                );
-              })}
+              {fields.map((field) => (
+                <tr key={field.key} className="border-b">
+                  <td className="p-2 font-semibold">{field.label}</td>
+                  <td className="p-2 text-center">
+                    <Input
+                      type="number"
+                      className="!w-20 text-center mx-auto"
+                      value={String(
+                        settings[field.key as keyof LeaveSetting] || ""
+                      )}
+                      onChange={(e) => handleChange(field.key, e.target.value)}
+                    />
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
           <div className="text-right">

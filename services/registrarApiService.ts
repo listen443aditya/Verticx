@@ -597,8 +597,8 @@ export class RegistrarApiService {
   ): Promise<void> {
     await baseApi.post("/registrar/leaves/applications", data);
   }
-  async updateLeaveSettings(settingsToUpdate: LeaveSetting[]): Promise<void> {
-    await baseApi.put("/registrar/leaves/settings", { settingsToUpdate });
+  async updateLeaveSettings(settings: LeaveSetting): Promise<void> {
+    await baseApi.put("/registrar/leaves/settings", settings);
   }
 
   async getLeaveApplications(): Promise<LeaveApplication[]> {
