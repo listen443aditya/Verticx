@@ -76,59 +76,73 @@ const LeaveManager: React.FC<LeaveManagerProps> = ({ user }) => {
     []
   );
 
-  const fetchLeaveData = useCallback(async () => {
-    if (!user?.branchId || !user.role) return;
-    setLoading(true);
+const fetchLeaveData = useCallback(async () => {
+  if (!user?.branchId || !user.role) return;
+  setLoading(true);
 
-    try {
-      // FIX: Use registrarApiService for all calls
-      const [appData, branchSettings, freshUser] = await Promise.all([
-        registrarApiService.getLeaveApplications(),
-        registrarApiService.getLeaveSettings(), // This now returns an array
-        registrarApiService.getUserById(user.id),
-      ]);
+  try {
+    // Use registrarApiService for all calls
+    const [appData, branchSettings, freshUser] = await Promise.all([
+      registrarApiService.getLeaveApplications(),
+      registrarApiService.getLeaveSettings(), // This returns a single object or null
+      registrarApiService.getUserById(user.id),
+    ]);
 
-      setApplications(appData || []);
+    setApplications(appData || []);
 
-      // FIX: The backend now returns an array, so this .find() is correct.
-      const userRoleSetting =
-        branchSettings &&
-        branchSettings.settings &&
-        branchSettings.settings.hasOwnProperty(user.role)
-          ? branchSettings
-          : null;
+    // --- THIS IS THE FIX ---
+    // 'branchSettings' is the single settings object.
+    // We parse it based on the current user's role.
+    if (branchSettings) {
+      let types: LeaveType[] = [];
+      const totals: Record<string, number> = {};
+      const balances: Record<string, number> = freshUser?.leaveBalances || {};
 
-      if (userRoleSetting?.settings) {
-        const totals = userRoleSetting.settings as Record<string, number>;
-        const types = Object.keys(totals).filter(
-          (k) => totals[k] > 0
-        ) as LeaveType[];
-
-        const normalizedTotals: Record<string, number> = {};
-        types.forEach((t) => {
-          normalizedTotals[t.toLowerCase()] = totals[t];
-        });
-        setTotalLeaves(normalizedTotals);
-        setAvailableLeaveTypes(types);
-        if (types.length > 0 && !types.includes(leaveType)) {
-          setLeaveType(types[0]);
-        }
-      } else {
-        setTotalLeaves({});
-        setAvailableLeaveTypes([]);
+      // Manually determine which keys from the object to use
+      if (user.role === "Student") {
+        types = ["Sick", "Casual"];
+        totals["sick"] = branchSettings.defaultStudentSick;
+        totals["casual"] = branchSettings.defaultStudentCasual;
+      } else if (user.role === "Teacher") {
+        types = ["Sick", "Casual"];
+        totals["sick"] = branchSettings.defaultTeacherSick;
+        totals["casual"] = branchSettings.defaultTeacherCasual;
+      } else if (
+        ["Registrar", "Librarian", "SupportStaff"].includes(user.role)
+      ) {
+        types = ["Sick", "Casual"];
+        totals["sick"] = branchSettings.defaultStaffSick;
+        totals["casual"] = branchSettings.defaultStaffCasual;
       }
+      // Note: 'Planned' and 'Earned' are not in your settings model,
+      // so they will not appear as options. This is correct.
 
-      if (freshUser?.leaveBalances) {
-        setLeaveBalances(freshUser.leaveBalances);
+      setTotalLeaves(totals);
+      setAvailableLeaveTypes(types);
+      setLeaveBalances(balances); // Set balances from the freshUser object
+
+      if (types.length > 0 && !types.includes(leaveType)) {
+        setLeaveType(types[0]);
       }
-    } catch (error) {
-      console.error("Failed to fetch leave data:", error);
-      setApplications([]);
+    } else {
+      // No settings object was found
+      setTotalLeaves({});
       setAvailableLeaveTypes([]);
-    } finally {
-      setLoading(false);
+      setLeaveBalances({});
     }
-  }, [user, leaveType]);
+    // --- END FIX ---
+
+    if (freshUser?.leaveBalances) {
+      setLeaveBalances(freshUser.leaveBalances);
+    }
+  } catch (error) {
+    console.error("Failed to fetch leave data:", error);
+    setApplications([]);
+    setAvailableLeaveTypes([]);
+  } finally {
+    setLoading(false);
+  }
+}, [user, leaveType]);
 
   useEffect(() => {
     fetchLeaveData();
