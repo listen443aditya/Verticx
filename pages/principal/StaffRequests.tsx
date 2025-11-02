@@ -46,7 +46,7 @@ const StaffRequests: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, refreshKey]);
 
   const handleAction = async (
     requestId: string,
@@ -83,13 +83,12 @@ const StaffRequests: React.FC = () => {
   }, [attendanceRequests, view]);
 
   const filteredLeaveRequests = useMemo(() => {
-    // FIX: Safer sorting that handles potential parsing errors from IDs.
     return leaveRequests
       .filter((r) => r.status === view)
       .sort(
         (a, b) =>
-          new Date(b.id.split("-")[1] || 0).getTime() -
-          new Date(a.id.split("-")[1] || 0).getTime()
+          // FIX: Sort by the actual date, not the ID
+          new Date(b.fromDate).getTime() - new Date(a.fromDate).getTime()
       );
   }, [leaveRequests, view]);
 

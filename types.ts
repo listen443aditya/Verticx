@@ -455,19 +455,26 @@ export interface FacultyApplication {
 export type LeaveType = 'Sick' | 'Casual' | 'Earned' | 'Planned';
 
 export interface LeaveApplication {
-    id: string;
-    branchId: string;
-    applicantId: string;
-    applicantName: string;
-    applicantRole: UserRole;
-    leaveType: LeaveType;
-    startDate: string; // YYYY-MM-DD
-    endDate: string; // YYYY-MM-DD
-    isHalfDay: boolean;
-    reason: string;
-    status: 'Pending' | 'Approved' | 'Rejected';
-    reviewedBy?: string; // Approver's name
-    reviewedAt?: Date;
+  id: string;
+  reason: string;
+  status: string;
+  fromDate: string; // Keep this
+  toDate: string; // Keep this
+  startDate: string; // Add this
+  endDate: string; // Add this
+  applicantId: string;
+  applicant: {
+    // This is good
+    name: string;
+    role: string;
+  };
+
+  // Add all the missing fields
+  leaveType?: string;
+  isHalfDay?: boolean;
+  applicantName?: string;
+  applicantRole?: string;
+  reviewedBy?: string; // For the "Reviewed by" text
 }
 
 export interface ConcessionRequest {
