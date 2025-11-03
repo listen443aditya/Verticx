@@ -159,6 +159,7 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
   onAttendanceSaved,
 }) => {
   const { user } = useAuth();
+  const { refreshKey } = useDataRefresh();
   const [staff, setStaff] = useState<
     (User & { attendancePercentage?: number })[]
   >([]);
@@ -189,7 +190,7 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
     setLoading(true);
 
     try {
-      const cacheBustConfig = { params: { _cacheBust: Date.now() } };
+      const cacheBustConfig = { params: { _cacheBust: refreshKey } };
       const staffData = await apiService.getAllStaff(cacheBustConfig);
       setStaff(staffData);
 
@@ -212,7 +213,7 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
     } finally {
       setLoading(false);
     }
-  }, [selectedDate, user]);
+  }, [selectedDate, user, refreshKey]);
 
   useEffect(() => {
     fetchData();
@@ -225,22 +226,27 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
     setAttendance((prev) => ({ ...prev, [staffId]: status }));
   };
 
-  const handleSave = async () => {
-    if (!selectedDate || !user?.branchId) return;
-    setIsSaving(true);
-    const records = staff.map((s) => ({
-      branchId: user.branchId!,
-      userId: s.id,
-      date: selectedDate,
-      status: attendance[s.id] || "Present",
-    }));
+ const handleSave = async () => {
+   if (!selectedDate || !user?.branchId) return;
+   setIsSaving(true);
 
-    await apiService.saveTeacherAttendance(records as any);
-    setIsSaving(false);
-    await fetchData();
-    onAttendanceSaved();
-  };
+   const records = staff.map((s) => ({
+     branchId: user.branchId!,
+     userId: s.id,
+     date: selectedDate,
+     status: attendance[s.id] || "Present",
+   }));
 
+   try {
+     await apiService.saveTeacherAttendance(records as any);
+     onAttendanceSaved();
+   } catch (error) {
+     console.error("Failed to save attendance:", error);
+     // Handle the error if needed
+   } finally {
+     setIsSaving(false);
+   }
+ };
   return (
     <div>
       <div className="flex flex-wrap gap-4 mb-6 border-b border-slate-200 pb-4 items-center">
