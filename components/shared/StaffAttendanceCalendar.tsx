@@ -246,8 +246,8 @@ const StaffAttendanceCalendar: React.FC<StaffAttendanceCalendarProps> = ({
               const statusInfo = {
                 Present: { color: "bg-green-200", text: "Present" },
                 Absent: { color: "bg-red-200", text: "Absent" },
-                "On Leave": { color: "bg-blue-200", text: "On Leave" },
-                "Half Day": { color: "bg-yellow-200", text: "Half Day" },
+                OnLeave: { color: "bg-blue-200", text: "On Leave" },
+                HalfDay: { color: "bg-yellow-200", text: "Half Day" },
                 Holiday: { color: "bg-slate-300", text: "Holiday" },
                 "Not Marked": { color: "bg-slate-100", text: "" },
                 Upcoming: { color: "bg-white", text: "" },
