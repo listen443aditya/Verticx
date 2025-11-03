@@ -228,13 +228,13 @@ export class RegistrarApiService {
   }
 
   // --- Faculty & Staff Information System ---
-  async getAllStaff(): Promise<
+  async getAllStaff(config: any = {}): Promise<
+    // Add config
     (User & Teacher & { attendancePercentage?: number })[]
   > {
-    // Ensure it calls '/registrar/staff/all'
     const { data } = await baseApi.get<
-      (User & Teacher & { attendancePercentage?: number })[] // Update the expected return type
-    >("/registrar/staff/all");
+      (User & Teacher & { attendancePercentage?: number })[]
+    >("/registrar/staff/all", config); // Pass config
     return data;
   }
 
@@ -516,19 +516,19 @@ export class RegistrarApiService {
     );
     return data;
   }
-  // Add this method inside your RegistrarApiService class
   async getStaffAttendanceAndLeaveForMonth(
     staffId: string,
     year: number,
-    month: number
+    month: number,
+    config: any = {} // Add config
   ): Promise<{
     attendance: TeacherAttendanceRecord[];
     leaves: LeaveApplication[];
   }> {
     try {
-      // We will create a new backend route for this
       const { data } = await baseApi.get(
-        `/registrar/staff/${staffId}/attendance/${year}/${month}`
+        `/registrar/staff/${staffId}/attendance/${year}/${month}`,
+        config // Pass config
       );
       return data;
     } catch (error) {
@@ -536,7 +536,6 @@ export class RegistrarApiService {
         `Failed to fetch calendar data for staff ${staffId}:`,
         error
       );
-      // Return empty arrays to prevent the frontend from crashing
       return { attendance: [], leaves: [] };
     }
   }
