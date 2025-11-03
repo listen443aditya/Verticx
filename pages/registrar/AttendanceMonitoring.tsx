@@ -159,7 +159,6 @@ const StudentAttendanceView: React.FC = () => {
   );
 };
 
-// --- FIX: Add onAttendanceSaved prop ---
 const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
   onAttendanceSaved,
 }) => {
@@ -178,31 +177,36 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
   const [isSaving, setIsSaving] = useState(false);
 
   // --- THIS IS THE FIX (Part 1) ---
-  // Map backend enum keys to frontend display labels
+  // The keys (left side) MUST match your Prisma schema enum (e.g., "HalfDay")
+  // The values (right side) are what the user sees (e.g., "Half Day")
   const statusKeyToLabel: Record<TeacherAttendanceStatus, string> = {
     Present: "Present",
     Absent: "Absent",
-    "On Leave": "On Leave", 
+    "On Leave": "On Leave",
     "Half Day": "Half Day",
   };
+
+  // This array must use the backend enum keys (no spaces)
   const attendanceOptions: TeacherAttendanceStatus[] = [
     "Present",
     "Absent",
     "On Leave",
     "Half Day",
   ];
+  // --- END OF FIX ---
+
   const fetchData = useCallback(async () => {
     if (!user || !selectedDate) return;
     setLoading(true);
 
     try {
-      // Add cache-busting to the API calls
+      // Add cache-busting
       const cacheBustConfig = { params: { _cacheBust: Date.now() } };
       const staffData = await apiService.getAllStaff(cacheBustConfig);
       setStaff(staffData);
 
       const { isSaved: saved, attendance: savedAttendance } =
-        await apiService.getTeacherAttendance(selectedDate); // This also needs cache-busting in the service
+        await apiService.getTeacherAttendance(selectedDate);
       setIsSaved(saved);
 
       const attendanceMap: Record<string, TeacherAttendanceStatus> = {};
@@ -210,8 +214,8 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
         const record = (savedAttendance as any[]).find(
           (a: any) => a.userId === s.id
         );
-        // The record.status is "HalfDay", which is a valid key
-        attendanceMap[s.id] = record ? record.status : "Present"; 
+        // The record.status from the DB is "HalfDay", which is a valid key
+        attendanceMap[s.id] = record ? record.status : "Present";
       });
       setAttendance(attendanceMap);
     } catch (error) {
@@ -229,7 +233,7 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
 
   const handleStatusChange = (
     staffId: string,
-    status: TeacherAttendanceStatus // Status is now "HalfDay", "OnLeave", etc.
+    status: TeacherAttendanceStatus // Status is "HalfDay", "OnLeave", etc.
   ) => {
     setAttendance((prev) => ({ ...prev, [staffId]: status }));
   };
@@ -237,6 +241,8 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
   const handleSave = async () => {
     if (!selectedDate || !user?.branchId) return;
     setIsSaving(true);
+
+    // The 'attendance' state now holds the correct enum keys (e.g., "HalfDay")
     const records = staff.map((s) => ({
       branchId: user.branchId!,
       userId: s.id,
@@ -286,7 +292,7 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
                   <td className="p-2 text-center text-sm font-semibold">
                     {s.attendancePercentage?.toFixed(1) ?? "N/A"}%
                   </td>
-                  
+
                   {/* --- THIS IS THE FIX (Part 2) --- */}
                   {/* Loop over the new options array */}
                   {attendanceOptions.map((statusKey) => (
@@ -302,7 +308,9 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
                           disabled={isSaved}
                         />
                         {/* Display the label (e.g., "Half Day") */}
-                        <span className="ml-2">{statusKeyToLabel[statusKey]}</span>
+                        <span className="ml-2">
+                          {statusKeyToLabel[statusKey]}
+                        </span>
                       </label>
                     </td>
                   ))}
