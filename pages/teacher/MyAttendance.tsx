@@ -43,13 +43,13 @@ const MyAttendance: React.FC = () => {
   }, [user]);
 
   const recordsByDate = useMemo(() => {
-    const map = new Map<string, TeacherAttendanceStatus | "On Leave">();
+    const map = new Map<string, TeacherAttendanceStatus | "OnLeave">();
 
     leaves.forEach((leave) => {
       let currentDate = new Date(leave.startDate);
       const endDate = new Date(leave.endDate);
       while (currentDate <= endDate) {
-        map.set(currentDate.toISOString().split("T")[0], "On Leave");
+        map.set(currentDate.toISOString().split("T")[0], "OnLeave");
         currentDate.setDate(currentDate.getDate() + 1);
       }
     });
@@ -64,7 +64,7 @@ const MyAttendance: React.FC = () => {
   }, [records, leaves]);
 
   const getDayStatus = useCallback(
-    (date: Date): TeacherAttendanceStatus | "On Leave" | "NoRecord" => {
+    (date: Date): TeacherAttendanceStatus | "OnLeave" | "NoRecord" => {
       const dateString = date.toISOString().split("T")[0];
       return recordsByDate.get(dateString) || "NoRecord";
     },
@@ -143,15 +143,15 @@ const MyAttendance: React.FC = () => {
 
             const status = getDayStatus(day);
             const statusInfo: {
-              [key in TeacherAttendanceStatus | "On Leave" | "NoRecord"]: {
+              [key in TeacherAttendanceStatus | "OnLeave" | "NoRecord"]: {
                 color: string;
                 text: string;
               };
             } = {
               Present: { color: "bg-green-200", text: "Present" },
               Absent: { color: "bg-red-200", text: "Absent" },
-              "On Leave": { color: "bg-blue-200", text: "On Leave" },
-              "Half Day": { color: "bg-yellow-200", text: "Half Day" },
+              OnLeave: { color: "bg-blue-200", text: "OnLeave" },
+              HalfDay: { color: "bg-yellow-200", text: "Half Day" },
               NoRecord: { color: "bg-slate-100", text: "" },
             };
 
