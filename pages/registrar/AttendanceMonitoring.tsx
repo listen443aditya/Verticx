@@ -177,6 +177,7 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
     OnLeave: "On Leave",
     HalfDay: "Half Day",
   };
+
   const attendanceOptions: TeacherAttendanceStatus[] = [
     "Present",
     "Absent",
@@ -191,9 +192,11 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
       const cacheBustConfig = { params: { _cacheBust: Date.now() } };
       const staffData = await apiService.getAllStaff(cacheBustConfig);
       setStaff(staffData);
+
       const { isSaved: saved, attendance: savedAttendance } =
         await apiService.getTeacherAttendance(selectedDate, cacheBustConfig);
       setIsSaved(saved);
+
       const attendanceMap: Record<string, TeacherAttendanceStatus> = {};
       staffData.forEach((s: User) => {
         const record = (savedAttendance as any[]).find(
@@ -221,6 +224,7 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
   ) => {
     setAttendance((prev) => ({ ...prev, [staffId]: status }));
   };
+
   const handleSave = async () => {
     if (!selectedDate || !user?.branchId) return;
     setIsSaving(true);
@@ -236,6 +240,7 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
     await fetchData();
     onAttendanceSaved();
   };
+
   return (
     <div>
       <div className="flex flex-wrap gap-4 mb-6 border-b border-slate-200 pb-4 items-center">
@@ -273,15 +278,17 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
                     {s.attendancePercentage?.toFixed(1) ?? "N/A"}%
                   </td>
 
+                  {/* --- THIS IS THE FIX (Part 2) --- */}
+                  {/* Loop over the new options array */}
                   {attendanceOptions.map((statusKey) => (
                     <td key={statusKey} className="p-2 text-center">
                       <label className="flex items-center justify-center text-xs">
                         <input
                           type="radio"
                           name={`att-${s.id}`}
-                          // Check against the key (e.g., "Half Day")
+                          // Check against the key (e.g., "HalfDay")
                           checked={attendance[s.id] === statusKey}
-                          // Save the key (e.g., "Half Day")
+                          // Save the key (e.g., "HalfDay")
                           onChange={() => handleStatusChange(s.id, statusKey)}
                           disabled={isSaved}
                         />
