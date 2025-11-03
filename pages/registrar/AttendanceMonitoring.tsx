@@ -175,26 +175,20 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
   const [isSaved, setIsSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-
-  // --- THIS IS THE FIX (Part 1) ---
-  // The keys (left side) MUST match your Prisma schema enum (e.g., "HalfDay")
-  // The values (right side) are what the user sees (e.g., "Half Day")
   const statusKeyToLabel: Record<TeacherAttendanceStatus, string> = {
     Present: "Present",
     Absent: "Absent",
     "On Leave": "On Leave",
     "Half Day": "Half Day",
   };
-  
-  // This array must use the backend enum keys (no spaces)
+
+  // This array must use the backend enum keys (WITH spaces)
   const attendanceOptions: TeacherAttendanceStatus[] = [
     "Present",
     "Absent",
     "On Leave",
     "Half Day",
   ];
-  // --- END OF FIX ---
-
   const fetchData = useCallback(async () => {
     if (!user || !selectedDate) return;
     setLoading(true);
@@ -204,8 +198,13 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
       const staffData = await apiService.getAllStaff(cacheBustConfig);
       setStaff(staffData);
 
+      // --- THIS IS THE FIX (Part 2) ---
+      // The getTeacherAttendance function only takes one argument (date)
+      // We will fix the service in the next step to accept the config
       const { isSaved: saved, attendance: savedAttendance } =
-        await apiService.getTeacherAttendance(selectedDate); 
+        await apiService.getTeacherAttendance(selectedDate, cacheBustConfig);
+      // --- END OF FIX ---
+
       setIsSaved(saved);
 
       const attendanceMap: Record<string, TeacherAttendanceStatus> = {};
@@ -213,8 +212,7 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
         const record = (savedAttendance as any[]).find(
           (a: any) => a.userId === s.id
         );
-        // The record.status from the DB is "HalfDay", which is a valid key
-        attendanceMap[s.id] = record ? record.status : "Present"; 
+        attendanceMap[s.id] = record ? record.status : "Present";
       });
       setAttendance(attendanceMap);
     } catch (error) {
@@ -232,7 +230,7 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
 
   const handleStatusChange = (
     staffId: string,
-    status: TeacherAttendanceStatus // Status is "HalfDay", "OnLeave", etc.
+    status: TeacherAttendanceStatus // Status is "Half Day", "On Leave", etc.
   ) => {
     setAttendance((prev) => ({ ...prev, [staffId]: status }));
   };
@@ -241,7 +239,7 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
     if (!selectedDate || !user?.branchId) return;
     setIsSaving(true);
 
-    // The 'attendance' state now holds the correct enum keys (e.g., "HalfDay")
+    // The 'attendance' state now holds the correct enum keys (e.g., "Half Day")
     const records = staff.map((s) => ({
       branchId: user.branchId!,
       userId: s.id,
@@ -291,27 +289,26 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
                   <td className="p-2 text-center text-sm font-semibold">
                     {s.attendancePercentage?.toFixed(1) ?? "N/A"}%
                   </td>
-                  
-                  {/* --- THIS IS THE FIX (Part 2) --- */}
-                  {/* Loop over the new options array */}
+
                   {attendanceOptions.map((statusKey) => (
                     <td key={statusKey} className="p-2 text-center">
                       <label className="flex items-center justify-center text-xs">
                         <input
                           type="radio"
                           name={`att-${s.id}`}
-                          // Check against the key (e.g., "HalfDay")
+                          // Check against the key (e.g., "Half Day")
                           checked={attendance[s.id] === statusKey}
-                          // Save the key (e.g., "HalfDay")
+                          // Save the key (e.g., "Half Day")
                           onChange={() => handleStatusChange(s.id, statusKey)}
                           disabled={isSaved}
                         />
                         {/* Display the label (e.g., "Half Day") */}
-                        <span className="ml-2">{statusKeyToLabel[statusKey]}</span>
+                        <span className="ml-2">
+                          {statusKeyToLabel[statusKey]}
+                        </span>
                       </label>
                     </td>
                   ))}
-                  {/* --- END OF FIX --- */}
                 </tr>
               ))}
             </tbody>
@@ -328,7 +325,6 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
     </div>
   );
 };
-
 const MyAttendanceAndLeaveView: React.FC = () => {
   const { user } = useAuth();
   if (!user) return null;

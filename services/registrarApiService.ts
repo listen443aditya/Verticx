@@ -433,11 +433,20 @@ export class RegistrarApiService {
   }
 
   async getTeacherAttendance(
-    date: string
+    date: string,
+    config: any = {} // <-- 1. Add config parameter
   ): Promise<{ isSaved: boolean; attendance: TeacherAttendanceRecord[] }> {
-    const { data } = await baseApi.get("/registrar/staff/attendance", {
-      params: { date },
-    });
+    // 2. Merge config and date params
+    const options = {
+      ...config,
+      params: {
+        ...config.params,
+        date,
+      },
+    };
+
+    // 3. Pass options to the API call
+    const { data } = await baseApi.get("/registrar/staff/attendance", options);
     return data;
   }
 
@@ -527,7 +536,7 @@ export class RegistrarApiService {
     try {
       const { data } = await baseApi.get(
         `/registrar/staff/${staffId}/attendance/${year}/${month}`,
-        config 
+        config
       );
       return data;
     } catch (error) {
