@@ -185,7 +185,7 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
     "On Leave": "On Leave",
     "Half Day": "Half Day",
   };
-
+  
   // This array must use the backend enum keys (no spaces)
   const attendanceOptions: TeacherAttendanceStatus[] = [
     "Present",
@@ -200,13 +200,12 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
     setLoading(true);
 
     try {
-      // Add cache-busting
       const cacheBustConfig = { params: { _cacheBust: Date.now() } };
       const staffData = await apiService.getAllStaff(cacheBustConfig);
       setStaff(staffData);
 
       const { isSaved: saved, attendance: savedAttendance } =
-        await apiService.getTeacherAttendance(selectedDate);
+        await apiService.getTeacherAttendance(selectedDate); 
       setIsSaved(saved);
 
       const attendanceMap: Record<string, TeacherAttendanceStatus> = {};
@@ -215,7 +214,7 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
           (a: any) => a.userId === s.id
         );
         // The record.status from the DB is "HalfDay", which is a valid key
-        attendanceMap[s.id] = record ? record.status : "Present";
+        attendanceMap[s.id] = record ? record.status : "Present"; 
       });
       setAttendance(attendanceMap);
     } catch (error) {
@@ -292,7 +291,7 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
                   <td className="p-2 text-center text-sm font-semibold">
                     {s.attendancePercentage?.toFixed(1) ?? "N/A"}%
                   </td>
-
+                  
                   {/* --- THIS IS THE FIX (Part 2) --- */}
                   {/* Loop over the new options array */}
                   {attendanceOptions.map((statusKey) => (
@@ -308,9 +307,7 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
                           disabled={isSaved}
                         />
                         {/* Display the label (e.g., "Half Day") */}
-                        <span className="ml-2">
-                          {statusKeyToLabel[statusKey]}
-                        </span>
+                        <span className="ml-2">{statusKeyToLabel[statusKey]}</span>
                       </label>
                     </td>
                   ))}
