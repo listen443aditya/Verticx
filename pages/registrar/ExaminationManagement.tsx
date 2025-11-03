@@ -98,12 +98,20 @@ const ScheduleExamModal: React.FC<{
   const [totalMarks, setTotalMarks] = useState("100");
   const [isSaving, setIsSaving] = useState(false);
 
-  const availableSubjects = useMemo(() => {
-    if (!classId) return [];
-    const selectedClass = classes.find((c) => c.id === classId);
-    if (!selectedClass) return [];
-    return subjects.filter((s) => selectedClass.subjectIds.includes(s.id));
-  }, [classId, classes, subjects]);
+const availableSubjects = useMemo(() => {
+  if (!classId) return [];
+
+  // 1. Find the class and cast it to 'any' to bypass the outdated type
+  const selectedClass = classes.find((c) => c.id === classId) as any;
+
+  // 2. Now we can safely access the 'subjects' property that exists at runtime
+  if (!selectedClass || !selectedClass.subjects) return [];
+
+  // 3. We type 'sub' as 'any' to fix the implicit 'any' error
+  const classSubjectIds = selectedClass.subjects.map((sub: any) => sub.id);
+
+  return subjects.filter((s) => classSubjectIds.includes(s.id));
+}, [classId, classes, subjects]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
