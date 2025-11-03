@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
-// Correctly import the service class and create an instance.
+import { useDataRefresh } from "../../contexts/DataRefreshContext";
 import { RegistrarApiService } from "../../services/registrarApiService";
+
 import type {
   SchoolClass,
   Student,
@@ -164,7 +165,9 @@ const StudentAttendanceView: React.FC = () => {
   );
 };
 
-const StaffAttendanceView: React.FC = () => {
+const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
+  onAttendanceSaved,
+}) => {
   const { user } = useAuth();
   const [staff, setStaff] = useState<
     (User & { attendancePercentage?: number })[]
@@ -179,36 +182,36 @@ const StaffAttendanceView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
- const fetchData = useCallback(async () => {
-   if (!user || !selectedDate) return;
-   setLoading(true);
+  const fetchData = useCallback(async () => {
+    if (!user || !selectedDate) return;
+    setLoading(true);
 
-   try {
-     const staffData = await apiService.getAllStaff();
-     setStaff(staffData);
+    try {
+      const staffData = await apiService.getAllStaff();
+      setStaff(staffData);
 
-     const { isSaved: saved, attendance: savedAttendance } =
-       await apiService.getTeacherAttendance(selectedDate); // API service method name is still the same
-     setIsSaved(saved);
+      const { isSaved: saved, attendance: savedAttendance } =
+        await apiService.getTeacherAttendance(selectedDate); // API service method name is still the same
+      setIsSaved(saved);
 
-     const attendanceMap: Record<string, TeacherAttendanceStatus> = {};
-     staffData.forEach((s: User) => {
-       // FIX: Compare record's userId to the staff's User ID
-       const record = (savedAttendance as any[]).find(
-         // Use 'any' to avoid type conflict temporarily
-         (a: any) => a.userId === s.id
-       );
-       attendanceMap[s.id] = record ? record.status : "Present";
-     });
-     setAttendance(attendanceMap);
-   } catch (error) {
-     console.error("Failed to fetch staff attendance:", error);
-     setIsSaved(false);
-     setAttendance({});
-   } finally {
-     setLoading(false);
-   }
- }, [selectedDate, user]);
+      const attendanceMap: Record<string, TeacherAttendanceStatus> = {};
+      staffData.forEach((s: User) => {
+        // FIX: Compare record's userId to the staff's User ID
+        const record = (savedAttendance as any[]).find(
+          // Use 'any' to avoid type conflict temporarily
+          (a: any) => a.userId === s.id
+        );
+        attendanceMap[s.id] = record ? record.status : "Present";
+      });
+      setAttendance(attendanceMap);
+    } catch (error) {
+      console.error("Failed to fetch staff attendance:", error);
+      setIsSaved(false);
+      setAttendance({});
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedDate, user]);
 
   useEffect(() => {
     fetchData();
@@ -221,23 +224,24 @@ const StaffAttendanceView: React.FC = () => {
     setAttendance((prev) => ({ ...prev, [staffId]: status }));
   };
 
- const handleSave = async () => {
-   if (!selectedDate || !user?.branchId) return;
-   setIsSaving(true);
+  const handleSave = async () => {
+    if (!selectedDate || !user?.branchId) return;
+    setIsSaving(true);
+    await fetchData();
+    onAttendanceSaved();
+    // FIX: Send s.id (User ID) as userId
+    const records = staff.map((s) => ({
+      branchId: user.branchId!,
+      userId: s.id, // <-- Send the User.id
+      date: selectedDate,
+      status: attendance[s.id] || "Present",
+    }));
 
-   // FIX: Send s.id (User ID) as userId
-   const records = staff.map((s) => ({
-     branchId: user.branchId!,
-     userId: s.id, // <-- Send the User.id
-     date: selectedDate,
-     status: attendance[s.id] || "Present",
-   }));
-
-   // This service call will now send the data to the correct controller
-   await apiService.saveTeacherAttendance(records as any); // Use 'any' to bypass strict type change
-   setIsSaving(false);
-   await fetchData();
- };
+    // This service call will now send the data to the correct controller
+    await apiService.saveTeacherAttendance(records as any); // Use 'any' to bypass strict type change
+    setIsSaving(false);
+    await fetchData();
+  };
 
   return (
     <div>
@@ -438,7 +442,7 @@ const AttendanceMonitoring: React.FC = () => {
   const [activeTab, setActiveTab] = useState<
     "student" | "staff" | "staff_calendar" | "my_attendance" | "leave_config"
   >("student");
-
+const { refreshKey, triggerRefresh } = useDataRefresh();
   const tabButtonClasses = (isActive: boolean) =>
     `px-4 py-2 text-sm font-medium transition-colors focus:outline-none ${
       isActive
@@ -452,12 +456,9 @@ const AttendanceMonitoring: React.FC = () => {
       case "student":
         return <StudentAttendanceView />;
       case "staff":
-        return <StaffAttendanceView />;
+        return <StaffAttendanceView onAttendanceSaved={triggerRefresh} />;
       case "staff_calendar":
-        // --- THIS IS THE FIX ---
-        // Pass the registrar's apiService instance to the component
-        return <StaffAttendanceCalendar apiService={apiService} />;
-      // --- END OF FIX ---
+return <StaffAttendanceCalendar key={refreshKey} apiService={apiService} />;
       case "my_attendance":
         return <MyAttendanceAndLeaveView />;
       case "leave_config":
