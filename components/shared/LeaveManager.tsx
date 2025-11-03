@@ -80,23 +80,22 @@ const LeaveManager: React.FC<LeaveManagerProps> = ({ user }) => {
     setLoading(true);
 
     // --- THIS IS THE FIX ---
-    // Create a cache-busting config object
+    // Create a cache-busting config object that uses the 'refreshKey'
     const cacheBustConfig = {
-      params: { _cacheBust: Date.now() },
+      params: { _cacheBust: refreshKey },
     };
     // --- END OF FIX ---
 
     try {
       const [appData, branchSettings, freshUser] = await Promise.all([
         // Pass the config to your GET requests
-        registrarApiService.getLeaveApplications(),
-        registrarApiService.getLeaveSettings(),
-        registrarApiService.getUserById(user.id),
+        registrarApiService.getLeaveApplications(cacheBustConfig),
+        registrarApiService.getLeaveSettings(cacheBustConfig),
+        registrarApiService.getUserById(user.id, cacheBustConfig),
       ]);
 
       setApplications(appData || []);
 
-      // ... (rest of the function is correct) ...
       if (branchSettings) {
         let types: LeaveType[] = [];
         const totals: Record<string, number> = {};
@@ -137,11 +136,11 @@ const LeaveManager: React.FC<LeaveManagerProps> = ({ user }) => {
     } finally {
       setLoading(false);
     }
-  }, [user, leaveType, refreshKey]); // <-- Add refreshKey as a dependency
+  }, [user, leaveType, refreshKey]);
 
   useEffect(() => {
     fetchLeaveData();
-  }, [fetchLeaveData]); // <-- 'refreshKey' is now part of fetchData's dependency
+  }, [fetchLeaveData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

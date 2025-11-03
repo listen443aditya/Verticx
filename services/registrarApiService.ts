@@ -585,9 +585,10 @@ export class RegistrarApiService {
     });
   }
 
-  async getLeaveSettings(): Promise<LeaveSetting | null> {
+  async getLeaveSettings(config: any = {}): Promise<LeaveSetting | null> {
     const { data } = await baseApi.get<LeaveSetting | null>(
-      "/registrar/leaves/settings"
+      "/registrar/leaves/settings",
+      config
     );
     return data;
   }
@@ -601,9 +602,10 @@ export class RegistrarApiService {
     await baseApi.put("/registrar/leaves/settings", settings);
   }
 
-  async getLeaveApplications(): Promise<LeaveApplication[]> {
+  async getLeaveApplications(config: any = {}): Promise<LeaveApplication[]> {
     const { data } = await baseApi.get<LeaveApplication[]>(
-      "/registrar/leaves/my-applications" // <-- This is the new, correct route
+      "/registrar/leaves/my-applications",
+      config
     );
     return data;
   }
@@ -864,10 +866,11 @@ export class RegistrarApiService {
     return data;
   }
 
-  async getUserById(userId: string): Promise<User> {
+  async getUserById(userId: string, config: any = {}): Promise<User> {
     try {
       const { data } = await baseApi.get<User>(
-        `/registrar/user-details/${userId}`
+        `/registrar/user-details/${userId}`,
+        config // Pass config
       );
       return data;
     } catch (error) {
