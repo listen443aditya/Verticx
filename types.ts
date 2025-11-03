@@ -207,7 +207,7 @@ export interface AttendanceListItem {
   schoolRank?: number;
 }
 
-export type TeacherAttendanceStatus = 'Present' | 'Absent' | 'On Leave' | 'Half Day';
+export type TeacherAttendanceStatus = 'Present' | 'Absent' | 'OnLeave' | 'HalfDay';
 
 export interface TeacherAttendanceRecord {
   id: string;

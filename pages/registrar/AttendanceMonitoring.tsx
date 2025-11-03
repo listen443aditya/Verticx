@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { RegistrarApiService } from "../../services/registrarApiService";
-import { useDataRefresh } from "../../contexts/DataRefreshContext"; // <-- 1. IMPORT
+import { useDataRefresh } from "../../contexts/DataRefreshContext";
 import type {
   SchoolClass,
   Student,
@@ -22,11 +22,7 @@ import LeaveManager from "../../components/shared/LeaveManager";
 import StaffAttendanceCalendar from "../../components/shared/StaffAttendanceCalendar";
 
 const apiService = new RegistrarApiService();
-
-// --- SUB-COMPONENTS FOR TABS ---
-
 const StudentAttendanceView: React.FC = () => {
-  // ... (This component is fine, no changes needed) ...
   const { user } = useAuth();
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [selectedClassId, setSelectedClassId] = useState("");
@@ -178,16 +174,14 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
   const statusKeyToLabel: Record<TeacherAttendanceStatus, string> = {
     Present: "Present",
     Absent: "Absent",
-    "On Leave": "On Leave",
-    "Half Day": "Half Day",
+    OnLeave: "On Leave",
+    HalfDay: "Half Day",
   };
-
-  // This array must use the backend enum keys (WITH spaces)
   const attendanceOptions: TeacherAttendanceStatus[] = [
     "Present",
     "Absent",
-    "On Leave",
-    "Half Day",
+    "OnLeave",
+    "HalfDay",
   ];
   const fetchData = useCallback(async () => {
     if (!user || !selectedDate) return;
@@ -197,16 +191,9 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
       const cacheBustConfig = { params: { _cacheBust: Date.now() } };
       const staffData = await apiService.getAllStaff(cacheBustConfig);
       setStaff(staffData);
-
-      // --- THIS IS THE FIX (Part 2) ---
-      // The getTeacherAttendance function only takes one argument (date)
-      // We will fix the service in the next step to accept the config
       const { isSaved: saved, attendance: savedAttendance } =
         await apiService.getTeacherAttendance(selectedDate, cacheBustConfig);
-      // --- END OF FIX ---
-
       setIsSaved(saved);
-
       const attendanceMap: Record<string, TeacherAttendanceStatus> = {};
       staffData.forEach((s: User) => {
         const record = (savedAttendance as any[]).find(
@@ -230,16 +217,13 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
 
   const handleStatusChange = (
     staffId: string,
-    status: TeacherAttendanceStatus // Status is "Half Day", "On Leave", etc.
+    status: TeacherAttendanceStatus 
   ) => {
     setAttendance((prev) => ({ ...prev, [staffId]: status }));
   };
-
   const handleSave = async () => {
     if (!selectedDate || !user?.branchId) return;
     setIsSaving(true);
-
-    // The 'attendance' state now holds the correct enum keys (e.g., "Half Day")
     const records = staff.map((s) => ({
       branchId: user.branchId!,
       userId: s.id,
@@ -252,7 +236,6 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
     await fetchData();
     onAttendanceSaved();
   };
-
   return (
     <div>
       <div className="flex flex-wrap gap-4 mb-6 border-b border-slate-200 pb-4 items-center">
@@ -332,7 +315,6 @@ const MyAttendanceAndLeaveView: React.FC = () => {
 };
 
 const LeaveConfigurationView: React.FC = () => {
-  // ... (This component is fine, no changes needed) ...
   const { user } = useAuth();
   const [settings, setSettings] = useState<LeaveSetting | null>(null);
   const [loading, setLoading] = useState(true);
@@ -436,9 +418,6 @@ const LeaveConfigurationView: React.FC = () => {
     </div>
   );
 };
-
-// --- MAIN COMPONENT ---
-
 const AttendanceMonitoring: React.FC = () => {
   const { user } = useAuth();
   // 3. GET THE REFRESH TOOLS
