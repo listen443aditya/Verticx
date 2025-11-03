@@ -527,7 +527,7 @@ export class RegistrarApiService {
     try {
       const { data } = await baseApi.get(
         `/registrar/staff/${staffId}/attendance/${year}/${month}`,
-        config // Pass config
+        config 
       );
       return data;
     } catch (error) {
