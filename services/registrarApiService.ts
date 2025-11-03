@@ -228,13 +228,12 @@ export class RegistrarApiService {
   }
 
   // --- Faculty & Staff Information System ---
-  async getAllStaff(config: any = {}): Promise<
-    // Add config
-    (User & Teacher & { attendancePercentage?: number })[]
-  > {
+  async getAllStaff(
+    config: any = {}
+  ): Promise<(User & Teacher & { attendancePercentage?: number })[]> {
     const { data } = await baseApi.get<
       (User & Teacher & { attendancePercentage?: number })[]
-    >("/registrar/staff/all", config); // Pass config
+    >("/registrar/staff/all", config); // Pass config to baseApi
     return data;
   }
 
