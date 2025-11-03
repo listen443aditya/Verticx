@@ -69,6 +69,17 @@ const AdmitStudentModal: React.FC<{
     gender: "Male",
     guardianInfo: { name: "", email: "", phone: "" },
     status: "active",
+    admissionNumber: "",
+    dateOfAdmission: new Date().toISOString().split("T")[0], // Default to today
+    classRollNumber: "",
+    bloodGroup: "",
+    guardianRelation: "",
+    isDisabled: false,
+    religion: "",
+    category: "General",
+    fatherName: "",
+    motherName: "",
+    governmentDocNumber: "",
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -173,7 +184,100 @@ const AdmitStudentModal: React.FC<{
             onChange={handleChange}
             required
           />
+          <h3 className="md:col-span-2 text-lg font-semibold mt-2 border-t pt-4">
+            Admission Details
+          </h3>
+          <Input
+            label="Admission Number"
+            name="admissionNumber"
+            value={formData.admissionNumber}
+            onChange={handleChange}
+          />
+          <Input
+            label="Date of Admission"
+            name="dateOfAdmission"
+            type="date"
+            value={formData.dateOfAdmission}
+            onChange={handleChange}
+          />
+          <Input
+            label="Class Roll Number"
+            name="classRollNumber"
+            value={formData.classRollNumber}
+            onChange={handleChange}
+          />
+          <Input
+            label="Blood Group"
+            name="bloodGroup"
+            value={formData.bloodGroup}
+            onChange={handleChange}
+          />
 
+          <h3 className="md:col-span-2 text-lg font-semibold mt-2 border-t pt-4">
+            Personal Details
+          </h3>
+          <Input
+            label="Religion"
+            name="religion"
+            value={formData.religion}
+            onChange={handleChange}
+          />
+          <div>
+            <label className="block text-sm mb-1">Category</label>
+            <select
+              name="category"
+              value={formData.category}
+              onChange={handleChange}
+              className="w-full p-2 border rounded"
+            >
+              <option value="General">General</option>
+              <option value="OBC">OBC</option>
+              <option value="SC">SC</option>
+              <option value="ST">ST</option>
+              <option value="PreferNotToSay">Prefer not to say</option>
+            </select>
+          </div>
+          <Input
+            label="Government Doc Number (Aadhar)"
+            name="governmentDocNumber"
+            value={formData.governmentDocNumber}
+            onChange={handleChange}
+            placeholder="e.g. Aadhar Number"
+          />
+          <div className="md:col-span-2 flex items-center gap-4">
+            <label htmlFor="isDisabled" className="text-sm font-medium">
+              Is Student Disabled?
+            </label>
+            <input
+              id="isDisabled"
+              name="isDisabled"
+              type="checkbox"
+              checked={formData.isDisabled}
+              onChange={(e) =>
+                setFormData((prev: any) => ({
+                  ...prev,
+                  isDisabled: e.target.checked,
+                }))
+              }
+              className="h-5 w-5 rounded"
+            />
+          </div>
+
+          <h3 className="md:col-span-2 text-lg font-semibold mt-2 border-t pt-4">
+            Family Details
+          </h3>
+          <Input
+            label="Father's Name"
+            name="fatherName"
+            value={formData.fatherName}
+            onChange={handleChange}
+          />
+          <Input
+            label="Mother's Name"
+            name="motherName"
+            value={formData.motherName}
+            onChange={handleChange}
+          />
           <h3 className="md:col-span-2 text-lg font-semibold mt-2 border-t pt-4">
             Guardian Information
           </h3>
@@ -196,6 +300,13 @@ const AdmitStudentModal: React.FC<{
             type="tel"
             value={formData.guardianInfo?.phone}
             onChange={handleChange}
+          />
+          <Input
+            label="Relation with Guardian"
+            name="guardianRelation"
+            value={formData.guardianRelation}
+            onChange={handleChange}
+            placeholder="e.g., Father, Mother"
           />
 
           <div className="md:col-span-2 flex justify-end gap-3 mt-4">

@@ -35,7 +35,7 @@ const ManageHostelOccupantsModal: React.FC<ManageHostelOccupantsModalProps> = ({
     // FIX: Removed branchId from API calls as the new service structure infers it.
     const [roomData, studentData] = await Promise.all([
       apiService.getRooms(hostel.id),
-      apiService.getStudentsByBranch(),
+      apiService.getStudentsByBranch(branchId),
     ]);
     setRooms(roomData);
     setAllStudents(studentData);
