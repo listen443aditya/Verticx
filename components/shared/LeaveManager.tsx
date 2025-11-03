@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
-// FIX: We only need the RegistrarApiService
+// FIX 1: We only need the RegistrarApiService
 import { RegistrarApiService } from "../../services/registrarApiService";
 
 import type {
@@ -14,7 +14,7 @@ import Button from "../ui/Button";
 import Input from "../ui/Input";
 import { useDataRefresh } from "../../contexts/DataRefreshContext";
 
-// FIX: Use one service instance
+// FIX 2: Use one service instance and name it correctly
 const registrarApiService = new RegistrarApiService();
 
 const LeaveBalanceCard: React.FC<{
@@ -22,7 +22,6 @@ const LeaveBalanceCard: React.FC<{
   remaining: number;
   total: number;
 }> = ({ type, remaining, total }) => {
-  // ... (this component is fine) ...
   const percentage = total > 0 ? (remaining / total) * 100 : 0;
   const color =
     percentage > 50
@@ -76,117 +75,106 @@ const LeaveManager: React.FC<LeaveManagerProps> = ({ user }) => {
     []
   );
 
-const fetchLeaveData = useCallback(async () => {
-  if (!user?.branchId || !user.role) return;
-  setLoading(true);
+  const fetchLeaveData = useCallback(async () => {
+    if (!user?.branchId || !user.role) return;
+    setLoading(true);
 
-  try {
-    // Use registrarApiService for all calls
-    const [appData, branchSettings, freshUser] = await Promise.all([
-      registrarApiService.getLeaveApplications(),
-      registrarApiService.getLeaveSettings(), // This returns a single object or null
-      registrarApiService.getUserById(user.id),
-    ]);
+    try {
+      const [appData, branchSettings, freshUser] = await Promise.all([
+        registrarApiService.getLeaveApplications(),
+        registrarApiService.getLeaveSettings(), // This returns a single object or null
+        registrarApiService.getUserById(user.id),
+      ]);
 
-    setApplications(appData || []);
+      setApplications(appData || []);
 
-    // --- THIS IS THE FIX ---
-    // 'branchSettings' is the single settings object.
-    // We parse it based on the current user's role.
-    if (branchSettings) {
-      let types: LeaveType[] = [];
-      const totals: Record<string, number> = {};
-      const balances: Record<string, number> = freshUser?.leaveBalances || {};
+      // --- FIX for Error 1 ---
+      // 'branchSettings' is now a single settings object, not an array.
+      // We parse it based on the current user's role.
+      if (branchSettings) {
+        let types: LeaveType[] = [];
+        const totals: Record<string, number> = {};
+        // Use leaveBalances from the freshUser object if available, else default
+        const balances: Record<string, number> = freshUser?.leaveBalances || {};
 
-      // Manually determine which keys from the object to use
-      if (user.role === "Student") {
-        types = ["Sick", "Casual"];
-        totals["sick"] = branchSettings.defaultStudentSick;
-        totals["casual"] = branchSettings.defaultStudentCasual;
-      } else if (user.role === "Teacher") {
-        types = ["Sick", "Casual"];
-        totals["sick"] = branchSettings.defaultTeacherSick;
-        totals["casual"] = branchSettings.defaultTeacherCasual;
-      } else if (
-        ["Registrar", "Librarian", "SupportStaff"].includes(user.role)
-      ) {
-        types = ["Sick", "Casual"];
-        totals["sick"] = branchSettings.defaultStaffSick;
-        totals["casual"] = branchSettings.defaultStaffCasual;
+        // Manually determine which keys from the object to use
+        if (user.role === "Student") {
+          types = ["Sick", "Casual"];
+          totals["sick"] = branchSettings.defaultStudentSick;
+          totals["casual"] = branchSettings.defaultStudentCasual;
+        } else if (user.role === "Teacher") {
+          types = ["Sick", "Casual"];
+          totals["sick"] = branchSettings.defaultTeacherSick;
+          totals["casual"] = branchSettings.defaultTeacherCasual;
+        } else if (
+          ["Registrar", "Librarian", "SupportStaff"].includes(user.role)
+        ) {
+          types = ["Sick", "Casual"];
+          totals["sick"] = branchSettings.defaultStaffSick;
+          totals["casual"] = branchSettings.defaultStaffCasual;
+        }
+
+        setTotalLeaves(totals);
+        setAvailableLeaveTypes(types);
+        setLeaveBalances(balances); // Set balances
+
+        if (types.length > 0 && !types.includes(leaveType)) {
+          setLeaveType(types[0]);
+        }
+      } else {
+        // No settings object was found
+        setTotalLeaves({});
+        setAvailableLeaveTypes([]);
+        setLeaveBalances({});
       }
-      // Note: 'Planned' and 'Earned' are not in your settings model,
-      // so they will not appear as options. This is correct.
-
-      setTotalLeaves(totals);
-      setAvailableLeaveTypes(types);
-      setLeaveBalances(balances); // Set balances from the freshUser object
-
-      if (types.length > 0 && !types.includes(leaveType)) {
-        setLeaveType(types[0]);
-      }
-    } else {
-      // No settings object was found
-      setTotalLeaves({});
+      // --- END FIX ---
+    } catch (error) {
+      console.error("Failed to fetch leave data:", error);
+      setApplications([]);
       setAvailableLeaveTypes([]);
-      setLeaveBalances({});
+    } finally {
+      setLoading(false);
     }
-    // --- END FIX ---
-
-    if (freshUser?.leaveBalances) {
-      setLeaveBalances(freshUser.leaveBalances);
-    }
-  } catch (error) {
-    console.error("Failed to fetch leave data:", error);
-    setApplications([]);
-    setAvailableLeaveTypes([]);
-  } finally {
-    setLoading(false);
-  }
-}, [user, leaveType]);
+  }, [user, leaveType]);
 
   useEffect(() => {
     fetchLeaveData();
   }, [fetchLeaveData, refreshKey]);
 
-  // FIX: Use registrarApiService
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!startDate || !endDate || !reason || !user.branchId) {
-      setStatusMessage("Please fill all fields.");
-      return;
-    }
-    setIsSubmitting(true);
-    
-     try {
-      await registrarApiService.createLeaveApplication({
-        branchId: user.branchId,
-        applicantId: user.id,
-        applicantName: user.name,
-        applicantRole: user.role,
-        leaveType,
-        startDate,
-        endDate,
-        isHalfDay,
-        reason,
-      });
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!startDate || !endDate || !reason || !user.branchId) {
+    setStatusMessage("Please fill all fields.");
+    return;
+  }
+  setIsSubmitting(true);
 
-      setStatusMessage("Leave application submitted successfully.");
-      setReason("");
-      setStartDate("");
-      setEndDate("");
-      setIsHalfDay(false);
-      triggerRefresh();
-    } catch (error) {
-      console.error("Failed to submit leave application:", error);
-      setStatusMessage("Failed to submit application.");
-    } finally {
-      setIsSubmitting(false);
-      setTimeout(() => setStatusMessage(""), 4000);
-    }
-    // --- END FIX ---
-  };
-
-  // ... (rest of the component JSX is fine) ...
+  try {
+   
+    await registrarApiService.createLeaveApplication({
+      applicantId: user.id, 
+      leaveType,
+      startDate: startDate,
+      endDate: endDate,
+      isHalfDay,
+      reason,
+      fromDate: startDate, 
+      toDate: endDate, 
+    });
+    setStatusMessage("Leave application submitted successfully.");
+    setReason("");
+    setStartDate("");
+    setEndDate("");
+    setIsHalfDay(false);
+    triggerRefresh();
+  } catch (error) {
+    console.error("Failed to submit leave application:", error);
+    setStatusMessage("Failed to submit application.");
+  } finally {
+    setIsSubmitting(false);
+    setTimeout(() => setStatusMessage(""), 4000);
+  }
+};
   return (
     <div className="space-y-6">
       <Card>
@@ -278,9 +266,10 @@ const fetchLeaveData = useCallback(async () => {
               <div key={app.id} className="bg-slate-50 p-3 rounded-lg">
                 <div className="flex justify-between items-start">
                   <div>
+                    {/* FIX: Use the correct date fields 'fromDate' and 'toDate' */}
                     <p className="font-semibold">{app.leaveType} Leave</p>
                     <p className="text-xs text-text-secondary-dark">
-                      {app.startDate} to {app.endDate}
+                      {app.fromDate} to {app.toDate}
                     </p>
                   </div>
                   <span
