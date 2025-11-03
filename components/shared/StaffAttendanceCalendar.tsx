@@ -8,6 +8,8 @@ import type {
 } from "../../types";
 import Input from "../ui/Input";
 import Button from "../ui/Button";
+
+
 import { RegistrarApiService } from "../../services/registrarApiService";
 import { PrincipalApiService } from "../../services/principalApiService";
 // Define the service type
@@ -28,11 +30,22 @@ interface StaffAttendanceCalendarProps {
   apiService: ApiService;
 }
 
+// --- ADD THIS HELPER FUNCTION ---
+/**
+ * Converts a Date object to a 'YYYY-MM-DD' string *regardless* of timezone.
+ */
+const toYYYYMMDD = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0"); // getMonth() is 0-indexed
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+// --- END HELPER ---
+
 const StaffAttendanceCalendar: React.FC<StaffAttendanceCalendarProps> = ({
   apiService,
 }) => {
   const { refreshKey } = useDataRefresh();
-
   const [staffList, setStaffList] = useState<User[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState("");
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -45,10 +58,9 @@ const StaffAttendanceCalendar: React.FC<StaffAttendanceCalendarProps> = ({
   useEffect(() => {
     const fetchStaff = async () => {
       setLoading(true);
-      const cacheBustConfig = {
-        params: { _cacheBust: refreshKey },
-      };
+      const cacheBustConfig = { params: { _cacheBust: refreshKey } };
       const staff = await apiService.getAllStaff(cacheBustConfig);
+
       setStaffList(
         staff.sort((a: User, b: User) => a.name.localeCompare(b.name))
       );
@@ -58,7 +70,7 @@ const StaffAttendanceCalendar: React.FC<StaffAttendanceCalendarProps> = ({
       setLoading(false);
     };
     fetchStaff();
-  }, [apiService, refreshKey]); 
+  }, [apiService, refreshKey]);
 
   const fetchCalendarData = useCallback(async () => {
     if (!selectedStaffId) {
@@ -82,19 +94,29 @@ const StaffAttendanceCalendar: React.FC<StaffAttendanceCalendarProps> = ({
       const newMap = new Map<string, TeacherAttendanceStatus | "On Leave">();
 
       (leaves || []).forEach((leave: LeaveApplication) => {
+        // --- FIX: Use correct fromDate/toDate properties ---
         let d = new Date(leave.fromDate);
         const endDate = new Date(leave.toDate);
+        // --- END FIX ---
+
         d.setUTCHours(0, 0, 0, 0);
         endDate.setUTCHours(0, 0, 0, 0);
 
         while (d <= endDate) {
-          newMap.set(d.toISOString().split("T")[0], "On Leave");
+          // --- FIX: Use helper to get UTC date string ---
+          newMap.set(toYYYYMMDD(d), "On Leave");
+          // --- END FIX ---
           d.setDate(d.getDate() + 1);
         }
       });
 
       (attendance || []).forEach((rec: any) => {
-        const dateKey = rec.date.split("T")[0];
+        // --- FIX: Use helper to get UTC date string ---
+        // rec.date is "2025-11-08T00:00:00.000Z"
+        // new Date() creates a local date, toYYYYMMDD extracts its components
+        const dateKey = toYYYYMMDD(new Date(rec.date));
+        // --- END FIX ---
+
         if (!newMap.has(dateKey)) {
           newMap.set(dateKey, rec.status);
         }
@@ -107,15 +129,16 @@ const StaffAttendanceCalendar: React.FC<StaffAttendanceCalendarProps> = ({
     } finally {
       setCalendarLoading(false);
     }
-  }, [selectedStaffId, currentDate, apiService, refreshKey]); // 8. ADD refreshKey
+  }, [selectedStaffId, currentDate, apiService, refreshKey]);
 
   useEffect(() => {
     fetchCalendarData();
-  }, [fetchCalendarData]); 
+  }, [fetchCalendarData]);
+
   const changeMonth = (delta: number) => {
     setCurrentDate((prev) => {
       const newDate = new Date(prev);
-      newDate.setDate(1);
+      newDate.setDate(1); // Set to 1st day to avoid month-end issues
       newDate.setMonth(newDate.getMonth() + delta);
       return newDate;
     });
@@ -131,7 +154,9 @@ const StaffAttendanceCalendar: React.FC<StaffAttendanceCalendarProps> = ({
     currentDate.getMonth() + 1,
     0
   ).getDate();
-  const startingDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
+  // Fix for Sunday being 0
+  const startingDayOfWeek =
+    firstDayOfMonth.getDay() === 0 ? 6 : firstDayOfMonth.getDay() - 1;
 
   const calendarDays = useMemo(() => {
     const days = [];
@@ -176,7 +201,7 @@ const StaffAttendanceCalendar: React.FC<StaffAttendanceCalendarProps> = ({
             value={`${currentDate.getFullYear()}-${String(
               currentDate.getMonth() + 1
             ).padStart(2, "0")}`}
-            onChange={(e) => setCurrentDate(new Date(e.target.value + "-02"))} // Use day 2 to avoid timezone issues
+            onChange={(e) => setCurrentDate(new Date(e.target.value + "-02"))}
           />
           <Button onClick={() => changeMonth(1)}>&rarr;</Button>
         </div>
@@ -208,9 +233,12 @@ const StaffAttendanceCalendar: React.FC<StaffAttendanceCalendarProps> = ({
                 );
 
               const dayOfWeek = dayInfo.date.getDay();
-              const dateString = dayInfo.date.toISOString().split("T")[0];
+              // --- FIX: Use helper function ---
+              const dateString = toYYYYMMDD(dayInfo.date);
+              // --- END FIX ---
+
               const status =
-                dayOfWeek === 0
+                dayOfWeek === 0 // Sunday Only
                   ? "Holiday"
                   : attendanceData.get(dateString) ||
                     (dayInfo.date > new Date() ? "Upcoming" : "Not Marked");
