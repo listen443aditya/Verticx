@@ -104,18 +104,16 @@ const StaffAttendanceCalendar: React.FC<StaffAttendanceCalendarProps> = ({
 
         while (d <= endDate) {
           // --- FIX: Use helper to get UTC date string ---
-          newMap.set(toYYYYMMDD(d), "On Leave");
+          newMap.set(toYYYYMMDD(d), "OnLeave");
           // --- END FIX ---
           d.setDate(d.getDate() + 1);
         }
       });
 
       (attendance || []).forEach((rec: any) => {
-        // --- FIX: Use helper to get UTC date string ---
-        // rec.date is "2025-11-08T00:00:00.000Z"
-        // new Date() creates a local date, toYYYYMMDD extracts its components
+       
         const dateKey = toYYYYMMDD(new Date(rec.date));
-        // --- END FIX ---
+
 
         if (!newMap.has(dateKey)) {
           newMap.set(dateKey, rec.status);
