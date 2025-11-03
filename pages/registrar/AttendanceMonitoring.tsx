@@ -177,16 +177,32 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
+  // --- THIS IS THE FIX (Part 1) ---
+  // Map backend enum keys to frontend display labels
+  const statusKeyToLabel: Record<TeacherAttendanceStatus, string> = {
+    Present: "Present",
+    Absent: "Absent",
+    "On Leave": "On Leave", 
+    "Half Day": "Half Day",
+  };
+  const attendanceOptions: TeacherAttendanceStatus[] = [
+    "Present",
+    "Absent",
+    "On Leave",
+    "Half Day",
+  ];
   const fetchData = useCallback(async () => {
     if (!user || !selectedDate) return;
     setLoading(true);
 
     try {
-      const staffData = await apiService.getAllStaff();
+      // Add cache-busting to the API calls
+      const cacheBustConfig = { params: { _cacheBust: Date.now() } };
+      const staffData = await apiService.getAllStaff(cacheBustConfig);
       setStaff(staffData);
 
       const { isSaved: saved, attendance: savedAttendance } =
-        await apiService.getTeacherAttendance(selectedDate);
+        await apiService.getTeacherAttendance(selectedDate); // This also needs cache-busting in the service
       setIsSaved(saved);
 
       const attendanceMap: Record<string, TeacherAttendanceStatus> = {};
@@ -194,7 +210,8 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
         const record = (savedAttendance as any[]).find(
           (a: any) => a.userId === s.id
         );
-        attendanceMap[s.id] = record ? record.status : "Present";
+        // The record.status is "HalfDay", which is a valid key
+        attendanceMap[s.id] = record ? record.status : "Present"; 
       });
       setAttendance(attendanceMap);
     } catch (error) {
@@ -212,7 +229,7 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
 
   const handleStatusChange = (
     staffId: string,
-    status: TeacherAttendanceStatus
+    status: TeacherAttendanceStatus // Status is now "HalfDay", "OnLeave", etc.
   ) => {
     setAttendance((prev) => ({ ...prev, [staffId]: status }));
   };
@@ -220,7 +237,6 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
   const handleSave = async () => {
     if (!selectedDate || !user?.branchId) return;
     setIsSaving(true);
-
     const records = staff.map((s) => ({
       branchId: user.branchId!,
       userId: s.id,
@@ -230,13 +246,12 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
 
     await apiService.saveTeacherAttendance(records as any);
     setIsSaving(false);
-    await fetchData(); // Refresh this tab
-    onAttendanceSaved(); // <-- 2. CALL THE REFRESH TRIGGER
+    await fetchData();
+    onAttendanceSaved();
   };
 
   return (
     <div>
-      {/* ... (JSX for StaffAttendanceView is fine) ... */}
       <div className="flex flex-wrap gap-4 mb-6 border-b border-slate-200 pb-4 items-center">
         <Input
           label="Date"
@@ -271,27 +286,27 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
                   <td className="p-2 text-center text-sm font-semibold">
                     {s.attendancePercentage?.toFixed(1) ?? "N/A"}%
                   </td>
-                  {(
-                    [
-                      "Present",
-                      "Absent",
-                      "On Leave",
-                      "Half Day",
-                    ] as TeacherAttendanceStatus[]
-                  ).map((status) => (
-                    <td key={status} className="p-2 text-center">
+                  
+                  {/* --- THIS IS THE FIX (Part 2) --- */}
+                  {/* Loop over the new options array */}
+                  {attendanceOptions.map((statusKey) => (
+                    <td key={statusKey} className="p-2 text-center">
                       <label className="flex items-center justify-center text-xs">
                         <input
                           type="radio"
                           name={`att-${s.id}`}
-                          checked={attendance[s.id] === status}
-                          onChange={() => handleStatusChange(s.id, status)}
+                          // Check against the key (e.g., "HalfDay")
+                          checked={attendance[s.id] === statusKey}
+                          // Save the key (e.g., "HalfDay")
+                          onChange={() => handleStatusChange(s.id, statusKey)}
                           disabled={isSaved}
                         />
-                        <span className="ml-2">{status}</span>
+                        {/* Display the label (e.g., "Half Day") */}
+                        <span className="ml-2">{statusKeyToLabel[statusKey]}</span>
                       </label>
                     </td>
                   ))}
+                  {/* --- END OF FIX --- */}
                 </tr>
               ))}
             </tbody>
