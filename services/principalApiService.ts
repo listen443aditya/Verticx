@@ -123,9 +123,10 @@ export class PrincipalApiService {
     );
   }
 
-  async getStaff(): Promise<(User & Partial<Teacher>)[]> {
+  async getStaff(config: any = {}): Promise<(User & Partial<Teacher>)[]> {
     const { data } = await baseApi.get<(User & Partial<Teacher>)[]>(
-      "/principal/staff"
+      "/principal/staff",
+      config
     );
     return data;
   }
@@ -180,6 +181,32 @@ export class PrincipalApiService {
       "/principal/attendance-overview"
     );
     return data;
+  }
+
+  async getAllStaff(config: any = {}): Promise<User[]> {
+    return this.getStaff(config);
+  }
+
+  async getStaffAttendanceAndLeaveForMonth(
+    staffId: string,
+    year: number,
+    month: number,
+    config: any = {}
+  ): Promise<{ attendance: any[]; leaves: any[] }> {
+    // This method *is* in your controller, so we just call it
+    try {
+      const { data } = await baseApi.get(
+        `/principal/staff/${staffId}/attendance/${year}/${month}`,
+        config
+      );
+      return data;
+    } catch (error) {
+      console.error(
+        `Failed to fetch calendar data for staff ${staffId}:`,
+        error
+      );
+      return { attendance: [], leaves: [] };
+    }
   }
 
   async getExaminationsWithResultStatus(): Promise<Examination[]> {
