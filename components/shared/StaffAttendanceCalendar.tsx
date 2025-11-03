@@ -91,7 +91,7 @@ const StaffAttendanceCalendar: React.FC<StaffAttendanceCalendarProps> = ({
           cacheBustConfig
         );
 
-      const newMap = new Map<string, TeacherAttendanceStatus | "On Leave">();
+      const newMap = new Map<string, TeacherAttendanceStatus | "OnLeave">();
 
       (leaves || []).forEach((leave: LeaveApplication) => {
         // --- FIX: Use correct fromDate/toDate properties ---
