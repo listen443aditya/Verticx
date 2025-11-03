@@ -446,10 +446,8 @@ const AttendanceMonitoring: React.FC = () => {
       case "student":
         return <StudentAttendanceView />;
       case "staff":
-        // 4. PASS triggerRefresh TO THE COMPONENT
         return <StaffAttendanceView onAttendanceSaved={triggerRefresh} />;
       case "staff_calendar":
-        // 5. PASS THE key PROP TO THE CALENDAR
         return (
           <StaffAttendanceCalendar key={refreshKey} apiService={apiService} />
         );
