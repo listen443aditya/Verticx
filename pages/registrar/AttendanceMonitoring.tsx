@@ -159,7 +159,9 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
   onAttendanceSaved,
 }) => {
   const { user } = useAuth();
+  // 1. Get refreshKey from the context
   const { refreshKey } = useDataRefresh();
+  
   const [staff, setStaff] = useState<
     (User & { attendancePercentage?: number })[]
   >([]);
@@ -172,6 +174,7 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
   const [isSaved, setIsSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  
   const statusKeyToLabel: Record<TeacherAttendanceStatus, string> = {
     Present: "Present",
     Absent: "Absent",
@@ -185,12 +188,15 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
     "OnLeave",
     "HalfDay",
   ];
+
   const fetchData = useCallback(async () => {
     if (!user || !selectedDate) return;
     setLoading(true);
 
     try {
+      // 2. Add cache-busting to this component's own fetch calls
       const cacheBustConfig = { params: { _cacheBust: refreshKey } };
+
       const staffData = await apiService.getAllStaff(cacheBustConfig);
       setStaff(staffData);
 
@@ -213,11 +219,11 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
     } finally {
       setLoading(false);
     }
-  }, [selectedDate, user, refreshKey]);
+  }, [selectedDate, user, refreshKey]); // 3. Add refreshKey to dependency array
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, [fetchData]); // This will now re-run when refreshKey changes
 
   const handleStatusChange = (
     staffId: string,
@@ -226,27 +232,33 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
     setAttendance((prev) => ({ ...prev, [staffId]: status }));
   };
 
- const handleSave = async () => {
-   if (!selectedDate || !user?.branchId) return;
-   setIsSaving(true);
+  // 4. THIS IS THE MAIN FIX - Re-order the save logic
+  const handleSave = async () => {
+    if (!selectedDate || !user?.branchId) return;
+    setIsSaving(true);
 
-   const records = staff.map((s) => ({
-     branchId: user.branchId!,
-     userId: s.id,
-     date: selectedDate,
-     status: attendance[s.id] || "Present",
-   }));
+    const records = staff.map((s) => ({
+      branchId: user.branchId!,
+      userId: s.id,
+      date: selectedDate,
+      status: attendance[s.id] || "Present",
+    }));
 
-   try {
-     await apiService.saveTeacherAttendance(records as any);
-     onAttendanceSaved();
-   } catch (error) {
-     console.error("Failed to save attendance:", error);
-     // Handle the error if needed
-   } finally {
-     setIsSaving(false);
-   }
- };
+    try {
+
+      await apiService.saveTeacherAttendance(records as any);
+ 
+      onAttendanceSaved(); 
+
+      
+    } catch (error) {
+       console.error("Failed to save attendance:", error);
+       // Handle error
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div>
       <div className="flex flex-wrap gap-4 mb-6 border-b border-slate-200 pb-4 items-center">
@@ -283,22 +295,16 @@ const StaffAttendanceView: React.FC<{ onAttendanceSaved: () => void }> = ({
                   <td className="p-2 text-center text-sm font-semibold">
                     {s.attendancePercentage?.toFixed(1) ?? "N/A"}%
                   </td>
-
-                  {/* --- THIS IS THE FIX (Part 2) --- */}
-                  {/* Loop over the new options array */}
                   {attendanceOptions.map((statusKey) => (
                     <td key={statusKey} className="p-2 text-center">
                       <label className="flex items-center justify-center text-xs">
                         <input
                           type="radio"
                           name={`att-${s.id}`}
-                          // Check against the key (e.g., "HalfDay")
                           checked={attendance[s.id] === statusKey}
-                          // Save the key (e.g., "HalfDay")
                           onChange={() => handleStatusChange(s.id, statusKey)}
                           disabled={isSaved}
                         />
-                        {/* Display the label (e.g., "Half Day") */}
                         <span className="ml-2">
                           {statusKeyToLabel[statusKey]}
                         </span>
