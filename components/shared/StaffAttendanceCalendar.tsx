@@ -8,7 +8,7 @@ import type {
 } from "../../types";
 import Input from "../ui/Input";
 import Button from "../ui/Button";
-
+import Card from "../ui/Card";
 
 import { RegistrarApiService } from "../../services/registrarApiService";
 import { PrincipalApiService } from "../../services/principalApiService";
@@ -30,18 +30,22 @@ interface StaffAttendanceCalendarProps {
   apiService: ApiService;
 }
 
-// --- ADD THIS HELPER FUNCTION ---
-/**
- * Converts a Date object to a 'YYYY-MM-DD' string *regardless* of timezone.
- */
 const toYYYYMMDD = (date: Date): string => {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0"); // getMonth() is 0-indexed
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 };
-// --- END HELPER ---
-
+const StatBox: React.FC<{
+  label: string;
+  value: number | string;
+  color?: string;
+}> = ({ label, value, color = "text-text-primary-dark" }) => (
+  <div className="text-center p-4 bg-slate-50 rounded-lg">
+    <p className="text-sm font-medium text-text-secondary-dark">{label}</p>
+    <p className={`text-3xl font-bold ${color}`}>{value}</p>
+  </div>
+);
 const StaffAttendanceCalendar: React.FC<StaffAttendanceCalendarProps> = ({
   apiService,
 }) => {
@@ -156,6 +160,17 @@ const StaffAttendanceCalendar: React.FC<StaffAttendanceCalendarProps> = ({
   const startingDayOfWeek =
     firstDayOfMonth.getDay() === 0 ? 6 : firstDayOfMonth.getDay() - 1;
 
+const statusInfo = {
+  Present: { color: "bg-green-200", text: "Present" },
+  Absent: { color: "bg-red-200", text: "Absent" },
+  OnLeave: { color: "bg-blue-200", text: "On Leave" },
+  HalfDay: { color: "bg-yellow-200", text: "Half Day" },
+  Holiday: { color: "bg-slate-300", text: "Holiday" },
+  "Not Marked": { color: "bg-slate-100", text: "Not Marked" },
+  Upcoming: { color: "bg-white", text: "" },
+};
+
+
   const calendarDays = useMemo(() => {
     const days = [];
     for (let i = 0; i < startingDayOfWeek; i++) {
@@ -171,6 +186,63 @@ const StaffAttendanceCalendar: React.FC<StaffAttendanceCalendarProps> = ({
     }
     return days;
   }, [currentDate, daysInMonth, startingDayOfWeek]);
+
+const attendanceSummary = useMemo(() => {
+  const summary = {
+    presents: 0,
+    absents: 0,
+    leaves: 0,
+    halfDays: 0,
+    openDays: 0,
+  };
+
+  calendarDays.forEach((dayInfo) => {
+    if (!dayInfo.date) return; // Skip blank padding days
+
+    const dayOfWeek = dayInfo.date.getDay();
+    const dateString = toYYYYMMDD(dayInfo.date);
+
+    const status =
+      dayOfWeek === 0 // Sunday
+        ? "Holiday"
+        : attendanceData.get(dateString) ||
+          (dayInfo.date > new Date() ? "Upcoming" : "Not Marked");
+
+    // Count based on status (using enum keys)
+    switch (status) {
+      case "Present":
+        summary.presents++;
+        summary.openDays++;
+        break;
+      case "HalfDay":
+        summary.halfDays++;
+        summary.openDays++;
+        break;
+      case "Absent":
+        summary.absents++;
+        summary.openDays++;
+        break;
+      case "OnLeave":
+        summary.leaves++;
+        summary.openDays++; // A leave day is an "open" day
+        break;
+      // Do not count these as open days
+      case "Holiday":
+      case "Not Marked":
+      case "Upcoming":
+      default:
+        break;
+    }
+  });
+
+  return {
+    totalPresents: summary.presents + summary.halfDays,
+    totalAbsents: summary.absents,
+    totalLeaves: summary.leaves,
+    totalOpenDays: summary.openDays,
+  };
+}, [attendanceData, calendarDays]);
+
 
   if (loading) return <p>Loading staff list...</p>;
 
@@ -241,16 +313,6 @@ const StaffAttendanceCalendar: React.FC<StaffAttendanceCalendarProps> = ({
                   : attendanceData.get(dateString) ||
                     (dayInfo.date > new Date() ? "Upcoming" : "Not Marked");
 
-              const statusInfo = {
-                Present: { color: "bg-green-200", text: "Present" },
-                Absent: { color: "bg-red-200", text: "Absent" },
-                OnLeave: { color: "bg-blue-200", text: "On Leave" },
-                HalfDay: { color: "bg-yellow-200", text: "Half Day" },
-                Holiday: { color: "bg-slate-300", text: "Holiday" },
-                "Not Marked": { color: "bg-slate-100", text: "Not Marked" },
-                Upcoming: { color: "bg-white", text: "" },
-              };
-
               const { color, text } =
                 statusInfo[status as keyof typeof statusInfo] ||
                 statusInfo["Not Marked"];
@@ -287,6 +349,33 @@ const StaffAttendanceCalendar: React.FC<StaffAttendanceCalendarProps> = ({
               Not Marked
             </span>
           </div>
+          <Card className="mt-6">
+            <h3 className="text-xl font-semibold mb-4 text-text-primary-dark">
+              Month Summary
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <StatBox
+                label="Working Days"
+                value={attendanceSummary.totalOpenDays}
+                color="text-brand-primary"
+              />
+              <StatBox
+                label="Total Present"
+                value={attendanceSummary.totalPresents}
+                color="text-green-600"
+              />
+              <StatBox
+                label="Total Absent"
+                value={attendanceSummary.totalAbsents}
+                color="text-red-600"
+              />
+              <StatBox
+                label="Total Leave"
+                value={attendanceSummary.totalLeaves}
+                color="text-blue-600"
+              />
+            </div>
+          </Card>
         </>
       )}
     </div>
