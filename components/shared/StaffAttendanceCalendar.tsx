@@ -249,7 +249,7 @@ const StaffAttendanceCalendar: React.FC<StaffAttendanceCalendarProps> = ({
                 OnLeave: { color: "bg-blue-200", text: "On Leave" },
                 HalfDay: { color: "bg-yellow-200", text: "Half Day" },
                 Holiday: { color: "bg-slate-300", text: "Holiday" },
-                "Not Marked": { color: "bg-slate-100", text: "" },
+                "Not Marked": { color: "bg-slate-100", text: "Not Marked" },
                 Upcoming: { color: "bg-white", text: "" },
               };
 
