@@ -88,13 +88,8 @@ const ExaminationResults: React.FC = () => {
                   <tr key={exam.id} className="border-b hover:bg-slate-50">
                     <td className="p-4 font-medium">{exam.name}</td>
                     <td className="p-4 text-sm">
-                      {new Date(
-                        exam.startDate + "T00:00:00"
-                      ).toLocaleDateString()}{" "}
-                      to{" "}
-                      {new Date(
-                        exam.endDate + "T00:00:00"
-                      ).toLocaleDateString()}
+                      {new Date(exam.startDate).toLocaleDateString()} to{" "}
+                      {new Date(exam.endDate).toLocaleDateString()}
                     </td>
                     <td className="p-4">
                       <span
