@@ -603,11 +603,10 @@ export class RegistrarApiService {
 
   async getLeaveApplications(): Promise<LeaveApplication[]> {
     const { data } = await baseApi.get<LeaveApplication[]>(
-      "/registrar/leaves/student-applications"
+      "/registrar/leaves/my-applications" // <-- This is the new, correct route
     );
     return data;
   }
-
   async processLeaveApplication(
     requestId: string,
     status: "Approved" | "Rejected"

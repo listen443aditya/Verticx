@@ -79,25 +79,29 @@ const LeaveManager: React.FC<LeaveManagerProps> = ({ user }) => {
     if (!user?.branchId || !user.role) return;
     setLoading(true);
 
+    // --- THIS IS THE FIX ---
+    // Create a cache-busting config object
+    const cacheBustConfig = {
+      params: { _cacheBust: Date.now() },
+    };
+    // --- END OF FIX ---
+
     try {
       const [appData, branchSettings, freshUser] = await Promise.all([
+        // Pass the config to your GET requests
         registrarApiService.getLeaveApplications(),
-        registrarApiService.getLeaveSettings(), // This returns a single object or null
+        registrarApiService.getLeaveSettings(),
         registrarApiService.getUserById(user.id),
       ]);
 
       setApplications(appData || []);
 
-      // --- FIX for Error 1 ---
-      // 'branchSettings' is now a single settings object, not an array.
-      // We parse it based on the current user's role.
+      // ... (rest of the function is correct) ...
       if (branchSettings) {
         let types: LeaveType[] = [];
         const totals: Record<string, number> = {};
-        // Use leaveBalances from the freshUser object if available, else default
         const balances: Record<string, number> = freshUser?.leaveBalances || {};
 
-        // Manually determine which keys from the object to use
         if (user.role === "Student") {
           types = ["Sick", "Casual"];
           totals["sick"] = branchSettings.defaultStudentSick;
@@ -116,18 +120,16 @@ const LeaveManager: React.FC<LeaveManagerProps> = ({ user }) => {
 
         setTotalLeaves(totals);
         setAvailableLeaveTypes(types);
-        setLeaveBalances(balances); // Set balances
+        setLeaveBalances(balances);
 
         if (types.length > 0 && !types.includes(leaveType)) {
           setLeaveType(types[0]);
         }
       } else {
-        // No settings object was found
         setTotalLeaves({});
         setAvailableLeaveTypes([]);
         setLeaveBalances({});
       }
-      // --- END FIX ---
     } catch (error) {
       console.error("Failed to fetch leave data:", error);
       setApplications([]);
@@ -135,46 +137,45 @@ const LeaveManager: React.FC<LeaveManagerProps> = ({ user }) => {
     } finally {
       setLoading(false);
     }
-  }, [user, leaveType]);
+  }, [user, leaveType, refreshKey]); // <-- Add refreshKey as a dependency
 
   useEffect(() => {
     fetchLeaveData();
-  }, [fetchLeaveData, refreshKey]);
+  }, [fetchLeaveData]); // <-- 'refreshKey' is now part of fetchData's dependency
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!startDate || !endDate || !reason || !user.branchId) {
-    setStatusMessage("Please fill all fields.");
-    return;
-  }
-  setIsSubmitting(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!startDate || !endDate || !reason || !user.branchId) {
+      setStatusMessage("Please fill all fields.");
+      return;
+    }
+    setIsSubmitting(true);
 
-  try {
-   
-    await registrarApiService.createLeaveApplication({
-      applicantId: user.id, 
-      leaveType,
-      startDate: startDate,
-      endDate: endDate,
-      isHalfDay,
-      reason,
-      fromDate: startDate, 
-      toDate: endDate, 
-    });
-    setStatusMessage("Leave application submitted successfully.");
-    setReason("");
-    setStartDate("");
-    setEndDate("");
-    setIsHalfDay(false);
-    triggerRefresh();
-  } catch (error) {
-    console.error("Failed to submit leave application:", error);
-    setStatusMessage("Failed to submit application.");
-  } finally {
-    setIsSubmitting(false);
-    setTimeout(() => setStatusMessage(""), 4000);
-  }
-};
+    try {
+      await registrarApiService.createLeaveApplication({
+        applicantId: user.id,
+        leaveType,
+        startDate: startDate,
+        endDate: endDate,
+        isHalfDay,
+        reason,
+        fromDate: startDate,
+        toDate: endDate,
+      });
+      setStatusMessage("Leave application submitted successfully.");
+      setReason("");
+      setStartDate("");
+      setEndDate("");
+      setIsHalfDay(false);
+      triggerRefresh();
+    } catch (error) {
+      console.error("Failed to submit leave application:", error);
+      setStatusMessage("Failed to submit application.");
+    } finally {
+      setIsSubmitting(false);
+      setTimeout(() => setStatusMessage(""), 4000);
+    }
+  };
   return (
     <div className="space-y-6">
       <Card>
