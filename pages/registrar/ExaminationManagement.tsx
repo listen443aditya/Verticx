@@ -11,7 +11,7 @@ import type {
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
-import ConfirmationModal from "../../components/ui/ConfirmationModal";
+// import ConfirmationModal from "../../components/ui/ConfirmationModal";
 
 const apiService = new RegistrarApiService();
 
@@ -263,14 +263,14 @@ const ExaminationManagement: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
-  const fetchSchedules = useCallback(async () => {
-    if (selectedExam) {
-      const scheduleData = await apiService.getExamSchedules(selectedExam.id);
-      setSchedules(scheduleData);
-    } else {
-      setSchedules([]);
-    }
-  }, [selectedExam]);
+ const fetchSchedules = useCallback(async () => {
+   if (selectedExam) {
+     const response = await apiService.getExamSchedules(selectedExam.id);
+     setSchedules((response as any).data.schedules);
+   } else {
+     setSchedules([]);
+   }
+ }, [selectedExam]);
 
   useEffect(() => {
     fetchSchedules();
