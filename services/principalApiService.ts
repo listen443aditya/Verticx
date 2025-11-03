@@ -30,7 +30,6 @@ import type {
   Complaint,
   FeeAdjustment,
   ClassDetails,
-  // --- FIX: Add the missing type imports here ---
   SuspensionRecord,
   FeeRecord,
   AttendanceRecord,
@@ -49,11 +48,17 @@ type RaiseComplaintPayload = Omit<
   "id" | "submittedAt" | "createdAt"
 >;
 
+// Helper function to create a cache-busting config
+const getCacheBustConfig = () => ({
+  params: { _cacheBust: Date.now() },
+});
+
 export class PrincipalApiService {
   // ---------- Dashboard & Profile ----------
   async getPrincipalDashboardData(): Promise<PrincipalDashboardData> {
     const { data } = await baseApi.get<PrincipalDashboardData>(
-      "/principal/dashboard"
+      "/principal/dashboard",
+      getCacheBustConfig() // Add cache bust
     );
     return data;
   }
@@ -69,9 +74,6 @@ export class PrincipalApiService {
     return data;
   }
 
-  // NOTE: two useful branch endpoints:
-  // - GET /branches/:id (general) to fetch any branch by id/registrationId
-  // - PATCH /principal/branch-details to update the principal's branch
   async getBranchById(branchId: string): Promise<Branch> {
     const { data } = await baseApi.get<Branch>(
       `/branches/${encodeURIComponent(branchId)}`
@@ -80,7 +82,10 @@ export class PrincipalApiService {
   }
 
   async getBranchDetails(): Promise<Branch> {
-    const { data } = await baseApi.get<Branch>("/principal/branch");
+    const { data } = await baseApi.get<Branch>(
+      "/principal/branch",
+      getCacheBustConfig()
+    );
     return data;
   }
 
@@ -95,7 +100,8 @@ export class PrincipalApiService {
   // ---------- Faculty & Staff Management ----------
   async getFacultyApplications(): Promise<FacultyApplication[]> {
     const { data } = await baseApi.get<FacultyApplication[]>(
-      "/principal/faculty-applications"
+      "/principal/faculty-applications",
+      getCacheBustConfig()
     );
     return data;
   }
@@ -124,9 +130,17 @@ export class PrincipalApiService {
   }
 
   async getStaff(config: any = {}): Promise<(User & Partial<Teacher>)[]> {
+    // Merge passed config with cache-busting config
+    const options = {
+      ...config,
+      params: {
+        ...config.params,
+        _cacheBust: Date.now(),
+      },
+    };
     const { data } = await baseApi.get<(User & Partial<Teacher>)[]>(
       "/principal/staff",
-      config
+      options
     );
     return data;
   }
@@ -158,7 +172,8 @@ export class PrincipalApiService {
 
   async getTeacherProfileDetails(teacherId: string): Promise<TeacherProfile> {
     const { data } = await baseApi.get<TeacherProfile>(
-      `/principal/teachers/${encodeURIComponent(teacherId)}/profile`
+      `/principal/teachers/${encodeURIComponent(teacherId)}/profile`,
+      getCacheBustConfig()
     );
     return data;
   }
@@ -172,19 +187,35 @@ export class PrincipalApiService {
 
   // ---------- Academic Overview ----------
   async getPrincipalClassView(): Promise<SchoolClass[]> {
-    const { data } = await baseApi.get<SchoolClass[]>("/principal/class-view");
-    return data;
-  }
-
-  async getAttendanceOverview(): Promise<PrincipalAttendanceOverview> {
-    const { data } = await baseApi.get<PrincipalAttendanceOverview>(
-      "/principal/attendance-overview"
+    const { data } = await baseApi.get<SchoolClass[]>(
+      "/principal/class-view",
+      getCacheBustConfig()
     );
     return data;
   }
 
+  // --- FIX: Add config parameter ---
+  async getAttendanceOverview(
+    config: any = {}
+  ): Promise<PrincipalAttendanceOverview> {
+    // Merge passed config with cache-busting config
+    const options = {
+      ...config,
+      params: {
+        ...config.params,
+        _cacheBust: Date.now(),
+      },
+    };
+    const { data } = await baseApi.get<PrincipalAttendanceOverview>(
+      "/principal/attendance-overview",
+      options // Pass combined options
+    );
+    return data;
+  }
+  // --- END FIX ---
+
   async getAllStaff(config: any = {}): Promise<User[]> {
-    return this.getStaff(config);
+    return this.getStaff(config); // This already cache-busts
   }
 
   async getStaffAttendanceAndLeaveForMonth(
@@ -193,11 +224,17 @@ export class PrincipalApiService {
     month: number,
     config: any = {}
   ): Promise<{ attendance: any[]; leaves: any[] }> {
-    // This method *is* in your controller, so we just call it
+    const options = {
+      ...config,
+      params: {
+        ...config.params,
+        _cacheBust: Date.now(),
+      },
+    };
     try {
       const { data } = await baseApi.get(
         `/principal/staff/${staffId}/attendance/${year}/${month}`,
-        config
+        options
       );
       return data;
     } catch (error) {
@@ -211,7 +248,8 @@ export class PrincipalApiService {
 
   async getExaminationsWithResultStatus(): Promise<Examination[]> {
     const { data } = await baseApi.get<Examination[]>(
-      "/principal/examinations"
+      "/principal/examinations",
+      getCacheBustConfig()
     );
     return data;
   }
@@ -226,32 +264,44 @@ export class PrincipalApiService {
     examId: string
   ): Promise<StudentWithExamMarks[]> {
     const { data } = await baseApi.get<StudentWithExamMarks[]>(
-      `/principal/examinations/${encodeURIComponent(examId)}/results`
+      `/principal/examinations/${encodeURIComponent(examId)}/results`,
+      getCacheBustConfig()
     );
     return data;
   }
 
   async getStudents(): Promise<Student[]> {
-    const { data } = await baseApi.get<Student[]>("/principal/students");
+    const { data } = await baseApi.get<Student[]>(
+      "/principal/students",
+      getCacheBustConfig()
+    );
     return data;
   }
   async getSchoolClasses(): Promise<SchoolClass[]> {
-    const { data } = await baseApi.get<SchoolClass[]>("/principal/classes");
+    const { data } = await baseApi.get<SchoolClass[]>(
+      "/principal/classes",
+      getCacheBustConfig()
+    );
     return data;
   }
   async getSuspensionRecords(): Promise<SuspensionRecord[]> {
     const { data } = await baseApi.get<SuspensionRecord[]>(
-      "/principal/suspension-records"
+      "/principal/suspension-records",
+      getCacheBustConfig()
     );
     return data;
   }
   async getFeeRecords(): Promise<FeeRecord[]> {
-    const { data } = await baseApi.get<FeeRecord[]>("/principal/fee-records");
+    const { data } = await baseApi.get<FeeRecord[]>(
+      "/principal/fee-records",
+      getCacheBustConfig()
+    );
     return data;
   }
   async getAttendanceRecords(): Promise<AttendanceRecord[]> {
     const { data } = await baseApi.get<AttendanceRecord[]>(
-      "/principal/attendance-records"
+      "/principal/attendance-records",
+      getCacheBustConfig()
     );
     return data;
   }
@@ -266,7 +316,8 @@ export class PrincipalApiService {
   // ---------- Financials ----------
   async getFinancialsOverview(): Promise<PrincipalFinancialsOverview> {
     const { data } = await baseApi.get<PrincipalFinancialsOverview>(
-      "/principal/financials-overview"
+      "/principal/financials-overview",
+      getCacheBustConfig()
     );
     return data;
   }
@@ -282,7 +333,8 @@ export class PrincipalApiService {
 
   async getStaffPayrollForMonth(month: string): Promise<PayrollRecord[]> {
     const { data } = await baseApi.get<PayrollRecord[]>(
-      `/principal/payroll/${encodeURIComponent(month)}`
+      `/principal/payroll/${encodeURIComponent(month)}`,
+      getCacheBustConfig()
     );
     return data;
   }
@@ -297,7 +349,8 @@ export class PrincipalApiService {
 
   async getErpFinancialsForBranch(): Promise<ErpFinancials> {
     const { data } = await baseApi.get<ErpFinancials>(
-      "/principal/erp-financials"
+      "/principal/erp-financials",
+      getCacheBustConfig()
     );
     return data;
   }
@@ -308,7 +361,8 @@ export class PrincipalApiService {
 
   async getManualExpenses(): Promise<ManualExpense[]> {
     const { data } = await baseApi.get<ManualExpense[]>(
-      "/principal/manual-expenses"
+      "/principal/manual-expenses",
+      getCacheBustConfig()
     );
     return data;
   }
@@ -320,7 +374,8 @@ export class PrincipalApiService {
   // ---------- Staff Requests ----------
   async getFeeRectificationRequests(): Promise<FeeRectificationRequest[]> {
     const { data } = await baseApi.get<FeeRectificationRequest[]>(
-      "/principal/requests/fees"
+      "/principal/requests/fees",
+      getCacheBustConfig()
     );
     return data;
   }
@@ -336,7 +391,8 @@ export class PrincipalApiService {
     TeacherAttendanceRectificationRequest[]
   > {
     const { data } = await baseApi.get<TeacherAttendanceRectificationRequest[]>(
-      "/principal/requests/attendance"
+      "/principal/requests/attendance",
+      getCacheBustConfig()
     );
     return data;
   }
@@ -353,7 +409,8 @@ export class PrincipalApiService {
 
   async getLeaveApplications(): Promise<LeaveApplication[]> {
     const { data } = await baseApi.get<LeaveApplication[]>(
-      "/principal/requests/leave"
+      "/principal/requests/leave",
+      getCacheBustConfig()
     );
     return data;
   }
@@ -372,28 +429,32 @@ export class PrincipalApiService {
     await baseApi.post("/principal/complaints/student", payload);
   }
   async getComplaints(): Promise<Complaint[]> {
-    // A generic name is better now
-    const { data } = await baseApi.get<Complaint[]>("/principal/complaints");
+    const { data } = await baseApi.get<Complaint[]>(
+      "/principal/complaints",
+      getCacheBustConfig()
+    );
     return data;
   }
 
   async getComplaintsAboutStudents(): Promise<ComplaintAboutStudent[]> {
     const { data } = await baseApi.get<ComplaintAboutStudent[]>(
-      "/principal/complaints/student"
+      "/principal/complaints/student",
+      getCacheBustConfig()
     );
     return data;
   }
 
   async getComplaintsForBranch(): Promise<TeacherComplaint[]> {
     const { data } = await baseApi.get<TeacherComplaint[]>(
-      "/principal/complaints/teacher"
+      "/principal/complaints/teacher",
+      getCacheBustConfig()
     );
     return data;
   }
   async getTeacherComplaints(): Promise<TeacherComplaint[]> {
-    // This correctly calls GET /principal/complaints/teacher
     const { data } = await baseApi.get<TeacherComplaint[]>(
-      "/principal/complaints/teacher"
+      "/principal/complaints/teacher",
+      getCacheBustConfig()
     );
     return data;
   }
@@ -406,7 +467,8 @@ export class PrincipalApiService {
   // ---------- Communication & Events ----------
   async getAnnouncements(): Promise<Announcement[]> {
     const { data } = await baseApi.get<Announcement[]>(
-      "/principal/announcements"
+      "/principal/announcements",
+      getCacheBustConfig()
     );
     return data;
   }
@@ -420,7 +482,10 @@ export class PrincipalApiService {
   }
 
   async getSmsHistory(): Promise<SmsMessage[]> {
-    const { data } = await baseApi.get<SmsMessage[]>("/principal/sms-history");
+    const { data } = await baseApi.get<SmsMessage[]>(
+      "/principal/sms-history",
+      getCacheBustConfig()
+    );
     return data;
   }
 
@@ -436,7 +501,6 @@ export class PrincipalApiService {
   }
 
   async clearAnnouncementsHistory(fromDate?: string, toDate?: string) {
-    // backend uses DELETE /principal/announcements/clear
     await baseApi.delete("/principal/announcements/clear", {
       data: { fromDate, toDate },
     });
@@ -469,7 +533,10 @@ export class PrincipalApiService {
   }
 
   async getSchoolEvents(): Promise<SchoolEvent[]> {
-    const { data } = await baseApi.get<SchoolEvent[]>("/principal/events");
+    const { data } = await baseApi.get<SchoolEvent[]>(
+      "/principal/events",
+      getCacheBustConfig()
+    );
     return data;
   }
   async deleteSchoolEvent(eventId: string): Promise<void> {
@@ -486,11 +553,17 @@ export class PrincipalApiService {
   }
 
   async getQueriesByPrincipal(): Promise<PrincipalQuery[]> {
-    const { data } = await baseApi.get<PrincipalQuery[]>("/principal/queries");
+    const { data } = await baseApi.get<PrincipalQuery[]>(
+      "/principal/queries",
+      getCacheBustConfig()
+    );
     return data;
   }
   async getQueries(): Promise<PrincipalQuery[]> {
-    const { data } = await baseApi.get<PrincipalQuery[]>("/principal/queries");
+    const { data } = await baseApi.get<PrincipalQuery[]>(
+      "/principal/queries",
+      getCacheBustConfig()
+    );
     return data;
   }
   // ---------- System Actions ----------
@@ -508,7 +581,8 @@ export class PrincipalApiService {
   // ---------- Convenience: branch-scoped lists ----------
   async getTeachersByBranch(branchId: string): Promise<Teacher[]> {
     const { data } = await baseApi.get<Teacher[]>(
-      `/principal/branches/${encodeURIComponent(branchId)}/teachers`
+      `/principal/branches/${encodeURIComponent(branchId)}/teachers`,
+      getCacheBustConfig()
     );
     return data;
   }
@@ -517,14 +591,16 @@ export class PrincipalApiService {
     branchId: string
   ): Promise<SchoolClass[]> {
     const { data } = await baseApi.get<SchoolClass[]>(
-      `/principal/branches/${encodeURIComponent(branchId)}/classes`
+      `/principal/branches/${encodeURIComponent(branchId)}/classes`,
+      getCacheBustConfig()
     );
     return data;
   }
 
   async getClassDetails(classId: string): Promise<ClassDetails> {
     const { data } = await baseApi.get<ClassDetails>(
-      `/principal/classes/${encodeURIComponent(classId)}/details`
+      `/principal/classes/${encodeURIComponent(classId)}/details`,
+      getCacheBustConfig()
     );
     return data;
   }
@@ -551,20 +627,25 @@ export class PrincipalApiService {
 
   async getStudentsByBranch(branchId: string): Promise<Student[]> {
     const { data } = await baseApi.get<Student[]>(
-      `/principal/branches/${encodeURIComponent(branchId)}/students`
+      `/principal/branches/${encodeURIComponent(branchId)}/students`,
+      getCacheBustConfig()
     );
     return data;
   }
 
   async getFeeTemplates(branchId: string): Promise<any[]> {
     const { data } = await baseApi.get<any[]>(
-      `/principal/branches/${encodeURIComponent(branchId)}/fee-templates`
+      `/principal/branches/${encodeURIComponent(branchId)}/fee-templates`,
+      getCacheBustConfig()
     );
     return data;
   }
 
   async getErpPayments(): Promise<ErpPayment[]> {
-    const { data } = await baseApi.get<ErpPayment[]>("/principal/erp/payments");
+    const { data } = await baseApi.get<ErpPayment[]>(
+      "/principal/erp/payments",
+      getCacheBustConfig()
+    );
     return data;
   }
 }

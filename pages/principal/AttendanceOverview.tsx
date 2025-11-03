@@ -1,24 +1,24 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useAuth } from "../../hooks/useAuth";
-// FIX: Correctly import the service class from its file and create an instance.
+import { useAuth } from "../../hooks/useAuth.ts";
 import { PrincipalApiService } from "../../services/principalApiService";
-import Card from "../../components/ui/Card";
-// import { RegistrarApiService } from "../../services/registrarApiService";
+import Card from "../../components/ui/Card.tsx";
+// 1. IMPORT the data refresh hook
+import { useDataRefresh } from "../../contexts/DataRefreshContext.tsx";
 
 import {
   AttendanceIcon,
   UsersIcon,
   StudentsIcon,
-} from "../../components/icons/Icons";
+} from "../../components/icons/Icons.tsx";
 import type {
   TeacherAttendanceStatus,
   PrincipalAttendanceOverview,
-} from "../../types";
-import StaffAttendanceCalendar from "../../components/shared/StaffAttendanceCalendar";
+} from "../../types.ts";
+import StaffAttendanceCalendar from "../../components/shared/StaffAttendanceCalendar.tsx";
 
 const principalApiService = new PrincipalApiService();
-// const apiService = new RegistrarApiService();
 
+// ... (StatCard component is fine) ...
 const StatCard: React.FC<{
   title: string;
   value: string;
@@ -41,6 +41,8 @@ const StatCard: React.FC<{
 
 const AttendanceOverview: React.FC = () => {
   const { user } = useAuth();
+  // 2. GET the refreshKey
+  const { refreshKey } = useDataRefresh();
   const [data, setData] = useState<PrincipalAttendanceOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"overview" | "calendar">(
@@ -50,11 +52,16 @@ const AttendanceOverview: React.FC = () => {
   const fetchData = useCallback(async () => {
     if (!user?.branchId) return;
     setLoading(true);
-    // This API call correctly uses branchId as per the service definition.
-    const result = await principalApiService.getAttendanceOverview();
+
+    // 3. ADD cache-busting to this API call
+    const cacheBustConfig = { params: { _cacheBust: refreshKey } };
+    const result = await principalApiService.getAttendanceOverview(
+      cacheBustConfig
+    );
+
     setData(result);
     setLoading(false);
-  }, [user]);
+  }, [user, refreshKey]); // 4. ADD refreshKey as a dependency
 
   useEffect(() => {
     if (activeTab === "overview") {
@@ -70,6 +77,7 @@ const AttendanceOverview: React.FC = () => {
     }`;
 
   const renderOverviewTab = () => {
+    // ... (This function is fine, no changes needed) ...
     if (loading) return <div>Loading attendance overview...</div>;
     if (!data) return <div>Could not load data.</div>;
 
@@ -248,10 +256,13 @@ const AttendanceOverview: React.FC = () => {
       </div>
 
       {activeTab === "overview" && renderOverviewTab()}
-      {/* FIX: The StaffAttendanceCalendar component no longer accepts a `branchId` prop. */}
       {activeTab === "calendar" && (
         <Card>
-          <StaffAttendanceCalendar apiService={principalApiService} />
+          {/* --- 5. PASS THE key PROP --- */}
+          <StaffAttendanceCalendar
+            key={refreshKey}
+            apiService={principalApiService}
+          />
         </Card>
       )}
     </div>
