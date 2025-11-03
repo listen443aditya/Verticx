@@ -370,8 +370,8 @@ const StaffAttendanceCalendar: React.FC<StaffAttendanceCalendarProps> = ({
       const newMap = new Map<string, TeacherAttendanceStatus | "On Leave">();
 
       (leaves || []).forEach((leave: LeaveApplication) => {
-        let d = new Date(leave.startDate);
-        const endDate = new Date(leave.endDate);
+       let d = new Date(leave.fromDate); 
+       const endDate = new Date(leave.toDate);
         d.setUTCHours(0, 0, 0, 0);
         endDate.setUTCHours(0, 0, 0, 0);
 
@@ -501,7 +501,7 @@ const StaffAttendanceCalendar: React.FC<StaffAttendanceCalendarProps> = ({
               const dayOfWeek = dayInfo.date.getDay();
               const dateString = dayInfo.date.toISOString().split("T")[0];
               const status =
-                dayOfWeek === 0 // Sunday Only
+                dayOfWeek === 0 
                   ? "Holiday"
                   : attendanceData.get(dateString) ||
                     (dayInfo.date > new Date() ? "Upcoming" : "Not Marked");
