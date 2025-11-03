@@ -341,6 +341,12 @@ const AdmitTeacherModal: React.FC<{
     gender: "Male",
     email: "",
     phone: "",
+    bloodGroup: "",
+    alternatePhone: "",
+    address: "",
+    governmentDocNumber: "",
+    fatherName: "",
+    motherName: "",
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -433,6 +439,45 @@ const AdmitTeacherModal: React.FC<{
             label="Qualification"
             name="qualification"
             value={formData.qualification}
+            onChange={handleChange}
+            className="md:col-span-2"
+          />
+
+          <Input
+            label="Address"
+            name="address"
+            value={formData.address}
+            onChange={handleChange}
+            className="md:col-span-2"
+          />
+          <Input
+            label="Blood Group"
+            name="bloodGroup"
+            value={formData.bloodGroup}
+            onChange={handleChange}
+          />
+          <Input
+            label="Alternate Phone"
+            name="alternatePhone"
+            value={formData.alternatePhone}
+            onChange={handleChange}
+          />
+          <Input
+            label="Father's Name"
+            name="fatherName"
+            value={formData.fatherName}
+            onChange={handleChange}
+          />
+          <Input
+            label="Mother's Name"
+            name="motherName"
+            value={formData.motherName}
+            onChange={handleChange}
+          />
+          <Input
+            label="Government Doc Number (Aadhar)"
+            name="governmentDocNumber"
+            value={formData.governmentDocNumber}
             onChange={handleChange}
             className="md:col-span-2"
           />
