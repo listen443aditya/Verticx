@@ -125,7 +125,7 @@ const StudentAttendanceView: React.FC = () => {
       </div>
       {loading ? (
         <p>Loading...</p>
-      ) : (
+      ) : isSaved ? (
         <table className="w-full text-left">
           <thead className="border-b">
             <tr>
@@ -150,6 +150,10 @@ const StudentAttendanceView: React.FC = () => {
             ))}
           </tbody>
         </table>
+      ) : (
+        <p className="text-center text-text-secondary-dark p-8">
+          Attendance has not been marked for this class on this date.
+        </p>
       )}
     </div>
   );
