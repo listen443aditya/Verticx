@@ -85,61 +85,43 @@ const MyAttendance: React.FC = () => {
 
 
 const attendanceSummary = useMemo(() => {
+  const summary = {
+    totalPresents: 0,
+    totalAbsents: 0,
+    totalLeaves: 0,
+    totalOpenDays: 0,
+  };
+
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
 
-  let totalOpenDays = 0;
-  let totalPresents = 0;
-  let totalAbsents = 0;
-  let totalLeaves = 0;
+  // Iterate over the data we already fetched
+  recordsByDate.forEach((status, dateString) => {
+    // Create a date from the 'YYYY-MM-DD' string.
+    // We add 'T12:00:00Z' to treat it as UTC and avoid timezone bugs.
+    const date = new Date(dateString + "T12:00:00Z");
 
-  for (let i = 1; i <= daysInMonth; i++) {
-    const date = new Date(year, month, i);
+    // Check if this record is in the currently viewed month
+    if (date.getUTCFullYear() === year && date.getUTCMonth() === month) {
+      // This day had a mark, so it's an "Open Day"
+      summary.totalOpenDays++;
 
-    // Stop counting for future dates
-    if (date > today) {
-      break;
+      switch (status) {
+        case "Present":
+        case "HalfDay": // Count HalfDay toward presents
+          summary.totalPresents++;
+          break;
+        case "Absent":
+          summary.totalAbsents++;
+          break;
+        case "OnLeave":
+          summary.totalLeaves++;
+          break;
+      }
     }
+  });
 
-    const dayOfWeek = date.getDay();
-
-    // Skip weekends (Sunday=0, Saturday=6)
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      continue;
-    }
-
-    // This is a past or present working day
-    totalOpenDays++;
-
-    // Use the same key generation as your getDayStatus function
-    const dateString = new Date(
-      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
-    )
-      .toISOString()
-      .split("T")[0];
-
-    const status = recordsByDate.get(dateString);
-
-    switch (status) {
-      case "Present":
-      case "HalfDay": // Count HalfDay as Present
-        totalPresents++;
-        break;
-      case "OnLeave":
-        totalLeaves++;
-        break;
-      case "Absent":
-        totalAbsents++;
-        break;
-      default: // 'NoRecord' for a past working day is an absence
-        totalAbsents++;
-    }
-  }
-
-  return { totalOpenDays, totalPresents, totalAbsents, totalLeaves };
+  return summary;
 }, [currentDate, recordsByDate]);
 
   const getDayStatus = useCallback(
@@ -276,7 +258,7 @@ const attendanceSummary = useMemo(() => {
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatBox
-            label="Working Days"
+            label="Total Marked Days"
             value={attendanceSummary.totalOpenDays}
             color="text-brand-primary"
           />
