@@ -43,7 +43,7 @@ const ContactCard: React.FC<ContactCardProps> = ({ branch, principalName }) => {
                      {verticxSupport ? (
                         <div className="space-y-2 text-sm">
                              <p className="flex items-center gap-2"><MailIcon className="w-4 h-4 text-text-secondary-dark flex-shrink-0" /> {verticxSupport.email}</p>
-                             <p className="flex items-center gap-2"><PhoneIcon className="w-4 h-4 text-text-secondary-dark flex-shrink-0" /> {verticxSupport.phone || '555-VERTICX'}</p>
+                             <p className="flex items-center gap-2"><PhoneIcon className="w-4 h-4 text-text-secondary-dark flex-shrink-0" /> {verticxSupport.phone || 'N/A'}</p>
                         </div>
                      ) : (
                         <p className="text-sm text-text-secondary-dark">Loading support details...</p>
