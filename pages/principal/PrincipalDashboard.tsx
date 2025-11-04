@@ -89,7 +89,8 @@ const PrincipalDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState<PrincipalDashboardData | null>(null);
-  const [branch, setBranch] = useState<Branch | null>(null);
+type DashboardBranch = PrincipalDashboardData["branch"];
+const [branch, setBranch] = useState<DashboardBranch | null>(null);
   const [lastPayment, setLastPayment] = useState<ErpPayment | null>(null);
   const [paymentHistory, setPaymentHistory] = useState<ErpPayment[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -110,42 +111,43 @@ const PrincipalDashboard: React.FC = () => {
     return map;
   }, [data?.allEvents]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!user) return;
-      setLoading(true);
-      try {
-        // The API calls are now simple, direct, and correct.
-        const [result, branchData, paymentsData] = await Promise.all([
-          principalApiService.getPrincipalDashboardData(),
-          principalApiService.getBranchDetails(),
-          principalApiService.getErpPayments(),
-        ]);
-        setData(result);
-        setBranch(branchData);
+ useEffect(() => {
+   const fetchData = async () => {
+     if (!user) return;
+     setLoading(true);
+     try {
+       // 1. Remove 'branchData' from the Promise.all
+       const [result, paymentsData] = await Promise.all([
+         principalApiService.getPrincipalDashboardData(),
+         principalApiService.getErpPayments(),
+       ]);
 
-        const sortedPayments = paymentsData.sort(
-          (a: ErpPayment, b: ErpPayment) =>
-            new Date(b.paymentDate).getTime() -
-            new Date(a.paymentDate).getTime()
-        );
-        setPaymentHistory(sortedPayments);
+       setData(result);
 
-        if (sortedPayments.length > 0) {
-          setLastPayment(sortedPayments[0]);
-        }
-        if (result && result.classes.length > 0) {
-          setSelectedClassId(result.classes[0].id);
-        }
-      } catch (error) {
-        console.error("Failed to fetch dashboard data:", error);
-        setData(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [user]);
+       // 2. Set the branch state from the 'result' object we already fetched
+       setBranch(result.branch || null);
+
+       const sortedPayments = paymentsData.sort(
+         (a: ErpPayment, b: ErpPayment) =>
+           new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
+       );
+       setPaymentHistory(sortedPayments);
+
+       if (sortedPayments.length > 0) {
+         setLastPayment(sortedPayments[0]);
+       }
+       if (result && result.classes.length > 0) {
+         setSelectedClassId(result.classes[0].id);
+       }
+     } catch (error) {
+       console.error("Failed to fetch dashboard data:", error);
+       setData(null);
+     } finally {
+       setLoading(false);
+     }
+   };
+   fetchData();
+ }, [user]);
 
   
   if (loading) return <div>Loading dashboard...</div>;

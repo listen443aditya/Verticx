@@ -4,9 +4,14 @@ import { SharedApiService } from '../../services';
 import Card from '../ui/Card.tsx';
 import { MailIcon, PhoneIcon, MapPinIcon } from '../icons/Icons.tsx';
 
+type ContactCardBranch = {
+  email?: string | null;
+  helplineNumber?: string | null;
+  location?: string | null;
+};
 interface ContactCardProps {
-    branch?: Branch;
-    principalName?: string;
+  branch?: ContactCardBranch;
+  principalName?: string;
 }
 const sharedApiService = new SharedApiService();
 

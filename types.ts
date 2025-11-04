@@ -1261,39 +1261,72 @@ export interface AdminDashboardData {
 }
 
 export interface PrincipalDashboardData {
-    summary: {
-        totalStudents: number;
-        totalTeachers: number;
-        totalClasses: number;
-        feesCollected: number;
-        feesPending: number;
-        erpPricePerStudent?: number;
-    };
-    schoolRank: number;
-    schoolScore: number;
-    averageSchoolScore: number;
-    classPerformance: { name: string; performance: number }[];
-    teacherPerformance: { teacherId: string; teacherName: string; avgStudentScore: number; syllabusCompletion: number; performanceIndex: number }[];
-    topStudents: { studentId: string; studentName: string; rank: number; className: string; }[];
-    syllabusProgress: { name: string; progress: number }[];
-    allEvents: SchoolEvent[];
-    pendingApprovals: { id: string; type: string; description: string; requestedBy: string }[];
-    pendingStaffRequests: {
-        leave: number;
-        attendance: number;
-        fees: number;
-    };
-    collectionsByGrade: { name: string, collected: number, due: number }[];
-    overdueFees: { studentId: string; studentName: string; amount: number; className: string }[];
-    classes: { id: string; name: string; }[];
-    subjectPerformanceByClass: Record<string, { subjectName: string; averageScore: number; }[]>;
-    notifications: {
-        id: string;
-        type: 'QueryResponse' | 'StudentComplaint';
-        message: string;
-        timestamp: Date;
-        link: string;
-    }[];
+  branch: {
+    name?: string | null;
+    email?: string | null;
+    helplineNumber?: string | null;
+    nextDueDate?: string | null;
+    billingCycle?: string | null;
+    location?: string | null;
+  };
+  lastPayment: ErpPayment | null;
+  summary: {
+    totalStudents: number;
+    totalTeachers: number;
+    totalClasses: number;
+    feesCollected: number;
+    feesPending: number;
+    erpPricePerStudent?: number;
+  };
+  schoolRank: number;
+  schoolScore: number;
+  averageSchoolScore: number;
+  classPerformance: { name: string; performance: number }[];
+  teacherPerformance: {
+    teacherId: string;
+    teacherName: string;
+    avgStudentScore: number;
+    syllabusCompletion: number;
+    performanceIndex: number;
+  }[];
+  topStudents: {
+    studentId: string;
+    studentName: string;
+    rank: number;
+    className: string;
+  }[];
+  syllabusProgress: { name: string; progress: number }[];
+  allEvents: SchoolEvent[];
+  pendingApprovals: {
+    id: string;
+    type: string;
+    description: string;
+    requestedBy: string;
+  }[];
+  pendingStaffRequests: {
+    leave: number;
+    attendance: number;
+    fees: number;
+  };
+  collectionsByGrade: { name: string; collected: number; due: number }[];
+  overdueFees: {
+    studentId: string;
+    studentName: string;
+    amount: number;
+    className: string;
+  }[];
+  classes: { id: string; name: string }[];
+  subjectPerformanceByClass: Record<
+    string,
+    { subjectName: string; averageScore: number }[]
+  >;
+  notifications: {
+    id: string;
+    type: "QueryResponse" | "StudentComplaint";
+    message: string;
+    timestamp: Date;
+    link: string;
+  }[];
 }
 
 export interface AcademicRequestSummary {
