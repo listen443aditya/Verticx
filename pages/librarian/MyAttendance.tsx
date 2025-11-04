@@ -11,7 +11,7 @@ import type {
 import Card from "../../components/ui/Card.tsx";
 import Button from "../../components/ui/Button.tsx";
 
-const sharedApiService = new SharedApiService();
+// const sharedApiService = new SharedApiService();
 const apiService = new LibrarianApiService();
 
 const MyAttendance: React.FC = () => {
@@ -42,19 +42,31 @@ const MyAttendance: React.FC = () => {
   const recordsByDate = useMemo(() => {
     const map = new Map<string, TeacherAttendanceStatus | "OnLeave">();
 
+    // Helper to get a stable YYYY-MM-DD string from a local date
+    const getLocalDateString = (date: Date) => {
+      return date.toLocaleDateString("en-CA"); // 'en-CA' reliably gives 'YYYY-MM-DD'
+    };
+
+    // 1. Process Leaves
     leaves.forEach((leave) => {
-      let currentDate = new Date(leave.startDate);
-      const endDate = new Date(leave.endDate);
+      // Create dates from YYYY-MM-DD strings.
+      // We add 'T12:00:00Z' to treat them as UTC and avoid timezone bugs.
+      let currentDate = new Date(leave.fromDate + "T12:00:00Z");
+      const endDate = new Date(leave.toDate + "T12:00:00Z");
+
       while (currentDate <= endDate) {
+        // Use the UTC date string for the key
         map.set(currentDate.toISOString().split("T")[0], "OnLeave");
-        currentDate.setDate(currentDate.getDate() + 1);
+        currentDate.setUTCDate(currentDate.getUTCDate() + 1); // Increment by one UTC day
       }
     });
 
+    // 2. Process Attendance Records (overwriting leaves)
     records.forEach((rec) => {
-      if (!map.has(rec.date)) {
-        map.set(rec.date, rec.status);
-      }
+      // rec.date is a full ISO string. new Date() will parse it.
+      // We convert it to its UTC date string to match the leave keys.
+      const dateKey = new Date(rec.date).toISOString().split("T")[0];
+      map.set(dateKey, rec.status);
     });
 
     return map;
@@ -62,7 +74,14 @@ const MyAttendance: React.FC = () => {
 
   const getDayStatus = useCallback(
     (date: Date): TeacherAttendanceStatus | "OnLeave" | "NoRecord" => {
-      const dateString = date.toISOString().split("T")[0];
+      // 'date' is a local Date object from the calendar.
+      // We must convert it to a UTC YYYY-MM-DD string to match our map.
+      const dateString = new Date(
+        Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+      )
+        .toISOString()
+        .split("T")[0];
+
       return recordsByDate.get(dateString) || "NoRecord";
     },
     [recordsByDate]
