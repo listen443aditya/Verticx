@@ -793,7 +793,7 @@ export class RegistrarApiService {
     data: Partial<InventoryItem>,
     reason: string
   ): Promise<void> {
-    await baseApi.post("/registrar/inventory/items", { data, reason });
+    await baseApi.post("/registrar/inventory/items", { ...data, reason });
   }
 
   async updateInventoryItem(
