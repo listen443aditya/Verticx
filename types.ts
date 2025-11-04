@@ -104,8 +104,8 @@ export interface Branch {
   principalId: string;
   registrarId?: string;
   status: 'active' | 'pending' | 'suspended';
-  email?: string;
-  helplineNumber?: string;
+  email: string;
+  helplineNumber: string;
   vicePrincipalName?: string;
   logoUrl?: string;
   principalPhotoUrl?: string;
