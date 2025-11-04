@@ -10,7 +10,8 @@ import {
   UsersIcon,
 } from "../../components/icons/Icons.tsx";
 import ContactCard from "../../components/shared/ContactCard.tsx";
-
+import { RegistrarApiService } from "../../services/registrarApiService";
+const registrarApiService = new RegistrarApiService();
 const sharedApiService = new SharedApiService();
 const apiService = new LibrarianApiService();
 
@@ -47,7 +48,7 @@ const LibrarianDashboard: React.FC = () => {
     setData(result);
     setBranch(branchData);
     if (branchData?.principalId) {
-      const principalData = await sharedApiService.getUserById(
+      const principalData = await registrarApiService.getUserById(
         branchData.principalId
       );
       setPrincipal(principalData || null);
