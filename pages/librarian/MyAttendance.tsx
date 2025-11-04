@@ -28,7 +28,7 @@ const MyAttendance: React.FC = () => {
       const [attendanceData, leaveData] = await Promise.all([
         // FIX: Added the mandatory branchId to the call.
         apiService.getLibrarianAttendance(user.branchId),
-        sharedApiService.getLeaveApplicationsForUser(user.id),
+        apiService.getMyLeaveApplications(),
       ]);
       setRecords(attendanceData);
       setLeaves(

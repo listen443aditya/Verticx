@@ -9,6 +9,7 @@ import type {
   Student,
   Teacher,
   TeacherAttendanceRecord,
+  LeaveApplication,
 } from "../types.ts";
 
 export class LibrarianApiService {
@@ -141,7 +142,12 @@ export class LibrarianApiService {
     return data;
   }
 
-
+  async getMyLeaveApplications(): Promise<LeaveApplication[]> {
+    const { data } = await baseApi.get<LeaveApplication[]>(
+      "/librarian/leaves/my-applications" // Use the new, correct route
+    );
+    return data;
+  }
 
   async getLibrarianAttendance(
     branchId: string
