@@ -724,7 +724,6 @@ export class RegistrarApiService {
     await baseApi.put(`/registrar/events/${eventId}`, eventData);
   }
 
-  // FIX: Added missing deleteSchoolEvent method
   async deleteSchoolEvent(eventId: string): Promise<void> {
     await baseApi.delete(`/registrar/events/${eventId}`);
   }
