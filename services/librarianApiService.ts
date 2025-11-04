@@ -71,7 +71,7 @@ export class LibrarianApiService {
     pdfFile: File | null
   ): Promise<void> {
     const formData = new FormData();
-    formData.append("branchId", branchId); // Add branchId to the form data
+    formData.append("branchId", branchId);
     Object.entries(bookData).forEach(([key, value]) => {
       if (value !== null && value !== undefined) {
         formData.append(key, String(value));
@@ -141,8 +141,7 @@ export class LibrarianApiService {
     return data;
   }
 
-  // NOTE: Assuming this remains user-specific and does not need a branchId
-  // services/librarianApiService.ts
+
 
   async getLibrarianAttendance(
     branchId: string
@@ -154,7 +153,6 @@ export class LibrarianApiService {
     return data;
   }
 
-  // Added missing methods required by IssuanceManagement component
   async getStudentsByBranch(branchId: string): Promise<Student[]> {
     const { data } = await baseApi.get<Student[]>("/registrar/students", {
       params: { branchId },
