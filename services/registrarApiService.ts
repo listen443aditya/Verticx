@@ -801,7 +801,10 @@ export class RegistrarApiService {
     data: Partial<InventoryItem>,
     reason: string
   ): Promise<void> {
-    await baseApi.put(`/registrar/inventory/items/${itemId}`, { data, reason });
+    await baseApi.put(`/registrar/inventory/items/${itemId}`, {
+      ...data,
+      reason,
+    });
   }
 
   async deleteInventoryItem(itemId: string): Promise<void> {
