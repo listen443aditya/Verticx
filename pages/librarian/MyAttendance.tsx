@@ -14,6 +14,17 @@ import Button from "../../components/ui/Button.tsx";
 // const sharedApiService = new SharedApiService();
 const apiService = new LibrarianApiService();
 
+const StatBox: React.FC<{ label: string; value: number; color: string }> = ({
+  label,
+  value,
+  color,
+}) => (
+  <div className="bg-slate-50 p-4 rounded-lg text-center">
+    <p className="text-sm font-medium text-text-secondary-dark">{label}</p>
+    <p className={`text-3xl font-bold ${color}`}>{value}</p>
+  </div>
+);
+
 const MyAttendance: React.FC = () => {
   const { user } = useAuth();
   const [records, setRecords] = useState<TeacherAttendanceRecord[]>([]);
@@ -71,6 +82,65 @@ const MyAttendance: React.FC = () => {
 
     return map;
   }, [records, leaves]);
+
+
+const attendanceSummary = useMemo(() => {
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let totalOpenDays = 0;
+  let totalPresents = 0;
+  let totalAbsents = 0;
+  let totalLeaves = 0;
+
+  for (let i = 1; i <= daysInMonth; i++) {
+    const date = new Date(year, month, i);
+
+    // Stop counting for future dates
+    if (date > today) {
+      break;
+    }
+
+    const dayOfWeek = date.getDay();
+
+    // Skip weekends (Sunday=0, Saturday=6)
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      continue;
+    }
+
+    // This is a past or present working day
+    totalOpenDays++;
+
+    // Use the same key generation as your getDayStatus function
+    const dateString = new Date(
+      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+    )
+      .toISOString()
+      .split("T")[0];
+
+    const status = recordsByDate.get(dateString);
+
+    switch (status) {
+      case "Present":
+      case "HalfDay": // Count HalfDay as Present
+        totalPresents++;
+        break;
+      case "OnLeave":
+        totalLeaves++;
+        break;
+      case "Absent":
+        totalAbsents++;
+        break;
+      default: // 'NoRecord' for a past working day is an absence
+        totalAbsents++;
+    }
+  }
+
+  return { totalOpenDays, totalPresents, totalAbsents, totalLeaves };
+}, [currentDate, recordsByDate]);
 
   const getDayStatus = useCallback(
     (date: Date): TeacherAttendanceStatus | "OnLeave" | "NoRecord" => {
@@ -197,6 +267,34 @@ const MyAttendance: React.FC = () => {
           <span className="flex items-center">
             <div className="w-4 h-4 bg-red-200 mr-2 rounded"></div>Absent
           </span>
+        </div>
+      </Card>
+
+      <Card className="mt-6">
+        <h3 className="text-xl font-semibold mb-4 text-text-primary-dark">
+          Month Summary
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatBox
+            label="Working Days"
+            value={attendanceSummary.totalOpenDays}
+            color="text-brand-primary"
+          />
+          <StatBox
+            label="Total Present"
+            value={attendanceSummary.totalPresents}
+            color="text-green-600"
+          />
+          <StatBox
+            label="Total Absent"
+            value={attendanceSummary.totalAbsents}
+            color="text-red-600"
+          />
+          <StatBox
+            label="Total Leave"
+            value={attendanceSummary.totalLeaves}
+            color="text-blue-600"
+          />
         </div>
       </Card>
     </div>
