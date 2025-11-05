@@ -38,13 +38,10 @@ import type {
 } from "../types.ts";
 
 export class TeacherApiService {
-
-  
-  async getTeacherDashboardData(
-    //teacherId: string
-  ): Promise<TeacherDashboardData> {
+  async getTeacherDashboardData(): //teacherId: string
+  Promise<TeacherDashboardData> {
     const { data } = await baseApi.get<TeacherDashboardData>(
-      "/teacher/dashboard",
+      "/teacher/dashboard"
       //{ params: { teacherId } }
     );
     return data;
@@ -412,13 +409,8 @@ export class TeacherApiService {
     });
   }
 
-  // --- Shared & Utility Lookups ---
-  // NOTE: These functions are for shared data and might be better placed in a SharedApiService,
-  // but are added here to resolve component errors as requested.
-
-  // NEW: Added missing function.
   async getSchoolEvents(branchId: string): Promise<SchoolEvent[]> {
-    const { data } = await baseApi.get<SchoolEvent[]>("/shared/events", {
+    const { data } = await baseApi.get<SchoolEvent[]>("/general/events", {
       params: { branchId },
     });
     return data;
@@ -426,7 +418,7 @@ export class TeacherApiService {
 
   // NEW: Added missing function.
   async getSchoolClassesByBranch(branchId: string): Promise<SchoolClass[]> {
-    const { data } = await baseApi.get<SchoolClass[]>("/shared/classes", {
+    const { data } = await baseApi.get<SchoolClass[]>("/general/classes", {
       params: { branchId },
     });
     return data;
@@ -435,7 +427,7 @@ export class TeacherApiService {
   // NEW: Added missing function.
   async getClassById(classId: string): Promise<SchoolClass> {
     const { data } = await baseApi.get<SchoolClass>(
-      `/shared/classes/${classId}`
+      `/general/classes/${classId}` 
     );
     return data;
   }
@@ -443,7 +435,7 @@ export class TeacherApiService {
   // NEW: Added missing function.
   async getSubjectById(subjectId: string): Promise<Subject> {
     const { data } = await baseApi.get<Subject>(
-      `/shared/subjects/${subjectId}`
+      `/general/subjects/${subjectId}`
     );
     return data;
   }
@@ -451,7 +443,7 @@ export class TeacherApiService {
   // NEW: Added missing function.
   async getExaminationById(examinationId: string): Promise<Examination> {
     const { data } = await baseApi.get<Examination>(
-      `/shared/examinations/${examinationId}`
+      `/general/examinations/${examinationId}` 
     );
     return data;
   }
@@ -464,14 +456,16 @@ export class TeacherApiService {
     return data;
   }
 
-  // FIX: Added branchId based on mandatory ID requirement.
   async searchLibraryBooks(
     query: string,
     branchId: string
   ): Promise<LibraryBook[]> {
-    const { data } = await baseApi.get<LibraryBook[]>("/library/search", {
-      params: { q: query, branchId },
-    });
+    const { data } = await baseApi.get<LibraryBook[]>(
+      "/general/library/search",
+      {
+        params: { q: query, branchId },
+      }
+    );
     return data;
   }
 }
