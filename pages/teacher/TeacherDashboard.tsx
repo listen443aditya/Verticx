@@ -215,8 +215,7 @@ import { useAuth } from '../../hooks/useAuth.ts';
 import { SharedApiService } from '../../services';
 import Card from '../../components/ui/Card.tsx';
 import Button from '../../components/ui/Button.tsx';
-// import type { TeacherDashboardData, TimetableSlot, TransportRoute, BusStop, Branch, User } from '../../types.ts';
-// FIX: Corrected react-router-dom import for v6+
+
 import { useNavigate } from 'react-router-dom';
 import { RequestsIcon, TransportIcon } from '../../components/icons/Icons.tsx';
 import { useDataRefresh } from '../../contexts/DataRefreshContext.tsx';
@@ -225,6 +224,8 @@ import AssignHomeworkModal from '../../components/modals/AssignHomeworkModal.tsx
 import ContactCard from '../../components/shared/ContactCard.tsx';
 // import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { TeacherApiService } from "../../services";
+import { RegistrarApiService } from "../../services";
+const registrarApiService = new RegistrarApiService();
 // const apiService = new TeacherApiService();
 // const sharedApiService = new SharedApiService();
 // const days: ('Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday')[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -345,7 +346,9 @@ const TeacherDashboard: React.FC = () => {
                 setBranch(branchData);
         
                 if (branchData?.principalId) {
-                    const principalData = await sharedApiService.getUserById(branchData.principalId);
+                    const principalData = await registrarApiService.getUserById(
+                      branchData.principalId
+                    );
                     setPrincipal(principalData || null);
                 }
             } catch (err) {

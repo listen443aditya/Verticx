@@ -128,7 +128,6 @@ export class LibrarianApiService {
   async returnBook(issuanceId: string): Promise<void> {
     await baseApi.patch(`/librarian/issuances/${issuanceId}/return`);
   }
-
   async searchLibraryBooks(
     branchId: string,
     query: string
