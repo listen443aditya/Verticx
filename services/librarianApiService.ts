@@ -126,7 +126,7 @@ export class LibrarianApiService {
   }
 
   async returnBook(issuanceId: string): Promise<void> {
-    await baseApi.put(`/librarian/issuances/${issuanceId}/return`);
+    await baseApi.patch(`/librarian/issuances/${issuanceId}/return`);
   }
 
   async searchLibraryBooks(
