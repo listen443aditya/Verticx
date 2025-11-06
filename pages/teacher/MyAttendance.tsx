@@ -23,13 +23,13 @@ const MyAttendance: React.FC = () => {
       if (!user) return;
       setLoading(true);
       try {
+        // This will now fetch all attendance and leave data
+        // every time the user or the current month changes.
         const [attendanceData, leaveData] = await Promise.all([
-          // FIX: Corrected method name to match the service file.
           apiService.getTeacherAttendance(user.id),
           apiService.getLeaveApplicationsForUser(user.id),
         ]);
         setRecords(attendanceData);
-        // FIX: Added explicit type to the filter parameter.
         setLeaves(
           leaveData.filter((l: LeaveApplication) => l.status === "Approved")
         );
@@ -40,23 +40,29 @@ const MyAttendance: React.FC = () => {
       }
     };
     fetchAttendance();
-  }, [user]);
+    // --- THIS IS THE FIX ---
+  }, [user, currentDate]); // Added currentDate to the dependency array
+  // --- END FIX ---
 
   const recordsByDate = useMemo(() => {
     const map = new Map<string, TeacherAttendanceStatus | "OnLeave">();
 
+    // 1. Add approved leaves first (as "OnLeave")
     leaves.forEach((leave) => {
       let currentDate = new Date(leave.startDate);
       const endDate = new Date(leave.endDate);
       while (currentDate <= endDate) {
-        map.set(currentDate.toISOString().split("T")[0], "OnLeave");
+        const dateString = currentDate.toISOString().split("T")[0];
+        map.set(dateString, "OnLeave");
         currentDate.setDate(currentDate.getDate() + 1);
       }
     });
 
+    // 2. Add attendance records, normalizing the date key
     records.forEach((rec) => {
-      if (!map.has(rec.date)) {
-        map.set(rec.date, rec.status);
+      const dateString = new Date(rec.date).toISOString().split("T")[0];
+      if (!map.has(dateString)) {
+        map.set(dateString, rec.status);
       }
     });
 
@@ -94,7 +100,7 @@ const MyAttendance: React.FC = () => {
   const changeMonth = (delta: number) => {
     setCurrentDate((prev) => {
       const newDate = new Date(prev);
-      newDate.setDate(1);
+      newDate.setDate(1); // Set to 1st to avoid month-end issues
       newDate.setMonth(newDate.getMonth() + delta);
       return newDate;
     });
@@ -150,17 +156,20 @@ const MyAttendance: React.FC = () => {
             } = {
               Present: { color: "bg-green-200", text: "Present" },
               Absent: { color: "bg-red-200", text: "Absent" },
-              OnLeave: { color: "bg-blue-200", text: "OnLeave" },
+              OnLeave: { color: "bg-blue-200", text: "On Leave" },
               HalfDay: { color: "bg-yellow-200", text: "Half Day" },
               NoRecord: { color: "bg-slate-100", text: "" },
             };
 
             const { color, text } = statusInfo[status];
+            const isToday = day.toDateString() === new Date().toDateString();
 
             return (
               <div
                 key={index}
-                className={`p-2 h-20 border rounded-md ${color}`}
+                className={`p-2 h-20 border rounded-md ${color} ${
+                  isToday ? "ring-2 ring-brand-primary" : "border-slate-100"
+                }`}
               >
                 <span className="text-sm font-semibold">{day.getDate()}</span>
                 <p className="text-xs mt-2">{text}</p>
