@@ -11,7 +11,6 @@ import Button from "../../components/ui/Button.tsx";
 
 const apiService = new TeacherApiService();
 
-// --- NEW: Helper component for the summary ---
 const StatBox: React.FC<{ label: string; value: string | number; color: string; }> = ({
   label,
   value,
@@ -24,7 +23,6 @@ const StatBox: React.FC<{ label: string; value: string | number; color: string; 
     </div>
   </div>
 );
-// --- END NEW COMPONENT ---
 
 const MyAttendance: React.FC = () => {
   const { user } = useAuth();
@@ -53,37 +51,38 @@ const MyAttendance: React.FC = () => {
       }
     };
     fetchAttendance();
-  }, [user, currentDate]); // Refetches when month changes
+  }, [user, currentDate]);
 
   const recordsByDate = useMemo(() => {
     const map = new Map<string, TeacherAttendanceStatus | "OnLeave">();
 
-    // 1. Process Leaves
+    // 1. Process Leaves (Highest Priority)
     leaves.forEach((leave) => {
-      // Create dates from YYYY-MM-DD strings.
-      // We add 'T12:00:00Z' to treat them as UTC and avoid timezone bugs.
       let currentDate = new Date(leave.fromDate + "T12:00:00Z");
       const endDate = new Date(leave.toDate + "T12:00:00Z");
 
       while (currentDate <= endDate) {
-        // Use the UTC date string for the key
         map.set(currentDate.toISOString().split("T")[0], "OnLeave");
-        currentDate.setUTCDate(currentDate.getUTCDate() + 1); // Increment by one UTC day
+        currentDate.setUTCDate(currentDate.getUTCDate() + 1);
       }
     });
 
-    // 2. Process Attendance Records (overwriting leaves)
+    // 2. Process Attendance Records
     records.forEach((rec) => {
-      // rec.date is a full ISO string. new Date() will parse it.
-      // We convert it to its UTC date string to match the leave keys.
       const dateKey = new Date(rec.date).toISOString().split("T")[0];
-      map.set(dateKey, rec.status);
+      
+      // --- THIS IS THE FIX ---
+      // Only set the status if a leave is NOT already on this day.
+      // This ensures "OnLeave" has priority over "Absent".
+      if (!map.has(dateKey)) {
+        map.set(dateKey, rec.status);
+      }
+      // --- END FIX ---
     });
 
     return map;
   }, [records, leaves]);
 
-  // --- NEW: Added attendance summary logic ---
   const attendanceSummary = useMemo(() => {
     const summary = {
       totalPresents: 0,
@@ -96,15 +95,10 @@ const MyAttendance: React.FC = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
 
-    // Iterate over the data we already fetched
     recordsByDate.forEach((status, dateString) => {
-      // Create a date from the 'YYYY-MM-DD' string.
-      // We add 'T12:00:00Z' to treat it as UTC and avoid timezone bugs.
       const date = new Date(dateString + "T12:00:00Z");
 
-      // Check if this record is in the currently viewed month
       if (date.getUTCFullYear() === year && date.getUTCMonth() === month) {
-        // This day had a mark
         summary.totalMarkedDays++;
 
         switch (status) {
@@ -126,12 +120,9 @@ const MyAttendance: React.FC = () => {
 
     return summary;
   }, [currentDate, recordsByDate]);
-  // --- END NEW SUMMARY ---
 
   const getDayStatus = useCallback(
     (date: Date): TeacherAttendanceStatus | "OnLeave" | "NoRecord" => {
-      // 'date' is a local Date object from the calendar.
-      // We must convert it to a UTC YYYY-MM-DD string to match our map.
       const dateString = new Date(
         Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
       )
@@ -166,7 +157,7 @@ const MyAttendance: React.FC = () => {
   const changeMonth = (delta: number) => {
     setCurrentDate((prev) => {
       const newDate = new Date(prev);
-      newDate.setDate(1); // Set to 1st to avoid month-end issues
+      newDate.setDate(1);
       newDate.setMonth(newDate.getMonth() + delta);
       return newDate;
     });
