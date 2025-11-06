@@ -11,6 +11,21 @@ import Button from "../../components/ui/Button.tsx";
 
 const apiService = new TeacherApiService();
 
+// --- NEW: Helper component for the summary ---
+const StatBox: React.FC<{ label: string; value: string | number; color: string; }> = ({
+  label,
+  value,
+  color,
+}) => (
+  <div className="bg-slate-50 p-4 rounded-lg text-center">
+    <div className={`text-3xl font-bold ${color}`}>{value}</div>
+    <div className="text-sm font-medium text-text-secondary-dark mt-1">
+      {label}
+    </div>
+  </div>
+);
+// --- END NEW COMPONENT ---
+
 const MyAttendance: React.FC = () => {
   const { user } = useAuth();
   const [records, setRecords] = useState<TeacherAttendanceRecord[]>([]);
@@ -23,8 +38,6 @@ const MyAttendance: React.FC = () => {
       if (!user) return;
       setLoading(true);
       try {
-        // This will now fetch all attendance and leave data
-        // every time the user or the current month changes.
         const [attendanceData, leaveData] = await Promise.all([
           apiService.getTeacherAttendance(user.id),
           apiService.getLeaveApplicationsForUser(user.id),
@@ -40,38 +53,91 @@ const MyAttendance: React.FC = () => {
       }
     };
     fetchAttendance();
-    // --- THIS IS THE FIX ---
-  }, [user, currentDate]); // Added currentDate to the dependency array
-  // --- END FIX ---
+  }, [user, currentDate]); // Refetches when month changes
 
   const recordsByDate = useMemo(() => {
     const map = new Map<string, TeacherAttendanceStatus | "OnLeave">();
 
-    // 1. Add approved leaves first (as "OnLeave")
+    // 1. Process Leaves
     leaves.forEach((leave) => {
-      let currentDate = new Date(leave.startDate);
-      const endDate = new Date(leave.endDate);
+      // Create dates from YYYY-MM-DD strings.
+      // We add 'T12:00:00Z' to treat them as UTC and avoid timezone bugs.
+      let currentDate = new Date(leave.fromDate + "T12:00:00Z");
+      const endDate = new Date(leave.toDate + "T12:00:00Z");
+
       while (currentDate <= endDate) {
-        const dateString = currentDate.toISOString().split("T")[0];
-        map.set(dateString, "OnLeave");
-        currentDate.setDate(currentDate.getDate() + 1);
+        // Use the UTC date string for the key
+        map.set(currentDate.toISOString().split("T")[0], "OnLeave");
+        currentDate.setUTCDate(currentDate.getUTCDate() + 1); // Increment by one UTC day
       }
     });
 
-    // 2. Add attendance records, normalizing the date key
+    // 2. Process Attendance Records (overwriting leaves)
     records.forEach((rec) => {
-      const dateString = new Date(rec.date).toISOString().split("T")[0];
-      if (!map.has(dateString)) {
-        map.set(dateString, rec.status);
-      }
+      // rec.date is a full ISO string. new Date() will parse it.
+      // We convert it to its UTC date string to match the leave keys.
+      const dateKey = new Date(rec.date).toISOString().split("T")[0];
+      map.set(dateKey, rec.status);
     });
 
     return map;
   }, [records, leaves]);
 
+  // --- NEW: Added attendance summary logic ---
+  const attendanceSummary = useMemo(() => {
+    const summary = {
+      totalPresents: 0,
+      totalAbsents: 0,
+      totalLeaves: 0,
+      totalHalfDays: 0,
+      totalMarkedDays: 0,
+    };
+
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+
+    // Iterate over the data we already fetched
+    recordsByDate.forEach((status, dateString) => {
+      // Create a date from the 'YYYY-MM-DD' string.
+      // We add 'T12:00:00Z' to treat it as UTC and avoid timezone bugs.
+      const date = new Date(dateString + "T12:00:00Z");
+
+      // Check if this record is in the currently viewed month
+      if (date.getUTCFullYear() === year && date.getUTCMonth() === month) {
+        // This day had a mark
+        summary.totalMarkedDays++;
+
+        switch (status) {
+          case "Present":
+            summary.totalPresents++;
+            break;
+          case "HalfDay":
+            summary.totalHalfDays++;
+            break;
+          case "Absent":
+            summary.totalAbsents++;
+            break;
+          case "OnLeave":
+            summary.totalLeaves++;
+            break;
+        }
+      }
+    });
+
+    return summary;
+  }, [currentDate, recordsByDate]);
+  // --- END NEW SUMMARY ---
+
   const getDayStatus = useCallback(
     (date: Date): TeacherAttendanceStatus | "OnLeave" | "NoRecord" => {
-      const dateString = date.toISOString().split("T")[0];
+      // 'date' is a local Date object from the calendar.
+      // We must convert it to a UTC YYYY-MM-DD string to match our map.
+      const dateString = new Date(
+        Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+      )
+        .toISOString()
+        .split("T")[0];
+
       return recordsByDate.get(dateString) || "NoRecord";
     },
     [recordsByDate]
@@ -162,7 +228,8 @@ const MyAttendance: React.FC = () => {
             };
 
             const { color, text } = statusInfo[status];
-            const isToday = day.toDateString() === new Date().toDateString();
+            const isToday =
+              day.toDateString() === new Date().toDateString();
 
             return (
               <div
@@ -190,6 +257,39 @@ const MyAttendance: React.FC = () => {
           <span className="flex items-center">
             <div className="w-4 h-4 bg-red-200 mr-2 rounded"></div>Absent
           </span>
+        </div>
+      </Card>
+
+      <Card className="mt-6">
+        <h3 className="text-xl font-semibold mb-4 text-text-primary-dark">
+          Month Summary
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <StatBox
+            label="Total Marked Days"
+            value={attendanceSummary.totalMarkedDays}
+            color="text-brand-primary"
+          />
+          <StatBox
+            label="Total Present"
+            value={attendanceSummary.totalPresents}
+            color="text-green-600"
+          />
+          <StatBox
+            label="Total Half Days"
+            value={attendanceSummary.totalHalfDays}
+            color="text-yellow-600"
+          />
+          <StatBox
+            label="Total Absent"
+            value={attendanceSummary.totalAbsents}
+            color="text-red-600"
+          />
+          <StatBox
+            label="Total Leave"
+            value={attendanceSummary.totalLeaves}
+            color="text-blue-600"
+          />
         </div>
       </Card>
     </div>
