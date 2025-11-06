@@ -116,7 +116,9 @@ export class SharedApiService {
   }
 
   async getBranchById(branchId: string): Promise<Branch | null> {
-    const { data } = await baseApi.get<Branch | null>(`/branches/${branchId}`);
+    const { data } = await baseApi.get<Branch | null>(
+      `/general/branches/${branchId}`
+    );
     return data;
   }
 

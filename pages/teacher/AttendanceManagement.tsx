@@ -45,7 +45,6 @@ const RequestChangeModal: React.FC<{
             },
             reason: reason + " (Note: This change request is for the student's daily attendance status.)",
         };
-// FIX: Corrected method call to `submitRectificationRequest`. This is a more general-purpose method for submitting change requests, which is appropriate for attendance changes.
         await apiService.submitRectificationRequest(requestData as any);
         setIsSubmitting(false);
         onSubmit();
