@@ -198,10 +198,12 @@ export class StudentApiService {
   }
 
   async searchLibraryBooks(query: string): Promise<LibraryBook[]> {
-    // The student's branch is inferred by the backend.
-    const { data } = await baseApi.get<LibraryBook[]>("/library/search", {
-      params: { q: query },
-    });
+    const { data } = await baseApi.get<LibraryBook[]>(
+      "/student/library/search",
+      {
+        params: { q: query },
+      }
+    );
     return data;
   }
 }
