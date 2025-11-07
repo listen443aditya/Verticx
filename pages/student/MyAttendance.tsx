@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth.ts";
-// FIX: Import both Student and Shared services, and the GradeWithCourse type
 import { StudentApiService, SharedApiService } from "../../services";
 import type {
   AttendanceRecord,
@@ -11,18 +10,28 @@ import type {
 import Card from "../../components/ui/Card.tsx";
 import Button from "../../components/ui/Button.tsx";
 
-// Create instances for both services
 const apiService = new StudentApiService();
 const sharedApiService = new SharedApiService();
 
-// Modal to show daily breakdown
+const StatBox: React.FC<{ label: string; value: string | number; color: string; }> = ({
+  label,
+  value,
+  color,
+}) => (
+  <div className="bg-slate-50 p-4 rounded-lg text-center">
+    <div className={`text-3xl font-bold ${color}`}>{value}</div>
+    <div className="text-sm font-medium text-text-secondary-dark mt-1">
+      {label}
+    </div>
+  </div>
+);
+
 const DayDetailsModal: React.FC<{
   date: Date;
   records: AttendanceRecord[];
   courses: GradeWithCourse[];
   onClose: () => void;
 }> = ({ date, records, courses, onClose }) => {
-  // FIX: Helper function to look up course name from the prefetched list
   const getCourseName = (courseId: string) => {
     return (
       courses.find((c) => c.courseId === courseId)?.courseName ||
@@ -49,12 +58,13 @@ const DayDetailsModal: React.FC<{
                   key={i}
                   className="flex justify-between items-center p-2 bg-slate-100 rounded"
                 >
-                  {/* FIX: Use the local lookup function instead of an API call */}
                   <span className="text-sm">{getCourseName(rec.courseId)}</span>
                   <span
                     className={`text-sm font-semibold ${
                       rec.status === "Present"
                         ? "text-green-600"
+                        : rec.status === "Tardy"
+                        ? "text-yellow-600"
                         : "text-red-600"
                     }`}
                   >
@@ -65,7 +75,7 @@ const DayDetailsModal: React.FC<{
             </ul>
           ) : (
             <p className="text-center text-slate-500">
-              No records for this day.
+              No attendance records for this day.
             </p>
           )}
         </div>
@@ -82,7 +92,7 @@ const MyAttendance: React.FC = () => {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [leaves, setLeaves] = useState<LeaveApplication[]>([]);
   const [branch, setBranch] = useState<Branch | null>(null);
-  const [courses, setCourses] = useState<GradeWithCourse[]>([]); // State to hold course data
+  const [courses, setCourses] = useState<GradeWithCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDayDetails, setSelectedDayDetails] = useState<{
@@ -95,21 +105,19 @@ const MyAttendance: React.FC = () => {
       if (!user?.branchId) return;
       setLoading(true);
       try {
-        // FIX: Corrected all API calls
         const [attendanceData, leaveData, branchData, gradesData] =
           await Promise.all([
-            apiService.getStudentAttendance(), // Takes 0 arguments
-            apiService.getLeaveApplicationsForUser(), // Takes 0 arguments
-            sharedApiService.getBranchById(user.branchId), // Correctly uses SharedApiService
-            apiService.getStudentGrades(), // Fetch grades to get course names
+            apiService.getStudentAttendance(),
+            apiService.getLeaveApplicationsForUser(),
+            sharedApiService.getBranchById(user.branchId),
+            apiService.getStudentGrades(),
           ]);
         setRecords(attendanceData);
-        // FIX: Added explicit type to resolve 'implicit any' error
         setLeaves(
           leaveData.filter((l: LeaveApplication) => l.status === "Approved")
         );
         setBranch(branchData);
-        setCourses(gradesData); // Store course data
+        setCourses(gradesData);
 
         if (branchData?.academicSessionStartDate) {
           const sessionStartDate = new Date(
@@ -131,33 +139,36 @@ const MyAttendance: React.FC = () => {
       }
     };
     fetchAttendance();
-  }, [user]);
+  }, [user, currentDate.getMonth()]);
 
   const recordsByDate = useMemo(() => {
     const map = new Map<string, AttendanceRecord[]>();
     records.forEach((rec) => {
-      const dateKey = rec.date;
+      const dateKey = new Date(rec.date).toISOString().split("T")[0];
       if (!map.has(dateKey)) map.set(dateKey, []);
       map.get(dateKey)!.push(rec);
     });
     return map;
   }, [records]);
 
+  // --- FIX: Robust date logic ---
   const getDayStatus = useCallback(
-    (date: Date) => {
-      const dateString = date.toISOString().split("T")[0];
-      const dayRecords = recordsByDate.get(dateString);
+    (date: Date) => { 
+      const dateString = new Date(
+        Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+      )
+        .toISOString()
+        .split("T")[0];
 
+      // Check leaves first
       const isLeave = leaves.some((l) => {
-        const startDate = new Date(l.startDate);
-        const endDate = new Date(l.endDate);
-        const currentDate = new Date(dateString);
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(0, 0, 0, 0);
-        return currentDate >= startDate && currentDate <= endDate;
+        return dateString >= l.fromDate && dateString <= l.toDate;
       });
 
       if (isLeave) return "Leave";
+
+      // Check attendance records
+      const dayRecords = recordsByDate.get(dateString);
       if (!dayRecords || dayRecords.length === 0) return "NoRecord";
       if (dayRecords.some((r) => r.status === "Absent")) return "Absent";
       if (dayRecords.some((r) => r.status === "Tardy")) return "Tardy";
@@ -165,6 +176,47 @@ const MyAttendance: React.FC = () => {
     },
     [recordsByDate, leaves]
   );
+  
+  const attendanceSummary = useMemo(() => {
+    const summary = {
+      totalPresent: 0,
+      totalAbsent: 0,
+      totalTardy: 0,
+      totalLeaves: 0,
+      totalMarkedDays: 0,
+    };
+    
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    for (let i = 1; i <= daysInMonth; i++) {
+      const date = new Date(year, month, i);
+      const status = getDayStatus(date); 
+
+      if(status !== 'NoRecord') {
+         summary.totalMarkedDays++;
+      }
+      
+      switch (status) {
+        case "Present":
+          summary.totalPresent++;
+          break;
+        case "Absent":
+          summary.totalAbsent++;
+          break;
+        case "Tardy":
+          summary.totalTardy++;
+          break;
+        case "Leave":
+          summary.totalLeaves++;
+          break;
+      }
+    }
+
+    return summary;
+  }, [currentDate, getDayStatus]);
 
   const calendarDays = useMemo(() => {
     const year = currentDate.getFullYear();
@@ -195,7 +247,12 @@ const MyAttendance: React.FC = () => {
   };
 
   const handleDayClick = (day: Date) => {
-    const dayRecords = recordsByDate.get(day.toISOString().split("T")[0]) || [];
+    const dateString = new Date(
+        Date.UTC(day.getFullYear(), day.getMonth(), day.getDate())
+      )
+        .toISOString()
+        .split("T")[0];
+    const dayRecords = recordsByDate.get(dateString) || [];
     setSelectedDayDetails({ date: day, records: dayRecords });
   };
 
@@ -239,7 +296,10 @@ const MyAttendance: React.FC = () => {
                   className="border rounded-md border-slate-100 h-20"
                 ></div>
               );
+              
             const status = getDayStatus(day);
+            const isToday = day.toDateString() === new Date().toDateString();
+            
             const statusClasses = {
               Present:
                 "bg-green-100 text-green-800 border-green-200 hover:bg-green-200",
@@ -249,10 +309,11 @@ const MyAttendance: React.FC = () => {
               Leave: "bg-blue-100 text-blue-800 border-blue-200",
               NoRecord: "bg-slate-50 text-slate-400 border-slate-200",
             }[status];
+            
             return (
               <div
                 key={index}
-                className={`p-2 h-20 border rounded-md transition-colors cursor-pointer ${statusClasses}`}
+                className={`p-2 h-20 border rounded-md transition-colors cursor-pointer ${statusClasses} ${isToday ? "ring-2 ring-brand-primary" : ""}`}
                 onClick={() => handleDayClick(day)}
               >
                 <span className="text-sm font-semibold">{day.getDate()}</span>
@@ -277,6 +338,40 @@ const MyAttendance: React.FC = () => {
           </span>
         </div>
       </Card>
+      
+      <Card className="mt-6">
+        <h3 className="text-xl font-semibold mb-4 text-text-primary-dark">
+          Month Summary
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <StatBox
+            label="Total Marked Days"
+            value={attendanceSummary.totalMarkedDays}
+            color="text-brand-primary"
+          />
+          <StatBox
+            label="Total Present"
+            value={attendanceSummary.totalPresent}
+            color="text-green-600"
+          />
+          <StatBox
+            label="Total Tardy"
+            value={attendanceSummary.totalTardy}
+            color="text-yellow-600"
+          />
+          <StatBox
+            label="Total Absent"
+            value={attendanceSummary.totalAbsent}
+            color="text-red-600"
+          />
+          <StatBox
+            label="Total Leave"
+            value={attendanceSummary.totalLeaves}
+            color="text-blue-600"
+          />
+        </div>
+      </Card>
+
       {selectedDayDetails && (
         <DayDetailsModal
           date={selectedDayDetails.date}
