@@ -151,7 +151,6 @@ const MyAttendance: React.FC = () => {
     return map;
   }, [records]);
 
-  // --- FIX: Robust date logic ---
   const getDayStatus = useCallback(
     (date: Date) => { 
       const dateString = new Date(
@@ -160,7 +159,6 @@ const MyAttendance: React.FC = () => {
         .toISOString()
         .split("T")[0];
 
-      // Check leaves first
       const isLeave = leaves.some((l) => {
         return dateString >= l.fromDate && dateString <= l.toDate;
       });
