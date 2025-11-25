@@ -9,6 +9,7 @@ import type {
   TeacherAttendanceRecord,
   Teacher,
   Subject,
+  SchoolEvent,
 } from "../types";
 
 type LoginResponse = {
@@ -179,7 +180,13 @@ export class SharedApiService {
     );
     return data;
   }
-
+  async getSchoolEvents(branchId: string): Promise<SchoolEvent[]> {
+    // Calls the shared/general endpoint
+    const { data } = await baseApi.get<SchoolEvent[]>("/general/events", {
+      params: { branchId },
+    });
+    return data;
+  }
   async getSubjectsByBranch(branchId: string): Promise<Subject[]> {
     // Calls the new backend route /api/general/subjects
     const { data } = await baseApi.get<Subject[]>("/general/subjects", {
