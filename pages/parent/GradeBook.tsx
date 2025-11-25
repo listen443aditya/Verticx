@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth.ts";
 import { ParentApiService } from "../../services/parentApiService";
-import type { Student, GradeWithCourse, StudentProfile } from "../../types.ts";
+import type { Student, GradeWithCourse } from "../../types.ts";
 import Card from "../../components/ui/Card.tsx";
 
 const apiService = new ParentApiService();
@@ -12,44 +12,33 @@ const GradeBook: React.FC = () => {
   const [children, setChildren] = useState<Student[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<string>("");
   const [grades, setGrades] = useState<GradeWithCourse[]>([]);
-
-  // --- FIX: Initialize loading based on whether we actually have a user yet ---
   const [loading, setLoading] = useState(true);
   const [gradesLoading, setGradesLoading] = useState(false);
 
+  // --- FIX: Fetch children list from backend, don't rely on session user.childrenIds ---
   useEffect(() => {
     const fetchChildren = async () => {
-      // 1. If no user, wait.
       if (!user) return;
-
-      // 2. If user exists but has no children IDs, stop loading.
-      if (!user.childrenIds || user.childrenIds.length === 0) {
-        setLoading(false);
-        return;
-      }
-
       setLoading(true);
       try {
-        // 3. Fetch profiles for all children
-        const profiles = await Promise.all(
-          user.childrenIds.map((id) => apiService.getStudentProfileDetails(id))
-        );
+        // We use getParentDashboardData because it returns the full list of children
+        // associated with the parent, guaranteed.
+        const dashboardData = await apiService.getParentDashboardData();
 
-        // 4. Filter out any null responses and extract the student object
-        const childrenData = profiles
-          .filter((p): p is StudentProfile => p !== null)
-          .map((p) => p.student);
+        if (dashboardData && dashboardData.childrenData) {
+          const students = dashboardData.childrenData.map(
+            (child) => child.student
+          );
+          setChildren(students);
 
-        setChildren(childrenData);
-
-        // 5. Automatically select the first child
-        if (childrenData.length > 0) {
-          setSelectedChildId(childrenData[0].id);
+          // Automatically select the first child
+          if (students.length > 0) {
+            setSelectedChildId(students[0].id);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch children:", error);
       } finally {
-        // 6. ALWAYS turn off loading
         setLoading(false);
       }
     };
