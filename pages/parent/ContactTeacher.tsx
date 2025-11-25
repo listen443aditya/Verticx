@@ -1,7 +1,13 @@
+// pages/parent/ContactTeacher.tsx
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth.ts";
 import { ParentApiService } from "../../services/parentApiService";
-import type { Student, Teacher, HydratedMeetingRequest } from "../../types.ts";
+import type {
+  Student,
+  Teacher,
+  HydratedMeetingRequest,
+  StudentProfile,
+} from "../../types.ts";
 import Card from "../../components/ui/Card.tsx";
 import Button from "../../components/ui/Button.tsx";
 import Input from "../../components/ui/Input.tsx";
@@ -32,7 +38,8 @@ const ContactTeacher: React.FC = () => {
     setLoading(true);
 
     try {
-      // 1. Fetch parent dashboard data to get the list of children
+      // FIX: Fetch parent dashboard data to get the list of children
+      // instead of relying on user.childrenIds which is missing.
       const dashboardData = await apiService.getParentDashboardData();
 
       const validChildren: Student[] = [];
@@ -43,10 +50,9 @@ const ContactTeacher: React.FC = () => {
           }
         });
       }
-
       setChildren(validChildren);
 
-      // 2. If children exist, select the first one and fetch teachers
+      // If children exist, select the first one and fetch teachers
       if (validChildren.length > 0) {
         const firstChildId = validChildren[0].id;
         setSelectedChildId(firstChildId);
@@ -63,13 +69,13 @@ const ContactTeacher: React.FC = () => {
         setSelectedTeacherId("");
       }
 
-      // 3. Fetch meeting requests
+      // Fetch meeting requests for the parent
       const meetingRequests = await apiService.getMeetingRequestsForParent();
       setRequests(meetingRequests);
     } catch (err) {
       console.error("Failed to fetch initial data", err);
     } finally {
-      // FIX: Always stop loading
+      // FIX: Always turn off loading
       setLoading(false);
     }
   }, [user]);
@@ -146,11 +152,7 @@ const ContactTeacher: React.FC = () => {
     status: "approved" | "denied"
   ) => {
     try {
-      // Map 'denied' to 'canceled' for backend compatibility if needed,
-      // or ensure backend handles 'denied'.
-      // Assuming backend expects 'canceled' from parent as per controller logic.
       const backendStatus = status === "denied" ? "canceled" : status;
-
       await apiService.updateMeetingRequest(requestId, {
         status: backendStatus,
       } as any);
@@ -170,7 +172,7 @@ const ContactTeacher: React.FC = () => {
     return slots;
   }, []);
 
-  if (loading) return <div className="p-8 text-center">Loading...</div>;
+  if (loading) return <div className="p-8 text-center">Loading data...</div>;
 
   return (
     <div>
@@ -183,7 +185,7 @@ const ContactTeacher: React.FC = () => {
 
           {children.length === 0 ? (
             <p className="text-sm text-text-secondary-dark">
-              No students found linked to your account.
+              No student profiles found.
             </p>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
