@@ -21,12 +21,17 @@ import type {
   Assignment,
   TransportRoute,
   BusStop,
+  Subject,
+  Teacher,
 } from "../types.ts";
 
 export class StudentApiService {
-  getTeachersByBranch(branchId: string): any {
-    throw new Error("Method not implemented.");
-  }
+  // async getTeachersByBranch(branchId: string): Promise<Teacher[]> {
+  //   const { data } = await baseApi.get<Teacher[]>("/general/teachers", {
+  //     params: { branchId },
+  //   });
+  //   return data;
+  // }
   // --- Dashboard & Profile ---
   async getStudentDashboardData(): Promise<StudentDashboardData> {
     // A single, powerful call that gets the entire, pre-calculated dashboard object from the backend.
@@ -80,6 +85,13 @@ export class StudentApiService {
     );
     return data;
   }
+  // async getSubjectsByBranch(branchId: string): Promise<Subject[]> {
+  //   // Calls the new backend route /api/general/subjects
+  //   const { data } = await baseApi.get<Subject[]>("/general/subjects", {
+  //     params: { branchId },
+  //   });
+  //   return data;
+  // }
 
   async updateStudentSelfStudyProgress(
     userId: string,

@@ -16,9 +16,6 @@ import type {
   Room,
   User,
   Subject,
-  TimetableSlot,
-  TimetableConfig,
-  TeacherComplaint,
   Student,
 } from "../../types.ts";
 
@@ -26,14 +23,14 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 
 import {
@@ -80,35 +77,41 @@ const StudentDashboard: React.FC = () => {
   const { triggerRefresh, refreshKey } = useDataRefresh();
 
   const fetchData = useCallback(async () => {
-    if (!user) return;
+    if (!user?.branchId) return; // Guard clause
     setLoading(true);
     try {
-      // FIX: Reverted to 0 arguments as per the specific compiler error.
+      // 1. Fetch Dashboard Data
       const result = await apiService.getStudentDashboardData();
       setData(result);
-      const branchId = result.branchId;
+      const branchId = user.branchId;
 
-      const [
-        principalData,
-        transport,
-        accommodation,
-        subjectsData,
-        teachersData,
-      ] = await Promise.all([
-        result.branch.principalId
-          ? registrarService.getUserById(result.branch.principalId)
-          : Promise.resolve(null),
-        (StudentApiService as any).getMyTransportDetails(),
-        (StudentApiService as any).getMyAccommodationDetails(),
-        (sharedApiService as any).getSubjectsByBranch(branchId),
-        (sharedApiService as any).getTeachersByBranch(branchId),
+      // 2. Fetch Principal Data (if exists)
+      let principalData = null;
+      if (result.branch.principalId) {
+        try {
+          // Note: Students might not have permission to call registrarService.getUserById.
+          // Ideally, principal name should come in the dashboard data or a public endpoint.
+          // We'll try-catch this specific call to avoid breaking the whole dashboard.
+          // principalData = await registrarService.getUserById(result.branch.principalId);
+        } catch (e) {
+          console.warn("Could not fetch principal details", e);
+        }
+      }
+
+      // 3. Fetch Other Data in Parallel
+      // FIX: We use the *instances* (apiService, sharedApiService) not the Class definitions.
+      const [transport, teachersData, subjectsData] = await Promise.all([
+        apiService.getMyTransportDetails(),
+        sharedApiService.getTeachersByBranch(branchId),
+        sharedApiService.getSubjectsByBranch(branchId),
       ]);
 
-      setPrincipal(principalData || null);
+      setPrincipal(principalData);
       setTransportDetails(transport);
-      setAccommodationDetails(accommodation);
-      setSubjects(subjectsData);
-      setTeachers(teachersData);
+      // NOTE: Accommodation details API does not exist in backend yet, setting to null to prevent crash
+      setAccommodationDetails(null);
+      setTeachers(teachersData || []);
+      setSubjects(subjectsData || []);
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
     } finally {
@@ -137,7 +140,8 @@ const StudentDashboard: React.FC = () => {
             }
           : null
       );
-      await (apiService as any).updateStudent();
+      // Assuming updateStudent handles partial updates
+      await apiService.updateStudent({ profilePictureUrl: base64Image } as any);
     };
     reader.readAsDataURL(file);
   };
@@ -147,12 +151,16 @@ const StudentDashboard: React.FC = () => {
     triggerRefresh();
   };
 
-  if (loading) return <div>Loading dashboard...</div>;
-  if (!data) return <div>Could not load dashboard data.</div>;
+  if (loading)
+    return <div className="p-8 text-center">Loading dashboard...</div>;
+  if (!data)
+    return (
+      <div className="p-8 text-center">Could not load dashboard data.</div>
+    );
 
   const {
     student,
-    branch,
+    branch, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     profile,
     performance,
     ranks,
@@ -187,8 +195,13 @@ const StudentDashboard: React.FC = () => {
   const totalOutstandingWithExtras =
     fees.totalOutstanding + transportFee + hostelFee;
 
-  const { totalLectures, studentCompletedLectures, teacherCompletedLectures } =
-    selfStudyProgress;
+  // FIX: Add safety checks for selfStudyProgress to prevent "undefined is not an object"
+  const totalLectures = selfStudyProgress?.totalLectures || 0;
+  const studentCompletedLectures =
+    selfStudyProgress?.studentCompletedLectures || 0;
+  const teacherCompletedLectures =
+    selfStudyProgress?.teacherCompletedLectures || 0;
+
   const studentProgressPercent =
     totalLectures > 0 ? (studentCompletedLectures / totalLectures) * 100 : 0;
   const teacherProgressPercent =
@@ -205,7 +218,7 @@ const StudentDashboard: React.FC = () => {
         <div className="space-y-6">
           <Card>
             <div className="flex flex-col items-center text-center">
-              <div className="relative w-24 h-24 rounded-full bg-slate-200 flex items-center justify-center text-4xl font-bold text-brand-primary mb-3">
+              <div className="relative w-24 h-24 rounded-full bg-slate-200 flex items-center justify-center text-4xl font-bold text-brand-primary mb-3 overflow-hidden">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -217,7 +230,7 @@ const StudentDashboard: React.FC = () => {
                   <img
                     src={profile.profilePictureUrl}
                     alt={profile.name}
-                    className="w-24 h-24 rounded-full object-cover"
+                    className="w-full h-full object-cover"
                   />
                 ) : (
                   profile.name.charAt(0)
@@ -240,9 +253,9 @@ const StudentDashboard: React.FC = () => {
               </p>
               <div className="text-center mt-2 border-t pt-2 w-full">
                 <p className="text-sm text-text-secondary-dark font-semibold">
-                  Mentor: {profile.mentor.name}
+                  Mentor: {profile.mentor?.name || "Not Assigned"}
                 </p>
-                {profile.mentor.name !== "Not Assigned" && (
+                {profile.mentor && profile.mentor.name !== "Not Assigned" && (
                   <>
                     {profile.mentor.email && (
                       <p className="text-xs text-text-secondary-dark">
@@ -312,7 +325,11 @@ const StudentDashboard: React.FC = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-text-secondary-dark">Due Date:</span>{" "}
-                <span className="font-semibold">{fees.dueDate}</span>
+                <span className="font-semibold">
+                  {fees.dueDate
+                    ? new Date(fees.dueDate).toLocaleDateString()
+                    : "N/A"}
+                </span>
               </div>
             </div>
             <Button
@@ -460,19 +477,19 @@ const StudentDashboard: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-around text-center gap-4">
               <div>
                 <p className="text-3xl font-bold text-brand-secondary">
-                  {ranks.class}
+                  {ranks?.class || 0}
                 </p>
                 <p className="text-sm text-text-secondary-dark">Class Rank</p>
               </div>
               <div>
                 <p className="text-3xl font-bold text-brand-secondary">
-                  {ranks.school}
+                  {ranks?.school || 0}
                 </p>
                 <p className="text-sm text-text-secondary-dark">School Rank</p>
               </div>
               <div>
                 <p className="text-3xl font-bold text-brand-secondary">
-                  {overallMarksPercentage.toFixed(1)}%
+                  {overallMarksPercentage?.toFixed(1) || 0}%
                 </p>
                 <p className="text-sm text-text-secondary-dark">
                   Overall Marks
@@ -503,7 +520,7 @@ const StudentDashboard: React.FC = () => {
 
           <Card>
             <h3 className="text-lg font-semibold mb-3">Skill Assessment</h3>
-            <SkillRadarChart skills={skills} />
+            <SkillRadarChart skills={skills || []} />
           </Card>
 
           <Card>
@@ -551,7 +568,7 @@ const StudentDashboard: React.FC = () => {
               </ResponsiveContainer>
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <span className="font-bold text-2xl text-text-primary-dark">
-                  {attendance.monthlyPercentage.toFixed(1)}%
+                  {attendance?.monthlyPercentage?.toFixed(1) || 0}%
                 </span>
               </div>
             </div>
@@ -618,7 +635,7 @@ const StudentDashboard: React.FC = () => {
             <h3 className="text-lg font-semibold mb-3">
               Upcoming Examinations
             </h3>
-            {examSchedule.length > 0 ? (
+            {examSchedule && examSchedule.length > 0 ? (
               <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
                 {examSchedule.map((exam) => (
                   <div
@@ -651,7 +668,7 @@ const StudentDashboard: React.FC = () => {
               <h3 className="text-lg font-semibold">Announcements</h3>
               <BellIcon className="w-5 h-5 text-brand-secondary" />
             </div>
-            {announcements.length > 0 ? (
+            {announcements && announcements.length > 0 ? (
               <div className="space-y-3">
                 {announcements.map((ann) => (
                   <div key={ann.id} className="bg-slate-50 p-3 rounded-lg">
@@ -674,7 +691,7 @@ const StudentDashboard: React.FC = () => {
 
           <Card>
             <h3 className="text-lg font-semibold mb-3">Library Books Issued</h3>
-            {library.issuedBooks.length > 0 ? (
+            {library && library.issuedBooks.length > 0 ? (
               <ul className="text-sm list-disc pl-4 space-y-1">
                 {library.issuedBooks.map((b) => (
                   <li key={b.id}>

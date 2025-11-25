@@ -7,6 +7,8 @@ import type {
   LeaveApplication,
   LeaveSetting,
   TeacherAttendanceRecord,
+  Teacher,
+  Subject,
 } from "../types";
 
 type LoginResponse = {
@@ -121,6 +123,12 @@ export class SharedApiService {
     );
     return data;
   }
+  async getTeachersByBranch(branchId: string): Promise<Teacher[]> {
+    const { data } = await baseApi.get<Teacher[]>("/general/teachers", {
+      params: { branchId },
+    });
+    return data;
+  }
 
   async updateUserProfile(updates: {
     name?: string;
@@ -172,6 +180,13 @@ export class SharedApiService {
     return data;
   }
 
+  async getSubjectsByBranch(branchId: string): Promise<Subject[]> {
+    // Calls the new backend route /api/general/subjects
+    const { data } = await baseApi.get<Subject[]>("/general/subjects", {
+      params: { branchId },
+    });
+    return data;
+  }
   async getSuperAdminContactDetails(): Promise<User> {
     const { data } = await baseApi.get<User>("/admin/contact-details");
     return data;
