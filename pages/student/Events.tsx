@@ -107,9 +107,7 @@ const Events: React.FC = () => {
     try {
       // FIX: Called the correct service to get events for the student's branch.
       // NOTE: This assumes `getSchoolEvents` exists on your SharedApiService
-      const data = await (sharedApiService as any).getSchoolEvents(
-        user.branchId
-      );
+      const data = await sharedApiService.getSchoolEvents(user.branchId);
 
       // FIX: Added an explicit type to 'e' to resolve the "implicit any" error.
       setEvents(
