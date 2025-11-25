@@ -96,9 +96,9 @@ const StudentDashboard: React.FC = () => {
         teachersData,
       ] = await Promise.all([
         result.branch.principalId
-          ? sharedApiService.getUserById(result.branch.principalId)
+          ? registrarService.getUserById(result.branch.principalId)
           : Promise.resolve(null),
-        (StudentApiService as any).getMyTransportDetails(), // <--- FIX
+        (StudentApiService as any).getMyTransportDetails(),
         (StudentApiService as any).getMyAccommodationDetails(),
         (sharedApiService as any).getSubjectsByBranch(branchId),
         (sharedApiService as any).getTeachersByBranch(branchId),
