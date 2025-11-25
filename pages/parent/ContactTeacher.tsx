@@ -1,13 +1,7 @@
-// pages/parent/ContactTeacher.tsx
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth.ts";
 import { ParentApiService } from "../../services/parentApiService";
-import type {
-  Student,
-  Teacher,
-  HydratedMeetingRequest,
-  StudentProfile,
-} from "../../types.ts";
+import type { Student, Teacher, HydratedMeetingRequest } from "../../types.ts";
 import Card from "../../components/ui/Card.tsx";
 import Button from "../../components/ui/Button.tsx";
 import Input from "../../components/ui/Input.tsx";
@@ -34,25 +28,31 @@ const ContactTeacher: React.FC = () => {
   const [statusMessage, setStatusMessage] = useState("");
 
   const fetchData = useCallback(async () => {
-    if (!user || !user.childrenIds) return;
+    if (!user) return;
     setLoading(true);
 
     try {
-      // fetch profiles, then map to Student
-      const childrenProfiles = await Promise.all(
-        user.childrenIds.map((id) => apiService.getStudentProfileDetails(id))
-      );
-      const validChildren = childrenProfiles
-        .filter((p): p is StudentProfile => p !== null && p !== undefined)
-        .map((p) => p.student);
+      // 1. Fetch parent dashboard data to get the list of children
+      const dashboardData = await apiService.getParentDashboardData();
+
+      const validChildren: Student[] = [];
+      if (dashboardData && dashboardData.childrenData) {
+        dashboardData.childrenData.forEach((childData) => {
+          if (childData.student) {
+            validChildren.push(childData.student);
+          }
+        });
+      }
+
       setChildren(validChildren);
 
+      // 2. If children exist, select the first one and fetch teachers
       if (validChildren.length > 0) {
-        const firstChild = validChildren[0];
-        setSelectedChildId(firstChild.id);
+        const firstChildId = validChildren[0].id;
+        setSelectedChildId(firstChildId);
 
         const teacherData = await apiService.getTeachersForStudent(
-          firstChild.id
+          firstChildId
         );
         setTeachers(teacherData);
         if (teacherData.length > 0) {
@@ -63,12 +63,13 @@ const ContactTeacher: React.FC = () => {
         setSelectedTeacherId("");
       }
 
-      // meeting requests for the parent (service identifies parent via token)
+      // 3. Fetch meeting requests
       const meetingRequests = await apiService.getMeetingRequestsForParent();
       setRequests(meetingRequests);
     } catch (err) {
       console.error("Failed to fetch initial data", err);
     } finally {
+      // FIX: Always stop loading
       setLoading(false);
     }
   }, [user]);
@@ -145,7 +146,14 @@ const ContactTeacher: React.FC = () => {
     status: "approved" | "denied"
   ) => {
     try {
-      await apiService.updateMeetingRequest(requestId, { status });
+      // Map 'denied' to 'canceled' for backend compatibility if needed,
+      // or ensure backend handles 'denied'.
+      // Assuming backend expects 'canceled' from parent as per controller logic.
+      const backendStatus = status === "denied" ? "canceled" : status;
+
+      await apiService.updateMeetingRequest(requestId, {
+        status: backendStatus,
+      } as any);
       await fetchData();
     } catch (err) {
       console.error("Failed to update meeting request", err);
@@ -162,7 +170,7 @@ const ContactTeacher: React.FC = () => {
     return slots;
   }, []);
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <div className="p-8 text-center">Loading...</div>;
 
   return (
     <div>
@@ -172,111 +180,122 @@ const ContactTeacher: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1">
           <h2 className="text-xl font-semibold mb-4">Request a Meeting</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {children.length > 1 && (
+
+          {children.length === 0 ? (
+            <p className="text-sm text-text-secondary-dark">
+              No students found linked to your account.
+            </p>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {children.length > 1 && (
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary-dark mb-1">
+                    For Child
+                  </label>
+                  <select
+                    value={selectedChildId}
+                    onChange={handleChildChange}
+                    className="w-full bg-white border border-slate-300 rounded-md py-2 px-3"
+                  >
+                    {children.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-text-secondary-dark mb-1">
-                  For Child
+                  Teacher
                 </label>
                 <select
-                  value={selectedChildId}
-                  onChange={handleChildChange}
+                  value={selectedTeacherId}
+                  onChange={(e) => setSelectedTeacherId(e.target.value)}
                   className="w-full bg-white border border-slate-300 rounded-md py-2 px-3"
+                  disabled={teachers.length === 0}
                 >
-                  {children.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
+                  {teachers.length === 0 && <option>No teachers found</option>}
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
                     </option>
                   ))}
                 </select>
               </div>
-            )}
 
-            <div>
-              <label className="block text-sm font-medium text-text-secondary-dark mb-1">
-                Teacher
-              </label>
-              <select
-                value={selectedTeacherId}
-                onChange={(e) => setSelectedTeacherId(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-md py-2 px-3"
-              >
-                {teachers.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <Input
-              type="date"
-              label="Date"
-              value={meetingDate}
-              onChange={(e) => setMeetingDate(e.target.value)}
-            />
-
-            <div>
-              <label className="block text-sm font-medium text-text-secondary-dark mb-1">
-                Time
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {timeSlots.map((time) => {
-                  const isUnavailable = unavailableSlots.some((slot) => {
-                    const [start, end] = slot.split(" - ").map((s) => s.trim());
-                    return time >= start && time < end;
-                  });
-                  return (
-                    <button
-                      type="button"
-                      key={time}
-                      onClick={() => setMeetingTime(time)}
-                      disabled={isUnavailable}
-                      className={`p-2 text-sm rounded-md transition-colors ${
-                        meetingTime === time
-                          ? "bg-brand-secondary text-white"
-                          : isUnavailable
-                          ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                          : "bg-slate-100 hover:bg-slate-200"
-                      }`}
-                    >
-                      {new Date(`1970-01-01T${time}`).toLocaleTimeString([], {
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-secondary-dark mb-1">
-                Agenda / Reason
-              </label>
-              <textarea
-                value={agenda}
-                onChange={(e) => setAgenda(e.target.value)}
-                rows={4}
-                className="w-full bg-white border border-slate-300 rounded-md py-2 px-3"
-                required
+              <Input
+                type="date"
+                label="Date"
+                value={meetingDate}
+                onChange={(e) => setMeetingDate(e.target.value)}
               />
-            </div>
 
-            {statusMessage && (
-              <p className="text-green-600 text-sm text-center">
-                {statusMessage}
-              </p>
-            )}
+              <div>
+                <label className="block text-sm font-medium text-text-secondary-dark mb-1">
+                  Time
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {timeSlots.map((time) => {
+                    const isUnavailable = unavailableSlots.some((slot) => {
+                      const [start, end] = slot
+                        .split(" - ")
+                        .map((s) => s.trim());
+                      return time >= start && time < end;
+                    });
+                    return (
+                      <button
+                        type="button"
+                        key={time}
+                        onClick={() => setMeetingTime(time)}
+                        disabled={isUnavailable}
+                        className={`p-2 text-sm rounded-md transition-colors ${
+                          meetingTime === time
+                            ? "bg-brand-secondary text-white"
+                            : isUnavailable
+                            ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                            : "bg-slate-100 hover:bg-slate-200"
+                        }`}
+                      >
+                        {new Date(`1970-01-01T${time}`).toLocaleTimeString([], {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isSubmitting || !meetingTime}
-            >
-              {isSubmitting ? "Sending..." : "Send Request"}
-            </Button>
-          </form>
+              <div>
+                <label className="block text-sm font-medium text-text-secondary-dark mb-1">
+                  Agenda / Reason
+                </label>
+                <textarea
+                  value={agenda}
+                  onChange={(e) => setAgenda(e.target.value)}
+                  rows={4}
+                  className="w-full bg-white border border-slate-300 rounded-md py-2 px-3"
+                  required
+                />
+              </div>
+
+              {statusMessage && (
+                <p className="text-green-600 text-sm text-center">
+                  {statusMessage}
+                </p>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isSubmitting || !meetingTime || !selectedTeacherId}
+              >
+                {isSubmitting ? "Sending..." : "Send Request"}
+              </Button>
+            </form>
+          )}
         </Card>
 
         <Card className="lg:col-span-2">
@@ -309,7 +328,7 @@ const ContactTeacher: React.FC = () => {
                         : "bg-red-100 text-red-800"
                     }`}
                   >
-                    {req.status.replace("_", " ")}
+                    {req.status ? req.status.replace("_", " ") : "Unknown"}
                   </span>
                 </div>
 
