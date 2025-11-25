@@ -23,6 +23,7 @@ import type {
   BusStop,
   Subject,
   Teacher,
+  SchoolEvent,
 } from "../types.ts";
 
 export class StudentApiService {
@@ -102,6 +103,13 @@ export class StudentApiService {
       lectureId,
       isCompleted,
     });
+  }
+  async getSchoolEvents(branchId: string): Promise<SchoolEvent[]> {
+    // Calls the shared/general endpoint which we verified exists
+    const { data } = await baseApi.get<SchoolEvent[]>("/general/events", {
+      params: { branchId },
+    });
+    return data;
   }
 
   // --- Assignments & Quizzes ---
