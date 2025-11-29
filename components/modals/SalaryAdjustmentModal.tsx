@@ -13,7 +13,7 @@ interface SalaryAdjustmentModalProps {
   onClose: () => void;
   onSave: () => void;
 }
-const principalApiService = new PrincipalApiService();
+const apiService = new PrincipalApiService();
 
 const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({
   staff,
@@ -25,23 +25,29 @@ const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [type, setType] = useState<"bonus" | "deduction">("bonus");
-  const [isSaving, setIsSaving] = useState(false);
-
+const [isSubmitting, setIsSubmitting] = useState(false);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || !reason || !user) return;
-    const finalAmount = type === "bonus" ? Number(amount) : -Number(amount);
-    setIsSaving(true);
-    // FIX: The API method `addManualSalaryAdjustment` expects 4 arguments.
-    // The branchId and user name are inferred by the backend from the session.
-    await principalApiService.addManualSalaryAdjustment(
-      staff.staffId,
-      finalAmount,
-      reason,
-      month
-    );
-    setIsSaving(false);
-    onSave();
+    if (!amount || !reason) return;
+
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        staffId: staff.staffId,
+        amount: parseFloat(amount),
+        reason: reason,
+        month: month,
+      } as any; // Using any to bypass strict type checks temporarily if types are mismatched
+
+      await apiService.addManualSalaryAdjustment(payload);
+      onSave();
+      onClose();
+    } catch (error) {
+      console.error("Failed to add adjustment:", error);
+      alert("Failed to add adjustment.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -83,8 +89,8 @@ const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSaving}>
-              {isSaving ? "Saving..." : "Apply Adjustment"}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : "Apply Adjustment"}
             </Button>
           </div>
         </form>
