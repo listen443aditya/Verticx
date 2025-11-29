@@ -276,7 +276,6 @@
 
 // export default PayrollManagement;
 
-
 import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { PrincipalApiService } from "../../services/principalApiService";
@@ -297,7 +296,6 @@ const PayrollManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  // Default to current month (YYYY-MM)
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().slice(0, 7)
   );
@@ -307,10 +305,7 @@ const PayrollManagement: React.FC = () => {
       if (!user?.branchId) return;
       setLoading(true);
       try {
-        // 1. Fetch ALL staff (to show rows for everyone)
-        // 2. Fetch existing payroll records for the selected month
         const [staffData, payrollData] = await Promise.all([
-          // Assuming getStaff returns User[]
           apiService.getStaff({ params: { branchId: user.branchId } }),
           apiService.getStaffPayrollForMonth(selectedMonth),
         ]);
@@ -327,25 +322,37 @@ const PayrollManagement: React.FC = () => {
     fetchData();
   }, [user, selectedMonth, refreshKey]);
 
+  const getBaseSalary = (staff: User): number => {
+
+    if (staff.teacher && staff.teacher.salary) {
+      return staff.teacher.salary;
+    }
+
+    if (staff.salary) {
+      return staff.salary;
+    }
+    return 0;
+  };
+
   const handleProcessPayroll = async (staff: User) => {
     if (!user?.branchId) return;
     setProcessingId(staff.id);
 
     try {
-      // Calculate defaults (this logic is simple; backend does the heavy lifting)
-      const baseSalary = staff.salary || 0;
-      // Real logic might fetch attendance deductions here
-      const deductions = 0;
+      // Use the helper to get the correct salary
+      const baseSalary = getBaseSalary(staff);
+
+      const deductions = 0; // Logic for attendance deduction goes here
       const netPayable = baseSalary - deductions;
 
       const payload = {
         branchId: user.branchId,
-        staffId: staff.id, // This is the User ID
+        staffId: staff.id,
         staffName: staff.name,
         staffRole: staff.role,
         month: selectedMonth,
         baseSalary,
-        unpaidLeaveDays: 0, // You can fetch this from attendance stats if needed
+        unpaidLeaveDays: 0,
         leaveDeductions: deductions,
         manualAdjustmentsTotal: 0,
         netPayable,
@@ -353,7 +360,7 @@ const PayrollManagement: React.FC = () => {
       };
 
       await apiService.processPayroll(payload);
-      triggerRefresh(); // Reload data to show "Paid" status
+      triggerRefresh();
     } catch (error) {
       console.error("Failed to process payroll:", error);
       alert("Failed to process payroll.");
@@ -362,16 +369,16 @@ const PayrollManagement: React.FC = () => {
     }
   };
 
-  // Merge Staff List with Payroll Records
   const mergedData = useMemo(() => {
     return staffList.map((staffMember) => {
-      // Find if this staff member already has a payroll record for this month
       const record = payrollRecords.find((p) => p.staffId === staffMember.id);
 
       return {
         ...staffMember,
         payrollStatus: record ? "Paid" : "Pending",
         payrollRecord: record,
+        // Calculate and attach the resolved base salary here for easy access
+        resolvedBaseSalary: getBaseSalary(staffMember),
       };
     });
   }, [staffList, payrollRecords]);
@@ -428,6 +435,9 @@ const PayrollManagement: React.FC = () => {
               {mergedData.map((item) => {
                 const isPaid = item.payrollStatus === "Paid";
                 const record = item.payrollRecord;
+                // Use the resolved salary we calculated in useMemo
+                const displaySalary =
+                  record?.baseSalary ?? item.resolvedBaseSalary;
 
                 return (
                   <tr
@@ -441,13 +451,7 @@ const PayrollManagement: React.FC = () => {
                       {item.role}
                     </td>
                     <td className="p-3 text-right text-sm font-mono">
-                      {/* Show record salary if paid, otherwise user profile salary */}
-                      ₹
-                      {(
-                        record?.baseSalary ??
-                        item.salary ??
-                        0
-                      ).toLocaleString()}
+                      ₹{displaySalary.toLocaleString()}
                     </td>
                     <td className="p-3 text-right font-bold text-brand-primary">
                       {isPaid
@@ -478,9 +482,11 @@ const PayrollManagement: React.FC = () => {
                         <Button
                           className="!py-1 !px-3 text-xs"
                           onClick={() => handleProcessPayroll(item)}
-                          disabled={processingId === item.id || !item.salary}
+                          disabled={
+                            processingId === item.id || displaySalary === 0
+                          }
                           title={
-                            !item.salary
+                            displaySalary === 0
                               ? "Set salary in Faculty/Staff tab first"
                               : ""
                           }
