@@ -362,66 +362,99 @@ const ClassView: React.FC = () => {
     const filteredClasses = useMemo(() => {
         const term = searchTerm.toLowerCase();
         if (!term) return classesData;
-        return classesData.filter(c => 
+        return classesData.filter(
+          (c) =>
             `grade ${c.gradeLevel} ${c.section}`.toLowerCase().includes(term) ||
             `grade ${c.gradeLevel}-${c.section}`.toLowerCase().includes(term) ||
             c.id.toLowerCase().includes(term) ||
-            c.teachers.some(t => t.name.toLowerCase().includes(term))
-        );
+            c.teachers?.some((t) => t.name.toLowerCase().includes(term))
+                );
     }, [classesData, searchTerm]);
 
     return (
-        <div>
-             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-text-primary-dark">Class Overview</h1>
-                <div className="w-1/3">
-                    <Input 
-                        placeholder="Search by grade, section, teacher, or ID..."
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                    />
-                </div>
-            </div>
-            
-            {loading ? <p>Loading classes...</p> : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredClasses.map(c => (
-                        <Card key={c.id} className="flex flex-col">
-                            <h2 className="text-xl font-bold text-text-primary-dark mb-4">Grade {c.gradeLevel} - {c.section}</h2>
-                            <div className="space-y-4 mb-4 flex-grow">
-                                <StatDisplay label="Avg. Performance" value={`${c.stats.avgPerformance.toFixed(1)}%`} progress={c.stats.avgPerformance} color="green" />
-                                <StatDisplay label="Avg. Attendance" value={`${c.stats.avgAttendance.toFixed(1)}%`} progress={c.stats.avgAttendance} color="blue" />
-                                <StatDisplay label="Syllabus Completion" value={`${c.stats.syllabusCompletion.toFixed(1)}%`} progress={c.stats.syllabusCompletion} color="teal" />
-                            </div>
-                            <div className="text-xs text-text-secondary-dark border-t border-slate-200 pt-3">
-                                <p><strong>Students:</strong> {c.studentIds.length}</p>
-                                <p><strong>Teachers:</strong> {c.teachers.map(t => t.name).join(', ')}</p>
-                            </div>
-                            <div className="mt-4 text-right">
-                                <Button onClick={() => handleViewDetails(c)}>View Details</Button>
-                            </div>
-                        </Card>
-                    ))}
-                </div>
-            )}
-            
-            {detailsLoading && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-                    <p className="text-white text-lg">Loading class details...</p>
-                </div>
-            )}
-            {viewingDetailsFor && classDetails && !detailsLoading && (
-                <ClassDetailModal
-                    classDetails={classDetails}
-                    allTeachers={allTeachers}
-                    allStudents={allStudents}
-                    feeTemplates={feeTemplates}
-                    allClasses={classesData}
-                    onClose={() => { setViewingDetailsFor(null); setClassDetails(null); }}
-                    onCloseAndRefresh={handleCloseAndRefresh}
-                />
-            )}
+      <div>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold text-text-primary-dark">
+            Class Overview
+          </h1>
+          <div className="w-1/3">
+            <Input
+              placeholder="Search by grade, section, teacher, or ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
+
+        {loading ? (
+          <p>Loading classes...</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredClasses.map((c) => (
+              <Card key={c.id} className="flex flex-col">
+                <h2 className="text-xl font-bold text-text-primary-dark mb-4">
+                  Grade {c.gradeLevel} - {c.section}
+                </h2>
+                <div className="space-y-4 mb-4 flex-grow">
+                  <StatDisplay
+                    label="Avg. Performance"
+                    value={`${c.stats?.avgPerformance.toFixed(1)}%`}
+                    progress={c.stats?.avgPerformance}
+                    color="green"
+                  />
+                  <StatDisplay
+                    label="Avg. Attendance"
+                    value={`${c.stats?.avgAttendance.toFixed(1)}%`}
+                    progress={c.stats?.avgAttendance}
+                    color="blue"
+                  />
+                  <StatDisplay
+                    label="Syllabus Completion"
+                    value={`${c.stats?.syllabusCompletion.toFixed(1)}%`}
+                    progress={c.stats?.syllabusCompletion}
+                    color="teal"
+                  />
+                </div>
+                <div className="text-xs text-text-secondary-dark border-t border-slate-200 pt-3">
+                  <p>
+                    <strong>Students:</strong> {c.studentIds.length}
+                  </p>
+                  {/* <p><strong>Teachers:</strong> {c.teachers.map(t => t.name).join(', ')}</p> */}
+                  <p>
+                    <strong>Teachers:</strong>{" "}
+                    {c.teachers?.map((t) => t.name).join(", ") || "None"}
+                  </p>
+                </div>
+                <div className="mt-4 text-right">
+                  <Button onClick={() => handleViewDetails(c)}>
+                    View Details
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {detailsLoading && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+            <p className="text-white text-lg">Loading class details...</p>
+          </div>
+        )}
+        {viewingDetailsFor && classDetails && !detailsLoading && (
+          <ClassDetailModal
+            classDetails={classDetails}
+            allTeachers={allTeachers}
+            allStudents={allStudents}
+            feeTemplates={feeTemplates}
+            allClasses={classesData}
+            onClose={() => {
+              setViewingDetailsFor(null);
+              setClassDetails(null);
+            }}
+            onCloseAndRefresh={handleCloseAndRefresh}
+          />
+        )}
+      </div>
     );
 };
 
