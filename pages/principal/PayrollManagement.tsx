@@ -276,235 +276,305 @@
 
 // export default PayrollManagement;
 
-import React, { useState, useEffect, useMemo } from "react";
-import { useAuth } from "../../hooks/useAuth";
-import { PrincipalApiService } from "../../services/principalApiService";
-import type { User, PayrollRecord } from "../../types";
-import Card from "../../components/ui/Card";
-import Button from "../../components/ui/Button";
-import Input from "../../components/ui/Input";
-import { useDataRefresh } from "../../contexts/DataRefreshContext";
 
-const apiService = new PrincipalApiService();
+
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useAuth } from "../../hooks/useAuth.ts";
+import { PrincipalApiService } from "../../services/principalApiService"; // Fixed import
+import type { PayrollStaffDetails } from "../../types.ts";
+import Card from "../../components/ui/Card.tsx";
+import Button from "../../components/ui/Button.tsx";
+import Input from "../../components/ui/Input.tsx";
+import { useDataRefresh } from "../../contexts/DataRefreshContext.tsx";
+import ConfirmationModal from "../../components/ui/ConfirmationModal.tsx";
+import SalaryAdjustmentModal from "../../components/modals/SalaryAdjustmentModal.tsx";
+
+const principalApiService = new PrincipalApiService();
 
 const PayrollManagement: React.FC = () => {
   const { user } = useAuth();
   const { refreshKey, triggerRefresh } = useDataRefresh();
-
-  const [staffList, setStaffList] = useState<User[]>([]);
-  const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([]);
+  const [payrollData, setPayrollData] = useState<PayrollStaffDetails[]>([]);
   const [loading, setLoading] = useState(true);
-  const [processingId, setProcessingId] = useState<string | null>(null);
-
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().slice(0, 7)
+  ); // YYYY-MM format
+
+  const [selectedStaffIds, setSelectedStaffIds] = useState<Set<string>>(
+    new Set()
   );
+  const [adjustingStaff, setAdjustingStaff] =
+    useState<PayrollStaffDetails | null>(null);
+  const [confirmingPayment, setConfirmingPayment] = useState<
+    PayrollStaffDetails[]
+  >([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const monthString = useMemo(() => {
+    if (!selectedMonth) return "";
+    const [year, month] = selectedMonth.split("-");
+    const date = new Date(Number(year), Number(month) - 1);
+    return date.toLocaleString("default", { month: "long", year: "numeric" });
+  }, [selectedMonth]);
+
+  const fetchData = useCallback(async () => {
+    if (!user?.branchId) return;
+    setLoading(true);
+    try {
+      // FIX: The backend controller now expects just the month.
+      // BranchID is handled automatically via the auth token.
+      const data = await principalApiService.getStaffPayrollForMonth(
+        selectedMonth
+      );
+      setPayrollData(data);
+    } catch (error) {
+      console.error("Failed to fetch payroll:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, refreshKey, selectedMonth]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!user?.branchId) return;
-      setLoading(true);
-      try {
-        const [staffData, payrollData] = await Promise.all([
-          apiService.getStaff({ params: { branchId: user.branchId } }),
-          apiService.getStaffPayrollForMonth(selectedMonth),
-        ]);
-
-        setStaffList(staffData);
-        setPayrollRecords(payrollData);
-      } catch (error) {
-        console.error("Failed to load payroll data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
-  }, [user, selectedMonth, refreshKey]);
+  }, [fetchData]);
 
-  const getBaseSalary = (staff: User): number => {
-
-    if (staff.teacher && staff.teacher.salary) {
-      return staff.teacher.salary;
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      const pendingIds = payrollData
+        .filter((p) => p.status === "Pending")
+        .map((p) => p.staffId);
+      setSelectedStaffIds(new Set(pendingIds));
+    } else {
+      setSelectedStaffIds(new Set());
     }
-
-    if (staff.salary) {
-      return staff.salary;
-    }
-    return 0;
   };
 
-  const handleProcessPayroll = async (staff: User) => {
-    if (!user?.branchId) return;
-    setProcessingId(staff.id);
+  const handleSelectOne = (staffId: string) => {
+    setSelectedStaffIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(staffId)) {
+        newSet.delete(staffId);
+      } else {
+        newSet.add(staffId);
+      }
+      return newSet;
+    });
+  };
 
+  const handleProcessPayment = async () => {
+    if (!user || confirmingPayment.length === 0) return;
+    setIsProcessing(true);
     try {
-      // Use the helper to get the correct salary
-      const baseSalary = getBaseSalary(staff);
+      // FIX: processPayroll only takes the payload.
+      // The 'paidBy' name is inferred from the token on the backend.
+      await principalApiService.processPayroll(confirmingPayment);
 
-      const deductions = 0; // Logic for attendance deduction goes here
-      const netPayable = baseSalary - deductions;
-
-      const payload = {
-        branchId: user.branchId,
-        staffId: staff.id,
-        staffName: staff.name,
-        staffRole: staff.role,
-        month: selectedMonth,
-        baseSalary,
-        unpaidLeaveDays: 0,
-        leaveDeductions: deductions,
-        manualAdjustmentsTotal: 0,
-        netPayable,
-        status: "Paid",
-      };
-
-      await apiService.processPayroll(payload);
+      setIsProcessing(false);
+      setConfirmingPayment([]);
+      setSelectedStaffIds(new Set());
       triggerRefresh();
     } catch (error) {
-      console.error("Failed to process payroll:", error);
-      alert("Failed to process payroll.");
-    } finally {
-      setProcessingId(null);
+      console.error(error);
+      setIsProcessing(false);
+      alert("Failed to process payroll");
     }
   };
 
-  const mergedData = useMemo(() => {
-    return staffList.map((staffMember) => {
-      const record = payrollRecords.find((p) => p.staffId === staffMember.id);
+  const handleGenerateReport = () => {
+    alert(`Generating payroll report for ${monthString}... (mock action)`);
+    console.log("Payroll Data:", payrollData);
+  };
 
-      return {
-        ...staffMember,
-        payrollStatus: record ? "Paid" : "Pending",
-        payrollRecord: record,
-        // Calculate and attach the resolved base salary here for easy access
-        resolvedBaseSalary: getBaseSalary(staffMember),
-      };
-    });
-  }, [staffList, payrollRecords]);
+  const isAllSelected =
+    payrollData.filter((p) => p.status === "Pending").length > 0 &&
+    selectedStaffIds.size ===
+      payrollData.filter((p) => p.status === "Pending").length;
 
   return (
-    <Card>
+    <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold">Staff Payroll</h2>
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-text-secondary-dark">
-            Select Month:
-          </label>
+        <div>
+          <h1 className="text-3xl font-bold text-text-primary-dark mb-1">
+            Staff Payroll
+          </h1>
+          <p className="text-text-secondary-dark">
+            Payroll calculation for {monthString}
+          </p>
+        </div>
+        <div className="w-48">
           <Input
+            label="Select Month"
             type="month"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="!w-auto"
           />
         </div>
       </div>
 
-      {loading ? (
-        <p className="text-center py-8">Loading payroll data...</p>
-      ) : mergedData.length === 0 ? (
-        <p className="text-center py-8 text-text-secondary-dark">
-          No staff members found in this branch.
-        </p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="border-b bg-slate-50">
-              <tr>
-                <th className="p-3 font-semibold text-sm text-text-secondary-dark">
-                  Staff Name
-                </th>
-                <th className="p-3 font-semibold text-sm text-text-secondary-dark">
-                  Role
-                </th>
-                <th className="p-3 font-semibold text-sm text-text-secondary-dark text-right">
-                  Base Salary
-                </th>
-                <th className="p-3 font-semibold text-sm text-text-secondary-dark text-right">
-                  Net Payable
-                </th>
-                <th className="p-3 font-semibold text-sm text-text-secondary-dark text-center">
-                  Status
-                </th>
-                <th className="p-3 font-semibold text-sm text-text-secondary-dark text-right">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {mergedData.map((item) => {
-                const isPaid = item.payrollStatus === "Paid";
-                const record = item.payrollRecord;
-                // Use the resolved salary we calculated in useMemo
-                const displaySalary =
-                  record?.baseSalary ?? item.resolvedBaseSalary;
+      <Card>
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={() => {
+                const toPay = payrollData.filter((p) =>
+                  selectedStaffIds.has(p.staffId)
+                );
+                setConfirmingPayment(toPay);
+              }}
+              disabled={selectedStaffIds.size === 0}
+            >
+              Mark {selectedStaffIds.size} Selected as Paid
+            </Button>
+          </div>
+          <Button variant="secondary" onClick={handleGenerateReport}>
+            Generate Report
+          </Button>
+        </div>
 
-                return (
+        {loading ? (
+          <p>Calculating payroll...</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="border-b">
+                <tr>
+                  <th className="p-2">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      onChange={handleSelectAll}
+                      disabled={
+                        payrollData.filter((p) => p.status === "Pending")
+                          .length === 0
+                      }
+                    />
+                  </th>
+                  <th className="p-2">Staff Member</th>
+                  <th className="p-2 text-right">Base Salary</th>
+                  <th className="p-2 text-right">Unpaid Leaves</th>
+                  <th className="p-2 text-right">Leave Deductions</th>
+                  <th className="p-2 text-right">Adjustments</th>
+                  <th className="p-2 text-right">Net Payable</th>
+                  <th className="p-2 text-center">Status</th>
+                  <th className="p-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {payrollData.map((staff) => (
                   <tr
-                    key={item.id}
-                    className="border-b hover:bg-slate-50 transition-colors"
+                    key={staff.staffId}
+                    className="border-b hover:bg-slate-50"
                   >
-                    <td className="p-3 font-medium text-text-primary-dark">
-                      {item.name}
+                    <td className="p-2">
+                      {staff.status === "Pending" && (
+                        <input
+                          type="checkbox"
+                          checked={selectedStaffIds.has(staff.staffId)}
+                          onChange={() => handleSelectOne(staff.staffId)}
+                        />
+                      )}
                     </td>
-                    <td className="p-3 text-sm text-text-secondary-dark">
-                      {item.role}
-                    </td>
-                    <td className="p-3 text-right text-sm font-mono">
-                      ₹{displaySalary.toLocaleString()}
-                    </td>
-                    <td className="p-3 text-right font-bold text-brand-primary">
-                      {isPaid
-                        ? `₹${(record?.netPayable || 0).toLocaleString()}`
-                        : "—"}
-                    </td>
-                    <td className="p-3 text-center">
-                      <span
-                        className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          isPaid
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {item.payrollStatus}
+                    <td className="p-2 font-medium">
+                      {staff.staffName}{" "}
+                      <span className="text-xs text-slate-500">
+                        ({staff.staffRole})
                       </span>
                     </td>
-                    <td className="p-3 text-right">
-                      {isPaid ? (
+                    <td className="p-2 text-right">
+                      {staff.baseSalary !== null &&
+                      staff.baseSalary !== undefined
+                        ? `₹${staff.baseSalary.toLocaleString()}`
+                        : "N/A"}
+                    </td>
+                    <td className="p-2 text-right text-orange-600">
+                      {staff.unpaidLeaveDays}
+                    </td>
+                    <td className="p-2 text-right text-red-600">
+                      {staff.leaveDeductions !== null
+                        ? `-₹${staff.leaveDeductions.toLocaleString()}`
+                        : "0"}
+                    </td>
+                    <td className="p-2 text-right text-blue-600">
+                      ₹{staff.manualAdjustmentsTotal.toLocaleString()}
+                    </td>
+                    <td className="p-2 text-right font-bold text-lg text-green-700">
+                      {staff.netPayable !== null
+                        ? `₹${staff.netPayable.toLocaleString()}`
+                        : "N/A"}
+                    </td>
+                    <td className="p-2 text-center">
+                      {staff.status === "Paid" ? (
+                        <span className="text-xs text-green-600 font-semibold">
+                          Paid on {new Date(staff.paidAt!).toLocaleDateString()}
+                        </span>
+                      ) : staff.status === "Salary Not Set" ? (
+                        <span className="text-xs text-red-600 font-semibold">
+                          Salary Not Set
+                        </span>
+                      ) : (
+                        <span className="text-xs text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full">
+                          Pending
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-2 text-right">
+                      {staff.status === "Pending" && (
                         <Button
                           variant="secondary"
-                          className="!py-1 !px-3 text-xs"
-                          disabled
+                          className="!px-2 !py-1 text-xs"
+                          onClick={() => setAdjustingStaff(staff)}
                         >
-                          View Slip
-                        </Button>
-                      ) : (
-                        <Button
-                          className="!py-1 !px-3 text-xs"
-                          onClick={() => handleProcessPayroll(item)}
-                          disabled={
-                            processingId === item.id || displaySalary === 0
-                          }
-                          title={
-                            displaySalary === 0
-                              ? "Set salary in Faculty/Staff tab first"
-                              : ""
-                          }
-                        >
-                          {processingId === item.id
-                            ? "Processing..."
-                            : "Process Pay"}
+                          Adjust
                         </Button>
                       )}
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {adjustingStaff && (
+        <SalaryAdjustmentModal
+          staff={adjustingStaff}
+          month={selectedMonth}
+          onClose={() => setAdjustingStaff(null)}
+          onSave={() => {
+            setAdjustingStaff(null);
+            triggerRefresh();
+          }}
+        />
       )}
-    </Card>
+      {confirmingPayment.length > 0 && (
+        <ConfirmationModal
+          isOpen={true}
+          onClose={() => setConfirmingPayment([])}
+          onConfirm={handleProcessPayment}
+          isConfirming={isProcessing}
+          title={`Confirm Payment for ${confirmingPayment.length} Staff`}
+          message={
+            <div>
+              <p>
+                You are about to mark the following salaries as paid for{" "}
+                {monthString}. This will create a permanent financial record.
+              </p>
+              <ul className="text-sm list-disc pl-5 mt-2 max-h-40 overflow-y-auto">
+                {confirmingPayment.map((p) => (
+                  <li key={p.staffId}>
+                    {p.staffName}:{" "}
+                    <strong>₹{p.netPayable?.toLocaleString() || "N/A"}</strong>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          }
+          confirmText="Confirm & Pay"
+          confirmVariant="primary"
+        />
+      )}
+    </div>
   );
 };
 
