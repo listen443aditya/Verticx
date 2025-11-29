@@ -316,8 +316,7 @@ export class PrincipalApiService {
   // ---------- Financials ----------
   async getFinancialsOverview(): Promise<PrincipalFinancialsOverview> {
     const { data } = await baseApi.get<PrincipalFinancialsOverview>(
-      "/principal/financials-overview",
-      getCacheBustConfig()
+      "/principal/financials-overview"
     );
     return data;
   }
