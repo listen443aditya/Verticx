@@ -370,6 +370,14 @@ export class PrincipalApiService {
     await baseApi.post("/principal/manual-expenses", payload);
   }
 
+  async getErpPaymentsForBranch(branchId: string): Promise<ErpPayment[]> {
+    const { data } = await baseApi.get<ErpPayment[]>(
+      "/principal/erp/payments",
+      getCacheBustConfig()
+    );
+    return data;
+  }
+
   // ---------- Staff Requests ----------
   async getFeeRectificationRequests(): Promise<FeeRectificationRequest[]> {
     const { data } = await baseApi.get<FeeRectificationRequest[]>(
