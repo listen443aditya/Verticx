@@ -177,6 +177,15 @@ export class PrincipalApiService {
     );
     return data;
   }
+  async resetUserPassword(
+    userId: string
+  ): Promise<{ userId: string; newPassword: string }> {
+    const { data } = await baseApi.post<{
+      userId: string;
+      newPassword: string;
+    }>(`/principal/users/${encodeURIComponent(userId)}/reset-password`);
+    return data;
+  }
 
   async updateTeacher(teacherId: string, updates: Partial<Teacher>) {
     await baseApi.patch(
@@ -194,7 +203,6 @@ export class PrincipalApiService {
     return data;
   }
 
-  // --- FIX: Add config parameter ---
   async getAttendanceOverview(
     config: any = {}
   ): Promise<PrincipalAttendanceOverview> {
@@ -212,7 +220,6 @@ export class PrincipalApiService {
     );
     return data;
   }
-  // --- END FIX ---
 
   async getAllStaff(config: any = {}): Promise<User[]> {
     return this.getStaff(config); // This already cache-busts

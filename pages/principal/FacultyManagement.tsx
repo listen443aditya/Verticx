@@ -312,8 +312,10 @@ const FacultyManagement: React.FC = () => {
 
   const handleResetPassword = async (teacherId: string) => {
     console.log("Resetting password for", teacherId);
-    const { newPassword } = await sharedApiService.resetUserPassword(teacherId);
-    setNewCredentials({ id: teacherId, password: newPassword });
+    const { newPassword, userId } = await principalApiService.resetUserPassword(
+      teacherId
+    );
+    setNewCredentials({ id: userId, password: newPassword });
     setViewingProfile(null);
   };
 
