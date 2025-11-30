@@ -230,65 +230,6 @@ const PrincipalDashboard: React.FC = () => {
             averageScore={averageSchoolScore}
           />
 
-          {branch?.nextDueDate && (
-            <Card>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-text-primary-dark">
-                  ERP Subscription
-                </h2>
-                <Button
-                  variant="secondary"
-                  className="!text-xs !py-1 !px-2"
-                  onClick={() => setShowHistoryModal(true)}
-                >
-                  View History
-                </Button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                <div className="bg-slate-50 p-4 rounded-lg">
-                  <p className="font-semibold text-text-primary-dark">
-                    Last Payment
-                  </p>
-                  <p className="text-2xl font-bold text-brand-accent">
-                    {lastPayment
-                      ? new Date(lastPayment.paymentDate).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "long",
-                            day: "numeric",
-                          }
-                        )
-                      : "N/A"}
-                  </p>
-                  <p className="text-xs text-text-secondary-dark">
-                    Amount: ₹
-                    {lastPayment ? lastPayment.amount.toLocaleString() : "N/A"}
-                  </p>
-                </div>
-                <div className="bg-slate-50 p-4 rounded-lg">
-                  <p className="font-semibold text-text-primary-dark">
-                    Next Bill Due Date
-                  </p>
-                  <p className="text-2xl font-bold text-brand-secondary">
-                    {new Date(branch.nextDueDate).toLocaleDateString("en-US", {
-                      month: "long",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </p>
-                </div>
-                <div className="bg-slate-50 p-4 rounded-lg">
-                  <p className="font-semibold text-text-primary-dark">
-                    Billing Cycle
-                  </p>
-                  <p className="text-2xl font-bold text-text-secondary-dark capitalize">
-                    {branch?.billingCycle?.replace("_", " ") || "Monthly"}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          )}
-
           {/* Charts Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
@@ -453,7 +394,65 @@ const PrincipalDashboard: React.FC = () => {
               </div>
             </Card>
           </div>
-          {/* --- END MOVED SECTION --- */}
+
+          {branch?.nextDueDate && (
+            <Card>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-text-primary-dark">
+                  ERP Subscription
+                </h2>
+                <Button
+                  variant="secondary"
+                  className="!text-xs !py-1 !px-2"
+                  onClick={() => setShowHistoryModal(true)}
+                >
+                  View History
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                <div className="bg-slate-50 p-4 rounded-lg">
+                  <p className="font-semibold text-text-primary-dark">
+                    Last Payment
+                  </p>
+                  <p className="text-2xl font-bold text-brand-accent">
+                    {lastPayment
+                      ? new Date(lastPayment.paymentDate).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "long",
+                            day: "numeric",
+                          }
+                        )
+                      : "N/A"}
+                  </p>
+                  <p className="text-xs text-text-secondary-dark">
+                    Amount: ₹
+                    {lastPayment ? lastPayment.amount.toLocaleString() : "N/A"}
+                  </p>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-lg">
+                  <p className="font-semibold text-text-primary-dark">
+                    Next Bill Due Date
+                  </p>
+                  <p className="text-2xl font-bold text-brand-secondary">
+                    {new Date(branch.nextDueDate).toLocaleDateString("en-US", {
+                      month: "long",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </p>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-lg">
+                  <p className="font-semibold text-text-primary-dark">
+                    Billing Cycle
+                  </p>
+                  <p className="text-2xl font-bold text-text-secondary-dark capitalize">
+                    {branch?.billingCycle?.replace("_", " ") || "Monthly"}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
         </div>
 
         {/* --- SIDEBAR COLUMN (Narrow) --- */}
@@ -611,7 +610,6 @@ const PrincipalDashboard: React.FC = () => {
                       </p>
                     </div>
                   </div>
-
                 </div>
               ))}
             </div>
