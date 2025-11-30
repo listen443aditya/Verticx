@@ -56,7 +56,7 @@ const FacultyDetailModal: React.FC<FacultyDetailModalProps> = ({ profile, onClos
                         </div>
                         <div>
                             <h2 className="text-3xl font-bold text-text-primary-dark">{teacher.name}</h2>
-                            <p className="text-text-secondary-dark font-mono">{teacher.id} | {subjectNames}</p>
+                            <p className="text-text-secondary-dark font-mono">{teacher.userId} | {subjectNames}</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="text-3xl font-light text-slate-500 hover:text-slate-800 leading-none">&times;</button>
@@ -79,7 +79,7 @@ const FacultyDetailModal: React.FC<FacultyDetailModalProps> = ({ profile, onClos
                                     <div className="flex justify-between"><span className="font-medium text-text-secondary-dark">Complaint Count:</span> <span className="font-bold text-red-500">{teacher.complaintCount || 0}</span></div>
                                 </div>
                             </Card>
-                            <Card>
+                            {/* <Card>
                                 <h3 className="text-lg font-semibold mb-3">Credentials & Security</h3>
                                 <div className="space-y-3 text-sm">
                                     <div className="flex justify-between items-center">
@@ -97,7 +97,7 @@ const FacultyDetailModal: React.FC<FacultyDetailModalProps> = ({ profile, onClos
                                         </Button>
                                     </div>
                                 </div>
-                            </Card>
+                            </Card> */}
                             <div className="grid grid-cols-2 gap-6">
                                 <Card>
                                     <h3 className="text-lg font-semibold mb-3">Mentored Class</h3>
