@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth.ts";
-import { PrincipalApiService } from "../../services/principalApiService"; // Fixed import path
+import { PrincipalApiService } from "../../services/principalApiService";
 import type { SchoolEvent } from "../../types.ts";
 import Card from "../../components/ui/Card.tsx";
 import Button from "../../components/ui/Button.tsx";
@@ -11,7 +11,6 @@ import Input from "../../components/ui/Input.tsx";
 const apiService = new PrincipalApiService();
 
 // --- MODAL COMPONENTS ---
-
 const EventFormModal: React.FC<{
   eventToEdit?: SchoolEvent | null;
   initialDate?: string | null;
@@ -30,6 +29,16 @@ const EventFormModal: React.FC<{
     ...eventToEdit,
   });
   const [isSaving, setIsSaving] = useState(false);
+
+  // Fix: Ensure date in form is YYYY-MM-DD for the input
+  useEffect(() => {
+    if (eventToEdit?.date) {
+      setFormData((prev) => ({
+        ...prev,
+        date: new Date(eventToEdit.date).toISOString().split("T")[0],
+      }));
+    }
+  }, [eventToEdit]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +111,6 @@ const EventFormModal: React.FC<{
             value={formData.date}
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
             required
-            min={todayString}
           />
           <Input
             label="Location"
@@ -203,7 +211,7 @@ const EventDetailModal: React.FC<{
               {event.name}
             </h2>
             <p className="text-text-secondary-dark">
-              {new Date(event.date + "T00:00:00").toDateString()}
+              {new Date(event.date).toDateString()}
             </p>
           </div>
           <span
@@ -228,8 +236,7 @@ const EventDetailModal: React.FC<{
             <strong>Description:</strong> {event.description || "N/A"}
           </p>
           <p>
-            <strong>Created by:</strong> {event.createdBy} on{" "}
-            {new Date(event.createdAt).toLocaleDateString()}
+            <strong>Created by:</strong> {event.createdBy}
           </p>
         </div>
         <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
@@ -299,6 +306,7 @@ const EventManagement: React.FC = () => {
     if (!user) return;
     setLoading(true);
     const data = await apiService.getSchoolEvents();
+    console.log("Fetched Events:", data); // Debugging
     setEvents(data);
     setLoading(false);
   }, [user, refreshKey]);
@@ -342,18 +350,22 @@ const EventManagement: React.FC = () => {
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [events]);
 
-  // --- NEW: Upcoming Events Logic ---
+  // --- FIX: Correct Date parsing for Upcoming Events ---
   const upcomingEvents = useMemo(() => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
+    today.setHours(0, 0, 0, 0);
+
     return events
-      .filter(
-        (e) =>
-          e.status === "Approved" && new Date(e.date + "T00:00:00") >= today
-      )
+      .filter((e) => {
+        // Safely parse the date from the API
+        const eventDate = new Date(e.date);
+        eventDate.setHours(0, 0, 0, 0);
+
+        return e.status === "Approved" && eventDate >= today;
+      })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [events]);
-  // --- END NEW LOGIC ---
+  // --- END FIX ---
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -369,15 +381,18 @@ const EventManagement: React.FC = () => {
   ).getDate();
   const startingDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
 
+  // --- FIX: Correct Date parsing for Calendar ---
   const eventsByDate = useMemo(() => {
     const map = new Map<string, SchoolEvent[]>();
     events.forEach((event) => {
-      const dateKey = event.date;
+      // Convert full timestamp to YYYY-MM-DD
+      const dateKey = new Date(event.date).toISOString().split("T")[0];
       if (!map.has(dateKey)) map.set(dateKey, []);
       map.get(dateKey)!.push(event);
     });
     return map;
   }, [events]);
+  // --- END FIX ---
 
   const changeMonth = (delta: number) => {
     setCurrentDate(
@@ -445,9 +460,12 @@ const EventManagement: React.FC = () => {
                 currentDate.getMonth(),
                 day
               );
+              const dateString = date.toISOString().split("T")[0]; // Local logic for calendar drawing
+
+              // Compare against today for styling
               date.setHours(0, 0, 0, 0);
               const isPast = date < today;
-              const dateString = date.toISOString().split("T")[0];
+
               const dayEvents = eventsByDate.get(dateString) || [];
               return (
                 <div
@@ -497,7 +515,7 @@ const EventManagement: React.FC = () => {
         </Card>
 
         <div className="space-y-6">
-          {/* --- NEW: Upcoming Events Card --- */}
+          {/* Upcoming Events Card */}
           <Card>
             <h2 className="text-xl font-semibold mb-4 text-text-primary-dark">
               Upcoming Events
@@ -513,7 +531,7 @@ const EventManagement: React.FC = () => {
                 upcomingEvents.map((event) => (
                   <div
                     key={event.id}
-                    className="bg-white border border-slate-100 p-3 rounded-lg shadow-sm"
+                    className="bg-white border border-slate-100 p-3 rounded-lg shadow-sm hover:shadow-md transition-shadow"
                   >
                     <div className="flex justify-between items-start">
                       <div>
@@ -521,9 +539,7 @@ const EventManagement: React.FC = () => {
                           {event.name}
                         </p>
                         <p className="text-xs text-text-secondary-dark">
-                          {new Date(
-                            event.date + "T00:00:00"
-                          ).toLocaleDateString("en-US", {
+                          {new Date(event.date).toLocaleDateString("en-US", {
                             weekday: "short",
                             month: "short",
                             day: "numeric",
@@ -544,7 +560,6 @@ const EventManagement: React.FC = () => {
               )}
             </div>
           </Card>
-          {/* --- END NEW CARD --- */}
 
           <Card>
             <h2 className="text-xl font-semibold mb-4">
@@ -562,8 +577,8 @@ const EventManagement: React.FC = () => {
                   <div key={event.id} className="bg-slate-50 p-3 rounded-lg">
                     <p className="font-semibold">{event.name}</p>
                     <p className="text-xs text-text-secondary-dark">
-                      {new Date(event.date + "T00:00:00").toLocaleDateString()}{" "}
-                      | by {event.createdBy}
+                      {new Date(event.date).toLocaleDateString()} | by{" "}
+                      {event.createdBy}
                     </p>
                     <div className="flex justify-end gap-2 mt-2">
                       <Button
