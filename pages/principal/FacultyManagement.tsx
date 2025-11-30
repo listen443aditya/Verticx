@@ -451,7 +451,7 @@ const FacultyManagement: React.FC = () => {
                           variant="secondary"
                           className="!px-2 !py-1 text-xs"
                           onClick={() => handleViewProfile(staffMember.id)}
-                         // disabled={staffMember.role !== "Teacher"}
+                         disabled={staffMember.role !== "Teacher"}
                         >
                           View
                         </Button>
