@@ -33,6 +33,7 @@ import type {
   SuspensionRecord,
   FeeRecord,
   AttendanceRecord,
+  StudentProfile,
 } from "../types"; // adjust path to your project types
 
 type RaiseQueryPayload = {
@@ -280,6 +281,15 @@ export class PrincipalApiService {
   async getStudents(): Promise<Student[]> {
     const { data } = await baseApi.get<Student[]>(
       "/principal/students",
+      getCacheBustConfig()
+    );
+    return data;
+  }
+
+  async getStudentProfileDetails(studentId: string): Promise<StudentProfile> {
+
+    const { data } = await baseApi.get<StudentProfile>(
+      `/principal/students/${encodeURIComponent(studentId)}/profile`,
       getCacheBustConfig()
     );
     return data;
