@@ -657,10 +657,9 @@ const profile = (await apiService.getStudentProfileDetails(studentId)) || {};
 
   const handleSendSms = async (message: string) => {
     const studentIds: string[] = Array.from(selectedStudentIds);
-    if (studentIds.length === 0 || user?.role !== "Registrar") return;
+    if (studentIds.length === 0 || (user?.role !== "Registrar" && user?.role !== "Principal")) return;
 
     try {
-      // FIX: sendSmsToStudents now takes 2 arguments
       const result = await registrarApiService.sendSmsToStudents(
         studentIds,
         message
