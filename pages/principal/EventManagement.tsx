@@ -30,7 +30,6 @@ const EventFormModal: React.FC<{
   });
   const [isSaving, setIsSaving] = useState(false);
 
-  // Fix: Ensure date in form is YYYY-MM-DD for the input
   useEffect(() => {
     if (eventToEdit?.date) {
       setFormData((prev) => ({
@@ -211,7 +210,7 @@ const EventDetailModal: React.FC<{
               {event.name}
             </h2>
             <p className="text-text-secondary-dark">
-              {new Date(event.date).toDateString()}
+              {new Date(event.date + "T00:00:00").toDateString()}
             </p>
           </div>
           <span
@@ -306,7 +305,6 @@ const EventManagement: React.FC = () => {
     if (!user) return;
     setLoading(true);
     const data = await apiService.getSchoolEvents();
-    console.log("Fetched Events:", data); // Debugging
     setEvents(data);
     setLoading(false);
   }, [user, refreshKey]);
@@ -350,22 +348,23 @@ const EventManagement: React.FC = () => {
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [events]);
 
-  // --- FIX: Correct Date parsing for Upcoming Events ---
   const upcomingEvents = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     return events
       .filter((e) => {
-        // Safely parse the date from the API
         const eventDate = new Date(e.date);
-        eventDate.setHours(0, 0, 0, 0);
+        const eventDateOnly = new Date(
+          eventDate.getFullYear(),
+          eventDate.getMonth(),
+          eventDate.getDate()
+        );
 
-        return e.status === "Approved" && eventDate >= today;
+        return e.status === "Approved" && eventDateOnly >= today;
       })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [events]);
-  // --- END FIX ---
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -381,18 +380,15 @@ const EventManagement: React.FC = () => {
   ).getDate();
   const startingDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
 
-  // --- FIX: Correct Date parsing for Calendar ---
   const eventsByDate = useMemo(() => {
     const map = new Map<string, SchoolEvent[]>();
     events.forEach((event) => {
-      // Convert full timestamp to YYYY-MM-DD
       const dateKey = new Date(event.date).toISOString().split("T")[0];
       if (!map.has(dateKey)) map.set(dateKey, []);
       map.get(dateKey)!.push(event);
     });
     return map;
   }, [events]);
-  // --- END FIX ---
 
   const changeMonth = (delta: number) => {
     setCurrentDate(
@@ -456,17 +452,18 @@ const EventManagement: React.FC = () => {
             ))}
             {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
               const date = new Date(
+                Date.UTC(currentDate.getFullYear(), currentDate.getMonth(), day)
+              );
+              const dateString = date.toISOString().split("T")[0];
+              const localDate = new Date(
                 currentDate.getFullYear(),
                 currentDate.getMonth(),
                 day
               );
-              const dateString = date.toISOString().split("T")[0]; // Local logic for calendar drawing
-
-              // Compare against today for styling
-              date.setHours(0, 0, 0, 0);
-              const isPast = date < today;
+              const isPast = localDate < today;
 
               const dayEvents = eventsByDate.get(dateString) || [];
+
               return (
                 <div
                   key={day}
@@ -539,7 +536,9 @@ const EventManagement: React.FC = () => {
                           {event.name}
                         </p>
                         <p className="text-xs text-text-secondary-dark">
-                          {new Date(event.date).toLocaleDateString("en-US", {
+                          {new Date(
+                            event.date + "T00:00:00"
+                          ).toLocaleDateString("en-US", {
                             weekday: "short",
                             month: "short",
                             day: "numeric",
@@ -577,8 +576,8 @@ const EventManagement: React.FC = () => {
                   <div key={event.id} className="bg-slate-50 p-3 rounded-lg">
                     <p className="font-semibold">{event.name}</p>
                     <p className="text-xs text-text-secondary-dark">
-                      {new Date(event.date).toLocaleDateString()} | by{" "}
-                      {event.createdBy}
+                      {new Date(event.date + "T00:00:00").toLocaleDateString()}{" "}
+                      | by {event.createdBy}
                     </p>
                     <div className="flex justify-end gap-2 mt-2">
                       <Button
