@@ -14,7 +14,6 @@ import { PrincipalApiService } from "../../services";
 import type {
   PrincipalDashboardData,
   SchoolEvent,
-  Branch,
   ErpPayment,
 } from "../../types.ts";
 import Card from "../../components/ui/Card.tsx";
@@ -87,7 +86,6 @@ const PrincipalDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState<PrincipalDashboardData | null>(null);
-  // FIX: Define type correctly for state
   type DashboardBranch = PrincipalDashboardData["branch"];
   const [branch, setBranch] = useState<DashboardBranch | null>(null);
   const [lastPayment, setLastPayment] = useState<ErpPayment | null>(null);
@@ -97,21 +95,18 @@ const PrincipalDashboard: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedClassId, setSelectedClassId] = useState<string>("");
 
-  // --- FIX: Normalize Date Keys for Events ---
   const eventsByDate = useMemo(() => {
     if (!data?.allEvents) {
       return new Map<string, SchoolEvent[]>();
     }
     const map = new Map<string, SchoolEvent[]>();
     data.allEvents.forEach((event) => {
-      // Convert ISO timestamp to YYYY-MM-DD
       const dateKey = new Date(event.date).toISOString().split("T")[0];
       if (!map.has(dateKey)) map.set(dateKey, []);
       map.get(dateKey)!.push(event);
     });
     return map;
   }, [data?.allEvents]);
-  // --- END FIX ---
 
   useEffect(() => {
     const fetchData = async () => {
@@ -202,6 +197,7 @@ const PrincipalDashboard: React.FC = () => {
         Principal's Dashboard
       </h1>
 
+      {/* Top Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <StatCard
           title="Total Students"
@@ -226,12 +222,14 @@ const PrincipalDashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* --- MAIN CONTENT COLUMN (Wide) --- */}
         <div className="lg:col-span-2 space-y-6">
           <SchoolRankCard
             rank={schoolRank}
             score={schoolScore}
             averageScore={averageSchoolScore}
           />
+
           {branch?.nextDueDate && (
             <Card>
               <div className="flex justify-between items-center mb-4">
@@ -290,45 +288,74 @@ const PrincipalDashboard: React.FC = () => {
               </div>
             </Card>
           )}
-          <Card>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-text-primary-dark">
-                Subject-wise Performance
-              </h2>
-              {classes.length > 0 && (
-                <select
-                  value={selectedClassId}
-                  onChange={(e) => setSelectedClassId(e.target.value)}
-                  className="bg-surface-dark border border-slate-300 rounded-md py-1 px-2 text-sm"
+
+          {/* Charts Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold text-text-primary-dark">
+                  Subject Performance
+                </h2>
+                {classes.length > 0 && (
+                  <select
+                    value={selectedClassId}
+                    onChange={(e) => setSelectedClassId(e.target.value)}
+                    className="bg-surface-dark border border-slate-300 rounded-md py-1 px-2 text-xs"
+                  >
+                    {classes.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart
+                  data={subjectPerformanceByClass[selectedClassId] || []}
                 >
-                  {classes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={subjectPerformanceByClass[selectedClassId] || []}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="subjectName" />
-                <YAxis
-                  domain={[0, 100]}
-                  tickFormatter={(value) => `${value}%`}
-                />
-                <Tooltip
-                  formatter={(value: number) => `${value.toFixed(1)}%`}
-                />
-                <Legend />
-                <Bar
-                  dataKey="averageScore"
-                  fill="#8B5CF6"
-                  name="Average Score"
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </Card>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="subjectName" fontSize={12} />
+                  <YAxis
+                    domain={[0, 100]}
+                    tickFormatter={(value) => `${value}%`}
+                    fontSize={12}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => `${value.toFixed(1)}%`}
+                  />
+                  <Bar
+                    dataKey="averageScore"
+                    fill="#8B5CF6"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+            <Card>
+              <h2 className="text-lg font-semibold text-text-primary-dark mb-4">
+                Class Academic Performance
+              </h2>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={classPerformance}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" fontSize={12} />
+                  <YAxis
+                    domain={[0, 100]}
+                    tickFormatter={(value) => `${value}%`}
+                    fontSize={12}
+                  />
+                  <Tooltip />
+                  <Bar
+                    dataKey="performance"
+                    fill="#4F46E5"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+          </div>
+
           <Card>
             <h2 className="text-xl font-semibold text-text-primary-dark mb-4">
               Top 5 Teacher Performance
@@ -363,31 +390,76 @@ const PrincipalDashboard: React.FC = () => {
               </table>
             </div>
           </Card>
-          <Card>
-            <h2 className="text-xl font-semibold text-text-primary-dark mb-4">
-              Class-wise Academic Performance
-            </h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={classPerformance}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis
-                  domain={[0, 100]}
-                  tickFormatter={(value) => `${value}%`}
-                />
-                <Tooltip />
-                <Bar
-                  dataKey="performance"
-                  fill="#4F46E5"
-                  name="Avg Performance"
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </Card>
+
+          {/* --- MOVED HERE FOR BETTER LAYOUT --- */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <h2 className="text-lg font-semibold text-text-primary-dark mb-4">
+                Syllabus Progress
+              </h2>
+              <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
+                {syllabusProgress.map((s) => (
+                  <div key={s.name}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-text-secondary-dark">{s.name}</span>
+                      <span className="font-semibold">
+                        {s.progress.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-2">
+                      <div
+                        className="bg-brand-accent h-2 rounded-full"
+                        style={{ width: `${s.progress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+            <Card>
+              <h2 className="text-lg font-semibold text-text-primary-dark mb-4">
+                Fee Collections by Grade
+              </h2>
+              <div className="space-y-4 max-h-64 overflow-y-auto pr-2">
+                {collectionsByGrade.map((c) => {
+                  const collected = c.collected;
+                  const due = c.due;
+                  const percentage = due > 0 ? (collected / due) * 100 : 100;
+                  return (
+                    <div key={c.name}>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="font-medium text-text-secondary-dark">
+                          {c.name}
+                        </span>
+                        <span className="font-semibold">
+                          ₹{collected.toLocaleString()} / ₹
+                          {due.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-200 rounded-full h-2.5">
+                        <div
+                          className="bg-green-500 h-2.5 rounded-full"
+                          style={{ width: `${percentage}%` }}
+                        ></div>
+                      </div>
+                      {due - collected > 0 && (
+                        <p className="text-xs text-right text-red-500 mt-1">
+                          Pending: ₹{(due - collected).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          </div>
+          {/* --- END MOVED SECTION --- */}
         </div>
 
+        {/* --- SIDEBAR COLUMN (Narrow) --- */}
         <div className="space-y-6">
           <AIAssistantCard data={data} />
+
           <Card>
             <h2 className="text-xl font-semibold text-text-primary-dark mb-4">
               Events Calendar
@@ -413,7 +485,7 @@ const PrincipalDashboard: React.FC = () => {
               {Array.from({ length: startingDayOfWeek }).map((_, i) => (
                 <div
                   key={`empty-${i}`}
-                  className="border rounded-md bg-slate-50 min-h-[5rem]"
+                  className="border rounded-md bg-slate-50 min-h-[4rem]"
                 ></div>
               ))}
               {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
@@ -426,21 +498,20 @@ const PrincipalDashboard: React.FC = () => {
                     )
                   );
                   const dateString = date.toISOString().split("T")[0];
-
                   const dayEvents = eventsByDate.get(dateString) || [];
                   return (
                     <div
                       key={day}
-                      className="border rounded-md p-1 min-h-[5rem] flex flex-col"
+                      className="border rounded-md p-1 min-h-[4rem] flex flex-col"
                     >
                       <span className="font-semibold text-xs">{day}</span>
-                      <div className="flex-grow flex items-end">
-                        <div className="flex gap-1 flex-wrap justify-center">
+                      <div className="flex-grow flex items-end justify-center">
+                        <div className="flex gap-1">
                           {dayEvents.slice(0, 3).map((event) => (
                             <div
                               key={event.id}
                               title={`${event.name} (${event.status})`}
-                              className={`w-2 h-2 rounded-full ${getStatusColor(
+                              className={`w-1.5 h-1.5 rounded-full ${getStatusColor(
                                 event.status
                               )}`}
                             ></div>
@@ -452,7 +523,18 @@ const PrincipalDashboard: React.FC = () => {
                 }
               )}
             </div>
+            <div className="flex justify-center gap-3 mt-4 text-xs">
+              <span className="flex items-center">
+                <span className="w-2 h-2 rounded-full bg-green-500 mr-1"></span>
+                Approved
+              </span>
+              <span className="flex items-center">
+                <span className="w-2 h-2 rounded-full bg-yellow-400 mr-1"></span>
+                Pending
+              </span>
+            </div>
           </Card>
+
           <Card>
             <h2 className="text-xl font-semibold text-text-primary-dark mb-4">
               Staff Requests
@@ -499,9 +581,10 @@ const PrincipalDashboard: React.FC = () => {
               View All Requests
             </Button>
           </Card>
+
           <Card>
             <h2 className="text-xl font-semibold text-text-primary-dark mb-4">
-              Top 5 School Rankers
+              Top 5 Students
             </h2>
             <div className="space-y-3">
               {topStudents.map((student, index) => (
@@ -519,8 +602,8 @@ const PrincipalDashboard: React.FC = () => {
                     >
                       #{student.rank}
                     </span>
-                    <div>
-                      <p className="font-semibold text-text-primary-dark">
+                    <div className="ml-2">
+                      <p className="font-semibold text-text-primary-dark text-sm">
                         {student.studentName}
                       </p>
                       <p className="text-xs text-text-secondary-dark">
@@ -528,74 +611,19 @@ const PrincipalDashboard: React.FC = () => {
                       </p>
                     </div>
                   </div>
+
                 </div>
               ))}
             </div>
           </Card>
-          <Card>
-            <h2 className="text-xl font-semibold text-text-primary-dark mb-4">
-              Syllabus Progress
-            </h2>
-            <div className="space-y-3">
-              {syllabusProgress.map((s) => (
-                <div key={s.name}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-text-secondary-dark">{s.name}</span>
-                    <span className="font-semibold">
-                      {s.progress.toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-200 rounded-full h-2">
-                    <div
-                      className="bg-brand-accent h-2 rounded-full"
-                      style={{ width: `${s.progress}%` }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-          <Card>
-            <h2 className="text-xl font-semibold text-text-primary-dark mb-4">
-              Fee Collections by Grade
-            </h2>
-            <div className="space-y-4">
-              {collectionsByGrade.map((c) => {
-                const collected = c.collected;
-                const due = c.due;
-                const percentage = due > 0 ? (collected / due) * 100 : 100;
-                return (
-                  <div key={c.name}>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="font-medium text-text-secondary-dark">
-                        {c.name}
-                      </span>
-                      <span className="font-semibold">
-                        ₹{collected.toLocaleString()} / ₹{due.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2.5">
-                      <div
-                        className="bg-green-500 h-2.5 rounded-full"
-                        style={{ width: `${percentage}%` }}
-                      ></div>
-                    </div>
-                    {due - collected > 0 && (
-                      <p className="text-xs text-right text-red-500 mt-1">
-                        Pending: ₹{(due - collected).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
+
           <ContactCard
             branch={branch || undefined}
             principalName={user?.name}
           />
         </div>
       </div>
+
       {user && showHistoryModal && (
         <ErpPaymentHistoryModal
           isOpen={showHistoryModal}
