@@ -10,7 +10,6 @@ import {
   Legend,
 } from "recharts";
 import { useAuth } from "../../hooks/useAuth";
-// We now import the API SERVICE directly, which speaks to the backend API.
 import { PrincipalApiService } from "../../services";
 import type {
   PrincipalDashboardData,
@@ -31,7 +30,6 @@ import ContactCard from "../../components/shared/ContactCard.tsx";
 import ErpPaymentHistoryModal from "../../components/modals/ErpPaymentHistoryModal.tsx";
 import AIAssistantCard from "../../components/principal/AIAssistantCard.tsx";
 
-// Create a single instance of the API service that calls the backend.
 const principalApiService = new PrincipalApiService();
 
 const StatCard: React.FC<{
@@ -89,8 +87,9 @@ const PrincipalDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState<PrincipalDashboardData | null>(null);
-type DashboardBranch = PrincipalDashboardData["branch"];
-const [branch, setBranch] = useState<DashboardBranch | null>(null);
+  // FIX: Define type correctly for state
+  type DashboardBranch = PrincipalDashboardData["branch"];
+  const [branch, setBranch] = useState<DashboardBranch | null>(null);
   const [lastPayment, setLastPayment] = useState<ErpPayment | null>(null);
   const [paymentHistory, setPaymentHistory] = useState<ErpPayment[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -98,58 +97,58 @@ const [branch, setBranch] = useState<DashboardBranch | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedClassId, setSelectedClassId] = useState<string>("");
 
+  // --- FIX: Normalize Date Keys for Events ---
   const eventsByDate = useMemo(() => {
     if (!data?.allEvents) {
       return new Map<string, SchoolEvent[]>();
     }
     const map = new Map<string, SchoolEvent[]>();
     data.allEvents.forEach((event) => {
-      const dateKey = event.date;
+      // Convert ISO timestamp to YYYY-MM-DD
+      const dateKey = new Date(event.date).toISOString().split("T")[0];
       if (!map.has(dateKey)) map.set(dateKey, []);
       map.get(dateKey)!.push(event);
     });
     return map;
   }, [data?.allEvents]);
+  // --- END FIX ---
 
- useEffect(() => {
-   const fetchData = async () => {
-     if (!user) return;
-     setLoading(true);
-     try {
-       // 1. Remove 'branchData' from the Promise.all
-       const [result, paymentsData] = await Promise.all([
-         principalApiService.getPrincipalDashboardData(),
-         principalApiService.getErpPayments(),
-       ]);
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!user) return;
+      setLoading(true);
+      try {
+        const [result, paymentsData] = await Promise.all([
+          principalApiService.getPrincipalDashboardData(),
+          principalApiService.getErpPayments(),
+        ]);
 
-       setData(result);
+        setData(result);
+        setBranch(result.branch || null);
 
-       // 2. Set the branch state from the 'result' object we already fetched
-       setBranch(result.branch || null);
+        const sortedPayments = paymentsData.sort(
+          (a: ErpPayment, b: ErpPayment) =>
+            new Date(b.paymentDate).getTime() -
+            new Date(a.paymentDate).getTime()
+        );
+        setPaymentHistory(sortedPayments);
 
-       const sortedPayments = paymentsData.sort(
-         (a: ErpPayment, b: ErpPayment) =>
-           new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
-       );
-       setPaymentHistory(sortedPayments);
+        if (sortedPayments.length > 0) {
+          setLastPayment(sortedPayments[0]);
+        }
+        if (result && result.classes.length > 0) {
+          setSelectedClassId(result.classes[0].id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch dashboard data:", error);
+        setData(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [user]);
 
-       if (sortedPayments.length > 0) {
-         setLastPayment(sortedPayments[0]);
-       }
-       if (result && result.classes.length > 0) {
-         setSelectedClassId(result.classes[0].id);
-       }
-     } catch (error) {
-       console.error("Failed to fetch dashboard data:", error);
-       setData(null);
-     } finally {
-       setLoading(false);
-     }
-   };
-   fetchData();
- }, [user]);
-
-  
   if (loading) return <div>Loading dashboard...</div>;
   if (!data) return <div>Could not load dashboard data.</div>;
 
@@ -178,7 +177,7 @@ const [branch, setBranch] = useState<DashboardBranch | null>(null);
     currentDate.getMonth() + 1,
     0
   ).getDate();
-  const startingDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7; // 0=Monday, 6=Sunday
+  const startingDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
 
   const changeMonth = (delta: number) => {
     setCurrentDate(
@@ -254,12 +253,13 @@ const [branch, setBranch] = useState<DashboardBranch | null>(null);
                   </p>
                   <p className="text-2xl font-bold text-brand-accent">
                     {lastPayment
-                      ? new Date(
-                          lastPayment.paymentDate + "T00:00:00"
-                        ).toLocaleDateString("en-US", {
-                          month: "long",
-                          day: "numeric",
-                        })
+                      ? new Date(lastPayment.paymentDate).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "long",
+                            day: "numeric",
+                          }
+                        )
                       : "N/A"}
                   </p>
                   <p className="text-xs text-text-secondary-dark">
@@ -272,9 +272,7 @@ const [branch, setBranch] = useState<DashboardBranch | null>(null);
                     Next Bill Due Date
                   </p>
                   <p className="text-2xl font-bold text-brand-secondary">
-                    {new Date(
-                      branch.nextDueDate + "T00:00:00"
-                    ).toLocaleDateString("en-US", {
+                    {new Date(branch.nextDueDate).toLocaleDateString("en-US", {
                       month: "long",
                       day: "numeric",
                       year: "numeric",
@@ -421,11 +419,14 @@ const [branch, setBranch] = useState<DashboardBranch | null>(null);
               {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
                 (day) => {
                   const date = new Date(
-                    currentDate.getFullYear(),
-                    currentDate.getMonth(),
-                    day
+                    Date.UTC(
+                      currentDate.getFullYear(),
+                      currentDate.getMonth(),
+                      day
+                    )
                   );
                   const dateString = date.toISOString().split("T")[0];
+
                   const dayEvents = eventsByDate.get(dateString) || [];
                   return (
                     <div
@@ -434,7 +435,7 @@ const [branch, setBranch] = useState<DashboardBranch | null>(null);
                     >
                       <span className="font-semibold text-xs">{day}</span>
                       <div className="flex-grow flex items-end">
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 flex-wrap justify-center">
                           {dayEvents.slice(0, 3).map((event) => (
                             <div
                               key={event.id}
