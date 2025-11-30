@@ -34,11 +34,20 @@ const AIAssistantCard: React.FC<AIAssistantCardProps> = ({ data }) => {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+
+
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (chatContainerRef.current) {
+      const { scrollHeight, clientHeight } = chatContainerRef.current;
+      chatContainerRef.current.scrollTo({
+        top: scrollHeight - clientHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [messages, isLoading]);
 
   const constructPrompt = (question: string) => {
     const {
@@ -181,7 +190,11 @@ const AIAssistantCard: React.FC<AIAssistantCardProps> = ({ data }) => {
         </h2>
       </div>
 
-      <div className="flex-grow overflow-y-auto mb-4 pr-2 space-y-4 scrollbar-thin scrollbar-thumb-slate-200">
+
+      <div
+        ref={chatContainerRef}
+        className="flex-grow overflow-y-auto mb-4 pr-2 space-y-4 scrollbar-thin scrollbar-thumb-slate-200"
+      >
         {messages.map((msg, index) => (
           <div
             key={index}
@@ -234,7 +247,7 @@ const AIAssistantCard: React.FC<AIAssistantCardProps> = ({ data }) => {
             </div>
           </div>
         )}
-        <div ref={chatEndRef} />
+
       </div>
 
       <div className="flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-none">
