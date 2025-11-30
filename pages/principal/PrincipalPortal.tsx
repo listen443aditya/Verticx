@@ -40,47 +40,157 @@ const PrincipalSidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }
         }`;
 
     return (
-        <aside className="w-64 bg-slate-800 text-slate-100 flex flex-col p-4 border-r border-slate-700 h-full">
-            <div className="flex items-center justify-between mb-8 px-2">
-                <div className="flex items-center overflow-hidden">
-                    <div className="w-8 h-8 mr-3 flex-shrink-0">
-                        <VerticxLogo className="w-full h-full" />
-                    </div>
-                    <span className="text-xl font-bold text-white truncate min-w-0">VERTICX</span>
-                </div>
-                {onClose && (
-                    <button onClick={onClose} className="lg:hidden p-1 text-slate-300 hover:text-white">
-                        <XIcon className="w-6 h-6" />
-                    </button>
-                )}
+      <aside className="w-64 bg-slate-800 text-slate-100 flex flex-col p-4 border-r border-slate-700 h-full">
+        <div className="flex items-center justify-between mb-8 px-2">
+          <div className="flex items-center overflow-hidden">
+            <div className="w-8 h-8 mr-3 flex-shrink-0">
+              <VerticxLogo className="w-full h-full" />
             </div>
-            <nav className="flex-1 space-y-2 overflow-y-auto pr-2">
-                <NavLink to="/principal/dashboard" className={navLinkClasses}><div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><DashboardIcon className="w-full h-full" /></div><span className="truncate min-w-0">Dashboard</span></NavLink>
-                {user?.enabledFeatures?.principal_students && <NavLink to="/principal/students" className={navLinkClasses}><div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><UsersIcon className="w-full h-full" /></div><span className="truncate min-w-0">Students</span></NavLink>}
-                {user?.enabledFeatures?.principal_faculty && <NavLink to="/principal/faculty" className={navLinkClasses}><div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><TeachersIcon className="w-full h-full" /></div><span className="truncate min-w-0">Faculty</span></NavLink>}
-                {user?.enabledFeatures?.principal_classes && <NavLink to="/principal/classes" className={navLinkClasses}><div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><AcademicsIcon className="w-full h-full" /></div><span className="truncate min-w-0">Classes</span></NavLink>}
-                {user?.enabledFeatures?.principal_finance && <NavLink to="/principal/finance" className={navLinkClasses}><div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><FinanceIcon className="w-full h-full" /></div><span className="truncate min-w-0">Finance</span></NavLink>}
-                {user?.enabledFeatures?.principal_attendance && <NavLink to="/principal/attendance" className={navLinkClasses}><div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><AttendanceIcon className="w-full h-full" /></div><span className="truncate min-w-0">Attendance</span></NavLink>}
-                {user?.enabledFeatures?.principal_results && <NavLink to="/principal/results" className={navLinkClasses}><div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><ClipboardListIcon className="w-full h-full" /></div><span className="truncate min-w-0">Results</span></NavLink>}
-                {user?.enabledFeatures?.principal_staff_requests && <NavLink to="/principal/staff-requests" className={navLinkClasses}><div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><RequestsIcon className="w-full h-full" /></div><span className="truncate min-w-0">Staff Requests</span></NavLink>}
-                {user?.enabledFeatures?.principal_grievances && <NavLink to="/principal/grievances" className={navLinkClasses}><div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><AlertTriangleIcon className="w-full h-full" /></div><span className="truncate min-w-0">Grievance Log</span></NavLink>}
-                {user?.enabledFeatures?.principal_complaints && <NavLink to="/principal/raise-complaint" className={navLinkClasses}><div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><ClipboardListIcon className="w-full h-full" /></div><span className="truncate min-w-0">Raise Complaint</span></NavLink>}
-                {user?.enabledFeatures?.principal_events && <NavLink to="/principal/events" className={navLinkClasses}><div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><EventsIcon className="w-full h-full" /></div><span className="truncate min-w-0">Events</span></NavLink>}
-                {user?.enabledFeatures?.principal_communication && <NavLink to="/principal/communication" className={navLinkClasses}><div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><CommunicationIcon className="w-full h-full" /></div><span className="truncate min-w-0">Communication</span></NavLink>}
-                {user?.enabledFeatures?.principal_reports && <NavLink to="/principal/reports" className={navLinkClasses}><div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><ReportsIcon className="w-full h-full" /></div><span className="truncate min-w-0">Reports</span></NavLink>}
-                {user?.enabledFeatures?.principal_profile && <NavLink to="/principal/profile" className={navLinkClasses}><div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><SettingsIcon className="w-full h-full" /></div><span className="truncate min-w-0">School Profile</span></NavLink>}
-            </nav>
-            <div className="mt-auto">
-                <div className="px-4 py-3 mb-2 border-t border-slate-700">
-                    <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
-                    <p className="text-xs text-slate-400 truncate">{user?.role} ({user?.schoolName})</p>
-                </div>
-                <button onClick={handleLogout} className="flex items-center w-full px-4 py-3 text-sm font-medium text-slate-300 hover:bg-red-800 hover:text-white rounded-lg transition-colors duration-200">
-                    <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><LogoutIcon className="w-full h-full" /></div>
-                    <span className="truncate min-w-0">Logout</span>
-                </button>
+            <span className="text-xl font-bold text-white truncate min-w-0">
+              {user?.schoolName}
+            </span>
+          </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="lg:hidden p-1 text-slate-300 hover:text-white"
+            >
+              <XIcon className="w-6 h-6" />
+            </button>
+          )}
+        </div>
+        <nav className="flex-1 space-y-2 overflow-y-auto pr-2">
+          <NavLink to="/principal/dashboard" className={navLinkClasses}>
+            <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+              <DashboardIcon className="w-full h-full" />
             </div>
-        </aside>
+            <span className="truncate min-w-0">Dashboard</span>
+          </NavLink>
+          {user?.enabledFeatures?.principal_students && (
+            <NavLink to="/principal/students" className={navLinkClasses}>
+              <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+                <UsersIcon className="w-full h-full" />
+              </div>
+              <span className="truncate min-w-0">Students</span>
+            </NavLink>
+          )}
+          {user?.enabledFeatures?.principal_faculty && (
+            <NavLink to="/principal/faculty" className={navLinkClasses}>
+              <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+                <TeachersIcon className="w-full h-full" />
+              </div>
+              <span className="truncate min-w-0">Faculty</span>
+            </NavLink>
+          )}
+          {user?.enabledFeatures?.principal_classes && (
+            <NavLink to="/principal/classes" className={navLinkClasses}>
+              <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+                <AcademicsIcon className="w-full h-full" />
+              </div>
+              <span className="truncate min-w-0">Classes</span>
+            </NavLink>
+          )}
+          {user?.enabledFeatures?.principal_finance && (
+            <NavLink to="/principal/finance" className={navLinkClasses}>
+              <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+                <FinanceIcon className="w-full h-full" />
+              </div>
+              <span className="truncate min-w-0">Finance</span>
+            </NavLink>
+          )}
+          {user?.enabledFeatures?.principal_attendance && (
+            <NavLink to="/principal/attendance" className={navLinkClasses}>
+              <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+                <AttendanceIcon className="w-full h-full" />
+              </div>
+              <span className="truncate min-w-0">Attendance</span>
+            </NavLink>
+          )}
+          {user?.enabledFeatures?.principal_results && (
+            <NavLink to="/principal/results" className={navLinkClasses}>
+              <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+                <ClipboardListIcon className="w-full h-full" />
+              </div>
+              <span className="truncate min-w-0">Results</span>
+            </NavLink>
+          )}
+          {user?.enabledFeatures?.principal_staff_requests && (
+            <NavLink to="/principal/staff-requests" className={navLinkClasses}>
+              <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+                <RequestsIcon className="w-full h-full" />
+              </div>
+              <span className="truncate min-w-0">Staff Requests</span>
+            </NavLink>
+          )}
+          {user?.enabledFeatures?.principal_grievances && (
+            <NavLink to="/principal/grievances" className={navLinkClasses}>
+              <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+                <AlertTriangleIcon className="w-full h-full" />
+              </div>
+              <span className="truncate min-w-0">Grievance Log</span>
+            </NavLink>
+          )}
+          {user?.enabledFeatures?.principal_complaints && (
+            <NavLink to="/principal/raise-complaint" className={navLinkClasses}>
+              <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+                <ClipboardListIcon className="w-full h-full" />
+              </div>
+              <span className="truncate min-w-0">Raise Complaint</span>
+            </NavLink>
+          )}
+          {user?.enabledFeatures?.principal_events && (
+            <NavLink to="/principal/events" className={navLinkClasses}>
+              <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+                <EventsIcon className="w-full h-full" />
+              </div>
+              <span className="truncate min-w-0">Events</span>
+            </NavLink>
+          )}
+          {user?.enabledFeatures?.principal_communication && (
+            <NavLink to="/principal/communication" className={navLinkClasses}>
+              <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+                <CommunicationIcon className="w-full h-full" />
+              </div>
+              <span className="truncate min-w-0">Communication</span>
+            </NavLink>
+          )}
+          {user?.enabledFeatures?.principal_reports && (
+            <NavLink to="/principal/reports" className={navLinkClasses}>
+              <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+                <ReportsIcon className="w-full h-full" />
+              </div>
+              <span className="truncate min-w-0">Reports</span>
+            </NavLink>
+          )}
+          {user?.enabledFeatures?.principal_profile && (
+            <NavLink to="/principal/profile" className={navLinkClasses}>
+              <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+                <SettingsIcon className="w-full h-full" />
+              </div>
+              <span className="truncate min-w-0">School Profile</span>
+            </NavLink>
+          )}
+        </nav>
+        <div className="mt-auto">
+          <div className="px-4 py-3 mb-2 border-t border-slate-700">
+            <p className="text-sm font-semibold text-white truncate">
+              {user?.name}
+            </p>
+            <p className="text-xs text-slate-400 truncate">
+              {user?.role} ({user?.schoolName})
+            </p>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center w-full px-4 py-3 text-sm font-medium text-slate-300 hover:bg-red-800 hover:text-white rounded-lg transition-colors duration-200"
+          >
+            <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+              <LogoutIcon className="w-full h-full" />
+            </div>
+            <span className="truncate min-w-0">Logout</span>
+          </button>
+        </div>
+      </aside>
     );
 };
 
