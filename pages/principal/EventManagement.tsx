@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth.ts";
-import { PrincipalApiService } from "../../services";
+import { PrincipalApiService } from "../../services/principalApiService"; // Fixed import path
 import type { SchoolEvent } from "../../types.ts";
 import Card from "../../components/ui/Card.tsx";
 import Button from "../../components/ui/Button.tsx";
@@ -38,7 +38,6 @@ const EventFormModal: React.FC<{
 
     try {
       if (eventToEdit?.id) {
-        // For updates, send only the changeable fields
         await apiService.updateSchoolEvent(eventToEdit.id, {
           name: formData.name!,
           date: formData.date!,
@@ -299,7 +298,6 @@ const EventManagement: React.FC = () => {
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    // CORRECTED: Use the newly created 'getSchoolEvents' method.
     const data = await apiService.getSchoolEvents();
     setEvents(data);
     setLoading(false);
@@ -332,7 +330,6 @@ const EventManagement: React.FC = () => {
   const handleDelete = async () => {
     if (!deletingEvent) return;
     setActionLoading((prev) => ({ ...prev, [deletingEvent.id]: true }));
-    // CORRECTED: Use the newly created 'deleteSchoolEvent' method.
     await apiService.deleteSchoolEvent(deletingEvent.id);
     setDeletingEvent(null);
     triggerRefresh();
@@ -344,6 +341,19 @@ const EventManagement: React.FC = () => {
       .filter((e) => e.status === "Pending")
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [events]);
+
+  // --- NEW: Upcoming Events Logic ---
+  const upcomingEvents = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
+    return events
+      .filter(
+        (e) =>
+          e.status === "Approved" && new Date(e.date + "T00:00:00") >= today
+      )
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [events]);
+  // --- END NEW LOGIC ---
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -389,7 +399,9 @@ const EventManagement: React.FC = () => {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Event Approval & Calendar</h1>
+        <h1 className="text-3xl font-bold text-text-primary-dark">
+          Event Approval & Calendar
+        </h1>
         <Button
           onClick={() => {
             setEditingEvent(null);
@@ -484,46 +496,99 @@ const EventManagement: React.FC = () => {
           </div>
         </Card>
 
-        <Card>
-          <h2 className="text-xl font-semibold mb-4">Pending Event Requests</h2>
-          <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
-            {loading ? (
-              <p>Loading requests...</p>
-            ) : pendingEvents.length === 0 ? (
-              <p className="text-center text-text-secondary-dark p-8">
-                No events are currently pending approval.
-              </p>
-            ) : (
-              pendingEvents.map((event) => (
-                <div key={event.id} className="bg-slate-50 p-3 rounded-lg">
-                  <p className="font-semibold">{event.name}</p>
-                  <p className="text-xs text-text-secondary-dark">
-                    {new Date(event.date + "T00:00:00").toLocaleDateString()} |
-                    by {event.createdBy}
-                  </p>
-                  <div className="flex justify-end gap-2 mt-2">
-                    <Button
-                      variant="danger"
-                      className="!px-2 !py-1 text-xs"
-                      onClick={() => handleAction(event.id, "Rejected")}
-                      disabled={actionLoading[event.id]}
-                    >
-                      Reject
-                    </Button>
-                    <Button
-                      variant="primary"
-                      className="!px-2 !py-1 text-xs"
-                      onClick={() => handleAction(event.id, "Approved")}
-                      disabled={actionLoading[event.id]}
-                    >
-                      Approve
-                    </Button>
+        <div className="space-y-6">
+          {/* --- NEW: Upcoming Events Card --- */}
+          <Card>
+            <h2 className="text-xl font-semibold mb-4 text-text-primary-dark">
+              Upcoming Events
+            </h2>
+            <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
+              {loading ? (
+                <p>Loading...</p>
+              ) : upcomingEvents.length === 0 ? (
+                <p className="text-center text-text-secondary-dark p-4">
+                  No upcoming events.
+                </p>
+              ) : (
+                upcomingEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className="bg-white border border-slate-100 p-3 rounded-lg shadow-sm"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-semibold text-brand-primary">
+                          {event.name}
+                        </p>
+                        <p className="text-xs text-text-secondary-dark">
+                          {new Date(
+                            event.date + "T00:00:00"
+                          ).toLocaleDateString("en-US", {
+                            weekday: "short",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </p>
+                      </div>
+                      <span className="text-xs font-medium bg-slate-100 px-2 py-1 rounded">
+                        {event.category}
+                      </span>
+                    </div>
+                    {event.location && (
+                      <p className="text-xs text-slate-500 mt-1">
+                        📍 {event.location}
+                      </p>
+                    )}
                   </div>
-                </div>
-              ))
-            )}
-          </div>
-        </Card>
+                ))
+              )}
+            </div>
+          </Card>
+          {/* --- END NEW CARD --- */}
+
+          <Card>
+            <h2 className="text-xl font-semibold mb-4">
+              Pending Event Requests
+            </h2>
+            <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
+              {loading ? (
+                <p>Loading requests...</p>
+              ) : pendingEvents.length === 0 ? (
+                <p className="text-center text-text-secondary-dark p-8">
+                  No events are currently pending approval.
+                </p>
+              ) : (
+                pendingEvents.map((event) => (
+                  <div key={event.id} className="bg-slate-50 p-3 rounded-lg">
+                    <p className="font-semibold">{event.name}</p>
+                    <p className="text-xs text-text-secondary-dark">
+                      {new Date(event.date + "T00:00:00").toLocaleDateString()}{" "}
+                      | by {event.createdBy}
+                    </p>
+                    <div className="flex justify-end gap-2 mt-2">
+                      <Button
+                        variant="danger"
+                        className="!px-2 !py-1 text-xs"
+                        onClick={() => handleAction(event.id, "Rejected")}
+                        disabled={actionLoading[event.id]}
+                      >
+                        Reject
+                      </Button>
+                      <Button
+                        variant="primary"
+                        className="!px-2 !py-1 text-xs"
+                        onClick={() => handleAction(event.id, "Approved")}
+                        disabled={actionLoading[event.id]}
+                      >
+                        Approve
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
+        </div>
       </div>
 
       {selectedEvent && (
