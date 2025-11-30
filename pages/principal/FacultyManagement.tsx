@@ -721,7 +721,7 @@ const FacultyManagement: React.FC = () => {
                           View
                         </Button>
                       )}
-                      <Button
+                      {/* <Button
                         variant="secondary"
                         className="!px-2 !py-1 text-xs"
                         onClick={() => {
@@ -730,7 +730,7 @@ const FacultyManagement: React.FC = () => {
                         }}
                       >
                         Edit
-                      </Button>
+                      </Button> */}
                       <Button
                         variant="secondary"
                         className="!px-2 !py-1 text-xs"
