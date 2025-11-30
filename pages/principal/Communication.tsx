@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { PrincipalApiService } from "../../services"; // FIX: Import the class
+import { PrincipalApiService } from "../../services";
 import type {
   Announcement,
   SmsMessage,
@@ -11,8 +11,8 @@ import Button from "../../components/ui/Button.tsx";
 import Input from "../../components/ui/Input.tsx";
 import ConfirmationModal from "../../components/ui/ConfirmationModal.tsx";
 import { useAuth } from "../../hooks/useAuth.ts";
+//import { TrashIcon } from "../../components/icons/Icons.tsx"; // Ensure you have this or use text
 
-// FIX: Create an instance of the service
 const apiService = new PrincipalApiService();
 
 const Communication: React.FC = () => {
@@ -49,24 +49,32 @@ const Communication: React.FC = () => {
   const [isSendingQuery, setIsSendingQuery] = useState(false);
   const [queryStatus, setQueryStatus] = useState("");
 
+  // Clear History State
+  const [clearingHistoryType, setClearingHistoryType] = useState<
+    "announcement" | "sms" | null
+  >(null);
+  const [isClearing, setIsClearing] = useState(false);
+
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    // FIX: Updated all API calls to remove branchId/userId arguments, matching the new service definition.
-    // NOTE: Your PrincipalApiService does not have a getStudents method. I have assumed a new `getStudents()` method.
-    // You may need to add `async getStudents(): Promise<Student[]> { ... }` to your service.
-    const [announcementsData, smsData, studentsData, queriesData] =
-      await Promise.all([
-        apiService.getAnnouncements(),
-        apiService.getSmsHistory(),
-        (apiService as any).getStudents(), // Using 'any' to bypass missing method, assuming you will add it.
-        apiService.getQueries(),
-      ]);
-    setAnnouncements(announcementsData);
-    setSmsHistory(smsData);
-    setAllStudents(studentsData);
-    setQueries(queriesData);
-    setLoading(false);
+    try {
+      const [announcementsData, smsData, studentsData, queriesData] =
+        await Promise.all([
+          apiService.getAnnouncements(),
+          apiService.getSmsHistory(),
+          apiService.getStudents(),
+          apiService.getQueries(),
+        ]);
+      setAnnouncements(announcementsData);
+      setSmsHistory(smsData);
+      setAllStudents(studentsData);
+      setQueries(queriesData);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => {
@@ -100,16 +108,19 @@ const Communication: React.FC = () => {
     e.preventDefault();
     if (!user || !title || !announcementMessage) return;
     setSending(true);
-    // FIX: Removed branchId from the call signature
-    await apiService.sendAnnouncement({
-      title,
-      message: announcementMessage,
-      audience,
-    });
-    setTitle("");
-    setAnnouncementMessage("");
-    setAudience("All");
-    await fetchData();
+    try {
+      await apiService.sendAnnouncement({
+        title,
+        message: announcementMessage,
+        audience,
+      });
+      setTitle("");
+      setAnnouncementMessage("");
+      setAudience("All");
+      await fetchData();
+    } catch (e) {
+      alert("Failed to send");
+    }
     setSending(false);
   };
 
@@ -120,7 +131,6 @@ const Communication: React.FC = () => {
     setSmsConfirmation("");
     try {
       const studentIds = selectedStudents.map((s) => s.id);
-      // FIX: Simplified the call to match the service (only studentIds and message are needed)
       const result = await apiService.sendSmsToStudents(studentIds, smsMessage);
       if (result.success) {
         setSmsConfirmation(`SMS sent to parents of ${result.count} students.`);
@@ -160,6 +170,25 @@ const Communication: React.FC = () => {
     } finally {
       setIsSendingQuery(false);
       setTimeout(() => setQueryStatus(""), 5000);
+    }
+  };
+
+  const handleClearHistory = async () => {
+    if (!clearingHistoryType) return;
+    setIsClearing(true);
+    try {
+      if (clearingHistoryType === "announcement") {
+        await apiService.clearAnnouncementsHistory();
+      } else if (clearingHistoryType === "sms") {
+        await apiService.clearSmsHistory();
+      }
+      await fetchData(); // Refresh lists
+      setClearingHistoryType(null);
+    } catch (error) {
+      console.error("Failed to clear history:", error);
+      alert("Failed to clear history.");
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -227,7 +256,7 @@ const Communication: React.FC = () => {
                     value={announcementMessage}
                     onChange={(e) => setAnnouncementMessage(e.target.value)}
                     rows={5}
-                    className="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
+                    className="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-text-primary-dark"
                     required
                   />
                 </div>
@@ -370,25 +399,49 @@ const Communication: React.FC = () => {
         </Card>
 
         <Card className="lg:col-span-2">
-          <div className="flex border-b border-slate-200 mb-4">
-            <button
-              className={historyTabButtonClasses(activeTab === "announcement")}
-              onClick={() => setActiveTab("announcement")}
-            >
-              Announcements
-            </button>
-            <button
-              className={historyTabButtonClasses(activeTab === "sms")}
-              onClick={() => setActiveTab("sms")}
-            >
-              SMS History
-            </button>
-            <button
-              className={historyTabButtonClasses(activeTab === "queries")}
-              onClick={() => setActiveTab("queries")}
-            >
-              My Queries
-            </button>
+          <div className="flex justify-between items-center border-b border-slate-200 mb-4 pb-2">
+            <div className="flex gap-4">
+              <button
+                className={historyTabButtonClasses(
+                  activeTab === "announcement"
+                )}
+                onClick={() => setActiveTab("announcement")}
+              >
+                Announcements
+              </button>
+              <button
+                className={historyTabButtonClasses(activeTab === "sms")}
+                onClick={() => setActiveTab("sms")}
+              >
+                SMS History
+              </button>
+              <button
+                className={historyTabButtonClasses(activeTab === "queries")}
+                onClick={() => setActiveTab("queries")}
+              >
+                My Queries
+              </button>
+            </div>
+
+            {/* --- CLEAR HISTORY BUTTON --- */}
+            {activeTab !== "queries" && (
+              <Button
+                variant="danger"
+                className="!px-3 !py-1 text-xs"
+                onClick={() =>
+                  setClearingHistoryType(
+                    activeTab === "announcement" ? "announcement" : "sms"
+                  )
+                }
+                disabled={
+                  activeTab === "announcement"
+                    ? announcements.length === 0
+                    : smsHistory.length === 0
+                }
+              >
+                Clear History
+              </Button>
+            )}
           </div>
 
           {loading ? (
@@ -488,6 +541,28 @@ const Communication: React.FC = () => {
           )}
         </Card>
       </div>
+
+      {/* Confirmation Modal for Clearing History */}
+      {clearingHistoryType && (
+        <ConfirmationModal
+          isOpen={true}
+          onClose={() => setClearingHistoryType(null)}
+          onConfirm={handleClearHistory}
+          title={`Clear ${
+            clearingHistoryType === "announcement" ? "Announcement" : "SMS"
+          } History`}
+          message={
+            <>
+              Are you sure you want to delete <strong>ALL</strong> history for{" "}
+              {clearingHistoryType === "announcement" ? "Announcements" : "SMS"}
+              ? This cannot be undone.
+            </>
+          }
+          confirmVariant="danger"
+          confirmText="Clear All"
+          isConfirming={isClearing}
+        />
+      )}
     </div>
   );
 };
