@@ -296,13 +296,10 @@ const FacultyInformationSystem: React.FC = () => {
         apiService.getFacultyApplications(),
         apiService.getSubjects(),
       ]);
-    // FIX: Filter for teachers and cast to the combined (User & Teacher) type.
-    // setTeachers(
-    // allStaff.filter((t: User) => t.role === "Teacher") as (User & Teacher)[]
-    // );
+    
     setTeachers(allStaff.filter((u: User) => u.role === "Teacher"));
     setSupportStaff(staffData);
-    // FIX: Added explicit types to sort parameters.
+
     setApplications(
       applicationData.sort(
         (a: FacultyApplication, b: FacultyApplication) =>
@@ -469,15 +466,14 @@ const FacultyInformationSystem: React.FC = () => {
                           >
                             Edit
                           </Button>
-                          {/* FIX: No cast needed as 't' now conforms to the User type */}
-                          <Button
+                          {/* <Button
                             variant="danger"
                             className="!px-2 !py-1 text-xs"
                             onClick={() => handleResetPassword(t)}
                             disabled={!!resettingPasswordFor}
                           >
                             Reset Password
-                          </Button>
+                          </Button> */}
                         </div>
                       </td>
                     </tr>
