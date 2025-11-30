@@ -457,8 +457,6 @@ const StudentManager: React.FC = () => {
   const fetchData = useCallback(async () => {
     if (!user?.branchId) return;
     setLoading(true);
-    // FIX: Assumes the necessary fetch methods exist on both Principal and Registrar services
-    // and they no longer require branchId as an argument.
     const [studentsRes, classesRes, suspensionsRes, feesRes, attendanceRes] =
       await Promise.all([
         // @ts-ignore - Assuming unified API for shared components
@@ -484,7 +482,6 @@ const StudentManager: React.FC = () => {
     fetchData();
   }, [fetchData, refreshKey]);
 
-  // ... (useMemo hooks for studentAttendanceMap and feeRecordMap remain the same) ...
   const studentAttendanceMap = useMemo(() => {
     const map = new Map<string, { present: number; total: number }>();
     attendanceRecords.forEach((record) => {
@@ -507,7 +504,6 @@ const StudentManager: React.FC = () => {
   const filteredAndSortedStudents = useMemo(() => {
     let processedStudents = [...students];
 
-    // ... (Filtering and Sorting logic remains the same) ...
     if (searchTerm) {
       const lowercasedTerm = searchTerm.toLowerCase();
       processedStudents = processedStudents.filter(
@@ -571,7 +567,6 @@ const StudentManager: React.FC = () => {
     feeRecordMap,
   ]);
 
-  // ... (All handler functions from handleSelectAllChange to the end remain mostly the same, but with corrected API calls) ...
   useEffect(() => {
     setSelectedStudentIds(new Set());
   }, [filteredAndSortedStudents]);
@@ -740,7 +735,6 @@ const profile = (await apiService.getStudentProfileDetails(studentId)) || {};
         Student Information System
       </h1>
       <Card>
-        {/* ... (JSX for filters and table remains the same) ... */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 pb-4 border-b border-slate-200">
           <Input
             placeholder="Search by name or ID..."
@@ -846,7 +840,8 @@ const profile = (await apiService.getStudentProfileDetails(studentId)) || {};
               variant="secondary"
               onClick={() => setIsSmsModalOpen(true)}
               disabled={
-                selectedStudentIds.size === 0 || user?.role !== "Registrar"
+                selectedStudentIds.size === 0 ||
+                (user?.role !== "Registrar" && user?.role !== "Principal")
               }
             >
               Send SMS
@@ -928,7 +923,9 @@ const profile = (await apiService.getStudentProfileDetails(studentId)) || {};
                           }
                         />
                       </td>
-                      <td className="p-4 font-mono text-xs">{student.userId}</td>
+                      <td className="p-4 font-mono text-xs">
+                        {student.userId}
+                      </td>
                       <td className="p-4 font-medium text-text-primary-dark">
                         {student.name}
                       </td>
