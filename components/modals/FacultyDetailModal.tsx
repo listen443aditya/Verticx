@@ -14,6 +14,7 @@ interface FacultyDetailModalProps {
   onUpdateSalary?: (teacherId: string, newSalary: number) => Promise<void>;
 }
 
+
 const FacultyDetailModal: React.FC<FacultyDetailModalProps> = ({ profile, onClose, onResetPassword, onUpdateSalary }) => {
     const { teacher, assignedClasses, syllabusProgress, classPerformance, attendance, payrollHistory, assignedSubjects, mentoredClasses } = profile;
 
@@ -79,12 +80,12 @@ const FacultyDetailModal: React.FC<FacultyDetailModalProps> = ({ profile, onClos
                                     <div className="flex justify-between"><span className="font-medium text-text-secondary-dark">Complaint Count:</span> <span className="font-bold text-red-500">{teacher.complaintCount || 0}</span></div>
                                 </div>
                             </Card>
-                            {/* <Card>
+                            <Card>
                                 <h3 className="text-lg font-semibold mb-3">Credentials & Security</h3>
                                 <div className="space-y-3 text-sm">
                                     <div className="flex justify-between items-center">
                                         <span className="font-medium text-text-secondary-dark">User ID:</span>
-                                        <span className="font-mono bg-slate-100 p-1 rounded">{teacher.id}</span>
+                                        <span className="font-mono bg-slate-100 p-1 rounded">{teacher.userId}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="font-medium text-text-secondary-dark">Password:</span>
@@ -97,7 +98,7 @@ const FacultyDetailModal: React.FC<FacultyDetailModalProps> = ({ profile, onClos
                                         </Button>
                                     </div>
                                 </div>
-                            </Card> */}
+                            </Card>
                             <div className="grid grid-cols-2 gap-6">
                                 <Card>
                                     <h3 className="text-lg font-semibold mb-3">Mentored Class</h3>

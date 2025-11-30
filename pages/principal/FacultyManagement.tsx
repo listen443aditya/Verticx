@@ -471,7 +471,6 @@ const FacultyManagement: React.FC = () => {
     triggerRefresh();
   };
 
-  // FIX: Flexible handler that accepts either a User object or a string ID
   const handleResetPassword = async (teacherOrId: User | string) => {
     const teacherId =
       typeof teacherOrId === "string" ? teacherOrId : teacherOrId.id;
