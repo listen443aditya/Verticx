@@ -4,7 +4,9 @@ import Card from "../ui/Card.tsx";
 import Input from "../ui/Input.tsx";
 import Button from "../ui/Button.tsx";
 import { geminiService } from "../../services/geminiService.ts";
-import { SparklesIcon, SendIcon, CopyIcon, PenToolIcon } from "lucide-react"; // Assuming you have lucide-react or use your own icons
+import { SparklesIcon, SendIcon, CopyIcon, PenToolIcon } from "lucide-react";
+// FIX: Import useNavigate
+import { useNavigate } from "react-router-dom";
 
 interface AIAssistantCardProps {
   data: PrincipalDashboardData;
@@ -13,34 +15,35 @@ interface AIAssistantCardProps {
 interface Message {
   sender: "user" | "ai";
   text: string;
-  type?: "text" | "draft"; // 'draft' implies it's a formal letter/notice
+  type?: "text" | "draft";
 }
 
 const SUGGESTED_PROMPTS = [
-  "Summarize the school's financial health.",
-  "Draft a notice about upcoming exams.",
-  "Which class has the best performance?",
-  "List students with low attendance.",
+  "Draft a notice about school reopening.",
+  "Summarize fee collection status.",
+  "Write a congratulatory note for top students.",
+  "Draft a warning letter for fee defaulters.",
 ];
 
 const AIAssistantCard: React.FC<AIAssistantCardProps> = ({ data }) => {
+  // FIX: Hook for navigation
+  const navigate = useNavigate();
+
   const [messages, setMessages] = useState<Message[]>([
     {
       sender: "ai",
-      text: "Hello! I've analyzed your dashboard. How can I assist you today?",
+      text: "Hello! I'm your AI assistant. I can help analyze data or draft official announcements for you.",
     },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const constructPrompt = (question: string) => {
-    // Safety check for data
     const {
       summary = {
         totalStudents: 0,
@@ -49,37 +52,22 @@ const AIAssistantCard: React.FC<AIAssistantCardProps> = ({ data }) => {
         feesPending: 0,
       },
       classPerformance = [],
-      teacherPerformance = [],
-      collectionsByGrade = [],
     } = data || {};
 
     return `
-        You are a smart consultant for a School Principal. 
-        Strict Data Context:
-        - Students: ${summary.totalStudents}, Teachers: ${summary.totalTeachers}
-        - Financials: Collected ₹${(
-          summary.feesCollected || 0
-        ).toLocaleString()}, Pending ₹${(
+        You are a professional School Principal's Assistant.
+        Context: School has ${
+          summary.totalStudents
+        } students. Fees Pending: ₹${(
       summary.feesPending || 0
-    ).toLocaleString()}
-        - Top Classes: ${classPerformance
-          .slice(0, 3)
-          .map((c) => `${c.name} (${c.performance.toFixed(0)}%)`)
-          .join(", ")}
-        - Top Teachers: ${teacherPerformance
-          .slice(0, 3)
-          .map((t) => t.teacherName)
-          .join(", ")}
-        - Fee Collections: ${collectionsByGrade
-          .map((g) => `${g.name}: ₹${g.collected} collected`)
-          .join(", ")}
-
-        User Question: "${question}"
+    ).toLocaleString()}.
+        
+        User Request: "${question}"
 
         Instructions:
-        1. If asked to draft a notice/email, format it professionally.
-        2. If asked for analysis, keep it brief and highlight anomalies.
-        3. Be encouraging but factual.
+        1. If asked to write/draft something (letter, notice, email), use a formal tone.
+        2. **CRITICAL:** If drafting, start with a subject line in this format: "Subject: [Your Subject Here]".
+        3. Keep the body professional and clear.
         `;
   };
 
@@ -95,9 +83,10 @@ const AIAssistantCard: React.FC<AIAssistantCardProps> = ({ data }) => {
     try {
       const prompt = constructPrompt(textToSend);
       const aiResponseText = await geminiService.generateResponse(prompt);
+
+      // Detect if it's a draft (contains "Subject:" or "Dear")
       const isDraft =
-        aiResponseText.includes("Subject:") ||
-        aiResponseText.includes("Dear Parents");
+        aiResponseText.includes("Subject:") || aiResponseText.includes("Dear");
 
       const aiMessage: Message = {
         sender: "ai",
@@ -108,10 +97,7 @@ const AIAssistantCard: React.FC<AIAssistantCardProps> = ({ data }) => {
     } catch (error) {
       setMessages((prev) => [
         ...prev,
-        {
-          sender: "ai",
-          text: "I'm having trouble connecting to the AI brain right now.",
-        },
+        { sender: "ai", text: "I'm having trouble connecting right now." },
       ]);
     } finally {
       setIsLoading(false);
@@ -120,6 +106,11 @@ const AIAssistantCard: React.FC<AIAssistantCardProps> = ({ data }) => {
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
+  };
+
+  // --- FIX: Logic to navigate to Communication page with data ---
+  const handleUseDraft = (text: string) => {
+    navigate("/principal/communication", { state: { draftText: text } });
   };
 
   return (
@@ -155,23 +146,20 @@ const AIAssistantCard: React.FC<AIAssistantCardProps> = ({ data }) => {
               </p>
 
               {msg.sender === "ai" && (
-                <div className="flex justify-end gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-black/5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={() => handleCopy(msg.text)}
                     className="p-1 hover:bg-slate-200 rounded text-xs text-slate-500 flex items-center gap-1"
-                    title="Copy to Clipboard"
+                    title="Copy"
                   >
                     <CopyIcon size={12} /> Copy
                   </button>
+
+                  {/* FIX: Call the navigation handler */}
                   {msg.type === "draft" && (
                     <button
                       className="p-1 hover:bg-purple-100 text-purple-600 rounded text-xs flex items-center gap-1 font-medium"
-                      title="Use as Announcement"
-                      onClick={() => {
-                        alert(
-                          "Feature Idea: This would open the 'Send Announcement' modal with this text pre-filled!"
-                        );
-                      }}
+                      onClick={() => handleUseDraft(msg.text)}
                     >
                       <PenToolIcon size={12} /> Use Draft
                     </button>

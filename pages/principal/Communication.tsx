@@ -12,11 +12,12 @@ import Input from "../../components/ui/Input.tsx";
 import ConfirmationModal from "../../components/ui/ConfirmationModal.tsx";
 import { useAuth } from "../../hooks/useAuth.ts";
 //import { TrashIcon } from "../../components/icons/Icons.tsx"; // Ensure you have this or use text
-
+import { useLocation } from "react-router-dom";
 const apiService = new PrincipalApiService();
 
 const Communication: React.FC = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [smsHistory, setSmsHistory] = useState<SmsMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,9 +78,23 @@ const Communication: React.FC = () => {
     }
   }, [user]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+ useEffect(() => {
+   if (location.state && location.state.draftText) {
+     const fullText = location.state.draftText as string;
+     setActiveTab("announcement");
+     const subjectMatch = fullText.match(/Subject:\s*(.+)/i);
+
+     if (subjectMatch && subjectMatch[1]) {
+       setTitle(subjectMatch[1].trim());
+       const body = fullText.replace(subjectMatch[0], "").trim();
+       setAnnouncementMessage(body);
+     } else {
+       setTitle("Important Notice"); 
+       setAnnouncementMessage(fullText);
+     }
+     window.history.replaceState({}, document.title);
+   }
+ }, [location]);
 
   const searchResults = useMemo(() => {
     if (searchQuery.length < 2) return [];
