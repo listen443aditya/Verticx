@@ -466,14 +466,14 @@ const FacultyInformationSystem: React.FC = () => {
                           >
                             Edit
                           </Button>
-                          {/* <Button
+                          <Button
                             variant="danger"
                             className="!px-2 !py-1 text-xs"
                             onClick={() => handleResetPassword(t)}
                             disabled={!!resettingPasswordFor}
                           >
                             Reset Password
-                          </Button> */}
+                          </Button>
                         </div>
                       </td>
                     </tr>
