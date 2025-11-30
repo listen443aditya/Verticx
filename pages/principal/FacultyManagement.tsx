@@ -234,6 +234,117 @@ const AddEditStaffModal: React.FC<{
   );
 };
 
+
+const EditTeacherModal: React.FC<{
+  teacher: Teacher;
+  allSubjects: Subject[];
+  onClose: () => void;
+  onSave: () => void;
+}> = ({ teacher, allSubjects, onClose, onSave }) => {
+  // Initialize form with existing teacher data
+  const [formData, setFormData] = useState<Partial<Teacher>>({
+    name: teacher.name,
+    qualification: teacher.qualification,
+    email: teacher.email,
+    phone: teacher.phone,
+    // Add other fields if necessary
+  });
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      // Use principalApiService to update the teacher
+      // Ensure you have: const principalApiService = new PrincipalApiService(); at top of file
+      await principalApiService.updateTeacher(teacher.id, formData);
+      onSave();
+    } catch (error) {
+      console.error("Failed to update teacher:", error);
+      alert("Failed to update teacher profile.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4">
+      <Card className="w-full max-w-2xl">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Edit Teacher: {teacher.name}</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 text-2xl"
+          >
+            &times;
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Full Name"
+              name="name"
+              value={formData.name || ""}
+              onChange={handleChange}
+              required
+            />
+            <Input
+              label="Qualification"
+              name="qualification"
+              value={formData.qualification || ""}
+              onChange={handleChange}
+              required
+            />
+            <Input
+              label="Email"
+              name="email"
+              type="email"
+              value={formData.email || ""}
+              onChange={handleChange}
+              required
+            />
+            <Input
+              label="Phone"
+              name="phone"
+              value={formData.phone || ""}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text-secondary-dark mb-1">
+              Subject Assignments
+            </label>
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded text-sm text-slate-600 text-center">
+              To modify subject assignments, please use the{" "}
+              <strong>Class Management</strong> section.
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-4 pt-4 border-t mt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onClose}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </div>
+  );
+};
+
 const FacultyManagement: React.FC = () => {
   const { user } = useAuth();
   const { refreshKey, triggerRefresh } = useDataRefresh();
