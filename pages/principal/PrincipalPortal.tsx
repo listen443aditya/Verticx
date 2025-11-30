@@ -43,9 +43,9 @@ const PrincipalSidebarContent: React.FC<{ onClose?: () => void }> = ({ onClose }
       <aside className="w-64 bg-slate-800 text-slate-100 flex flex-col p-4 border-r border-slate-700 h-full">
         <div className="flex items-center justify-between mb-8 px-2">
           <div className="flex items-center overflow-hidden">
-            <div className="w-8 h-8 mr-3 flex-shrink-0">
+            {/* <div className="w-8 h-8 mr-3 flex-shrink-0">
               <VerticxLogo className="w-full h-full" />
-            </div>
+            </div> */}
             <span className="text-xl font-bold text-white truncate min-w-0">
               {user?.schoolName}
             </span>
