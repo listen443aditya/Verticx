@@ -928,7 +928,7 @@ const profile = (await apiService.getStudentProfileDetails(studentId)) || {};
                           }
                         />
                       </td>
-                      <td className="p-4 font-mono text-xs">{student.id}</td>
+                      <td className="p-4 font-mono text-xs">{student.userId}</td>
                       <td className="p-4 font-medium text-text-primary-dark">
                         {student.name}
                       </td>
