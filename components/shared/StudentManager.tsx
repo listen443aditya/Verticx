@@ -734,81 +734,201 @@ const profile = (await apiService.getStudentProfileDetails(studentId)) || {};
         Student Information System
       </h1>
       <Card>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 pb-4 border-b border-slate-200">
-          <Input
-            placeholder="Search by name or ID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="lg:col-span-4"
-          />
-          <div>
-            <label className="text-sm font-medium text-text-secondary-dark">
-              Filter by Class
-            </label>
-            <select
-              value={filterClass}
-              onChange={(e) => setFilterClass(e.target.value)}
-              className="w-full bg-white border border-slate-300 rounded-md py-2 px-3 mt-1"
-            >
-              <option value="all">All Classes</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  Grade {c.gradeLevel} - {c.section}
-                </option>
-              ))}
-            </select>
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-6">
+          <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center mb-4">
+            <h2 className="text-lg font-semibold text-text-primary-dark flex items-center gap-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-brand-primary"
+              >
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+              </svg>
+              Search & Filters
+            </h2>
+
+            {/* Search Bar - Wide & Prominent */}
+            <div className="relative w-full lg:w-96">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg
+                  className="h-5 w-5 text-slate-400"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <input
+                type="text"
+                className="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg leading-5 bg-slate-50 placeholder-slate-500 focus:outline-none focus:bg-white focus:ring-2 focus:ring-brand-primary focus:border-brand-primary sm:text-sm transition-colors"
+                placeholder="Search students by name or ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
           </div>
-          <div>
-            <label className="text-sm font-medium text-text-secondary-dark">
-              Filter by Status
-            </label>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full bg-white border border-slate-300 rounded-md py-2 px-3 mt-1"
-            >
-              <option value="all">All Statuses</option>
-              <option value="active">Active</option>
-              <option value="suspended">Suspended</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-text-secondary-dark">
-              Filter by Attendance
-            </label>
-            <select
-              value={filterAttendance}
-              onChange={(e) => setFilterAttendance(e.target.value)}
-              className="w-full bg-white border border-slate-300 rounded-md py-2 px-3 mt-1"
-            >
-              <option value="all">All Attendance</option>
-              <option value="95">Below 95%</option>
-              <option value="85">Below 85%</option>
-              <option value="75">Below 75%</option>
-            </select>
-          </div>
-          <div className="flex items-end">
-            <div className="space-y-2">
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={filterFeeDefaulter}
-                  onChange={(e) => setFilterFeeDefaulter(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-brand-secondary focus:ring-brand-accent"
-                />
-                <span className="text-sm font-medium text-text-secondary-dark">
-                  Fee Defaulters
-                </span>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            {/* Class Filter */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                Class
               </label>
+              <div className="relative">
+                <select
+                  value={filterClass}
+                  onChange={(e) => setFilterClass(e.target.value)}
+                  className="block w-full pl-3 pr-10 py-2 text-base border border-slate-300 focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm rounded-lg bg-white appearance-none"
+                >
+                  <option value="all">All Classes</option>
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      Grade {c.gradeLevel} - {c.section}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Status Filter */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                Status
+              </label>
+              <div className="relative">
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="block w-full pl-3 pr-10 py-2 text-base border border-slate-300 focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm rounded-lg bg-white appearance-none"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="active">Active</option>
+                  <option value="suspended">Suspended</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Attendance Filter */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                Attendance Risk
+              </label>
+              <div className="relative">
+                <select
+                  value={filterAttendance}
+                  onChange={(e) => setFilterAttendance(e.target.value)}
+                  className="block w-full pl-3 pr-10 py-2 text-base border border-slate-300 focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm rounded-lg bg-white appearance-none"
+                >
+                  <option value="all">No Filter</option>
+                  <option value="95">Below 95%</option>
+                  <option value="85">Below 85% (Warning)</option>
+                  <option value="75">Below 75% (Critical)</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Fee Defaulter Toggle */}
+            <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 flex flex-col justify-center">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 text-red-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  Show Defaulters
+                </span>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={filterFeeDefaulter}
+                    onChange={(e) => setFilterFeeDefaulter(e.target.checked)}
+                  />
+                  <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-brand-accent rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                </label>
+              </div>
+
+              {/* Conditional Date Input - Slides down if active */}
               {filterFeeDefaulter && (
-                <Input
-                  label="Due on or before:"
-                  type="date"
-                  value={filterFeeDueDate}
-                  onChange={(e) => setFilterFeeDueDate(e.target.value)}
-                  className="!mt-1"
-                />
+                <div className="mt-2 animate-in slide-in-from-top-1 fade-in duration-200">
+                  <input
+                    type="date"
+                    value={filterFeeDueDate}
+                    onChange={(e) => setFilterFeeDueDate(e.target.value)}
+                    className="block w-full text-xs py-1 px-2 border border-slate-300 rounded bg-white focus:ring-1 focus:ring-red-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Due on or before
+                  </p>
+                </div>
               )}
             </div>
           </div>
