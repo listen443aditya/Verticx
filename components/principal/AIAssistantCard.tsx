@@ -2,10 +2,8 @@ import React, { useState, useRef, useEffect } from "react";
 import type { PrincipalDashboardData } from "../../types.ts";
 import Card from "../ui/Card.tsx";
 import Input from "../ui/Input.tsx";
-import Button from "../ui/Button.tsx";
 import { geminiService } from "../../services/geminiService.ts";
 import { SparklesIcon, SendIcon, CopyIcon, PenToolIcon } from "lucide-react";
-// FIX: Import useNavigate
 import { useNavigate } from "react-router-dom";
 
 interface AIAssistantCardProps {
@@ -19,20 +17,19 @@ interface Message {
 }
 
 const SUGGESTED_PROMPTS = [
-  "Draft a notice about school reopening.",
-  "Summarize fee collection status.",
-  "Write a congratulatory note for top students.",
-  "Draft a warning letter for fee defaulters.",
+  "Who is the best teacher?",
+  "Draft a notice about exams.",
+  "Analyze fee collection.",
+  "Which class needs attention?",
 ];
 
 const AIAssistantCard: React.FC<AIAssistantCardProps> = ({ data }) => {
-  // FIX: Hook for navigation
   const navigate = useNavigate();
 
   const [messages, setMessages] = useState<Message[]>([
     {
       sender: "ai",
-      text: "Hello! I'm your AI assistant. I can help analyze data or draft official announcements for you.",
+      text: "Hello! I've analyzed your school's live dashboard data. Ask me anything!",
     },
   ]);
   const [input, setInput] = useState("");
@@ -52,23 +49,80 @@ const AIAssistantCard: React.FC<AIAssistantCardProps> = ({ data }) => {
         feesPending: 0,
       },
       classPerformance = [],
+      teacherPerformance = [],
+      topStudents = [],
+      syllabusProgress = [],
+      pendingStaffRequests = { leave: 0, attendance: 0, fees: 0 },
+      collectionsByGrade = [],
     } = data || {};
 
-    return `
-        You are a professional School Principal's Assistant.
-        Context: School has ${
-          summary.totalStudents
-        } students. Fees Pending: ₹${(
-      summary.feesPending || 0
-    ).toLocaleString()}.
-        
-        User Request: "${question}"
+    const formatList = (list: any[], formatter: (item: any) => string) =>
+      list.length > 0 ? list.map(formatter).join("\n") : "No data available.";
 
-        Instructions:
-        1. If asked to write/draft something (letter, notice, email), use a formal tone.
-        2. **CRITICAL:** If drafting, start with a subject line in this format: "Subject: [Your Subject Here]".
-        3. Keep the body professional and clear.
+    const context = `
+        You are an expert AI Consultant for a School Principal. You have access to the following REAL-TIME dashboard data:
+
+        === SCHOOL OVERVIEW ===
+        - Total Students: ${summary.totalStudents}
+        - Total Teachers: ${summary.totalTeachers}
+        - Financial Health: Collected ₹${(
+          summary.feesCollected || 0
+        ).toLocaleString()} | Pending ₹${(
+      summary.feesPending || 0
+    ).toLocaleString()}
+
+        === ACADEMIC PERFORMANCE ===
+        **Top Performing Teachers:**
+        ${formatList(
+          teacherPerformance,
+          (t) =>
+            `- ${t.teacherName}: Score ${t.avgStudentScore.toFixed(
+              1
+            )}%, Syllabus ${t.syllabusCompletion.toFixed(
+              1
+            )}% (Index: ${t.performanceIndex.toFixed(1)})`
+        )}
+
+        **Class Performance (Avg Score):**
+        ${formatList(
+          classPerformance,
+          (c) => `- ${c.name}: ${c.performance.toFixed(1)}%`
+        )}
+
+        **Top Students:**
+        ${formatList(
+          topStudents,
+          (s) => `- ${s.studentName} (${s.className}): Rank #${s.rank}`
+        )}
+
+        === OPERATIONS ===
+        **Syllabus Completion:**
+        ${formatList(
+          syllabusProgress,
+          (s) => `- ${s.name}: ${s.progress.toFixed(1)}% completed`
+        )}
+
+        **Fee Collection by Grade:**
+        ${formatList(
+          collectionsByGrade,
+          (c) => `- ${c.name}: Collected ₹${c.collected}, Due ₹${c.due}`
+        )}
+
+        **Pending Requests:**
+        - Leave Applications: ${pendingStaffRequests.leave ?? 0}
+        - Attendance Rectifications: ${pendingStaffRequests.attendance ?? 0}
+
+        === USER QUESTION ===
+        "${question}"
+
+        === INSTRUCTIONS ===
+        1. Answer based ONLY on the data above.
+        2. If the data shows "No data available", tell the user you don't have that record yet.
+        3. If asked for "Top Teacher", look at the 'Top Performing Teachers' list above and pick the one with the highest Index.
+        4. If asked to draft a notice, start with "Subject: ..." and write a professional email/circular.
         `;
+
+    return context;
   };
 
   const handleSend = async (textOverride?: string) => {
@@ -84,7 +138,6 @@ const AIAssistantCard: React.FC<AIAssistantCardProps> = ({ data }) => {
       const prompt = constructPrompt(textToSend);
       const aiResponseText = await geminiService.generateResponse(prompt);
 
-      // Detect if it's a draft (contains "Subject:" or "Dear")
       const isDraft =
         aiResponseText.includes("Subject:") || aiResponseText.includes("Dear");
 
@@ -97,7 +150,10 @@ const AIAssistantCard: React.FC<AIAssistantCardProps> = ({ data }) => {
     } catch (error) {
       setMessages((prev) => [
         ...prev,
-        { sender: "ai", text: "I'm having trouble connecting right now." },
+        {
+          sender: "ai",
+          text: "I'm having trouble analyzing the data right now.",
+        },
       ]);
     } finally {
       setIsLoading(false);
@@ -108,7 +164,6 @@ const AIAssistantCard: React.FC<AIAssistantCardProps> = ({ data }) => {
     navigator.clipboard.writeText(text);
   };
 
-  // --- FIX: Logic to navigate to Communication page with data ---
   const handleUseDraft = (text: string) => {
     navigate("/principal/communication", { state: { draftText: text } });
   };
@@ -155,7 +210,6 @@ const AIAssistantCard: React.FC<AIAssistantCardProps> = ({ data }) => {
                     <CopyIcon size={12} /> Copy
                   </button>
 
-                  {/* FIX: Call the navigation handler */}
                   {msg.type === "draft" && (
                     <button
                       className="p-1 hover:bg-purple-100 text-purple-600 rounded text-xs flex items-center gap-1 font-medium"
