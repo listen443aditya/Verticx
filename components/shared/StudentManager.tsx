@@ -660,7 +660,7 @@ const profile = (await apiService.getStudentProfileDetails(studentId)) || {};
     if (studentIds.length === 0 || (user?.role !== "Registrar" && user?.role !== "Principal")) return;
 
     try {
-      const result = await registrarApiService.sendSmsToStudents(
+      const result = await apiService.sendSmsToStudents(
         studentIds,
         message
       );
