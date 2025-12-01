@@ -441,6 +441,33 @@ const fetchData = useCallback(async () => {
   }, [fetchData]);
 
 
+  // const handleApproveApplication = async (salary: number) => {
+  //   if (!approvingApp) return;
+  //   setIsActionLoading(true);
+  //   try {
+  //     const result = await principalApiService.approveFacultyApplication(
+  //       approvingApp.id,
+  //       salary
+  //     );
+
+  //     const creds = result.credentials as any;
+  //     const rawId =
+  //       creds.userId || creds.username || creds.id || "ID Not Found";
+  //     setNewCredentials({
+  //       id: rawId,
+  //       password: result.credentials.password,
+  //     });
+  //     setApprovingApp(null);
+  //     triggerRefresh();
+  //   } catch (error) {
+  //     console.error("Failed to approve:", error);
+  //     alert("Failed to approve application");
+  //   } finally {
+  //     setIsActionLoading(false);
+  //   }
+  // };
+
+
   const handleApproveApplication = async (salary: number) => {
     if (!approvingApp) return;
     setIsActionLoading(true);
@@ -449,14 +476,12 @@ const fetchData = useCallback(async () => {
         approvingApp.id,
         salary
       );
-
       const creds = result.credentials as any;
-      const rawId =
-        creds.userId || creds.username || creds.id || "ID Not Found";
       setNewCredentials({
-        id: rawId,
-        password: result.credentials.password,
+        id: creds.userId ?? creds.username ?? creds.id ?? "",
+        password: creds.password ?? creds.newPassword ?? "",
       });
+
       setApprovingApp(null);
       triggerRefresh();
     } catch (error) {
@@ -466,6 +491,8 @@ const fetchData = useCallback(async () => {
       setIsActionLoading(false);
     }
   };
+
+
 
   const handleRejectApplication = async (id: string) => {
     setIsActionLoading(true);
