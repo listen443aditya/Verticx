@@ -476,10 +476,10 @@ const fetchData = useCallback(async () => {
         approvingApp.id,
         salary
       );
-      const creds = result.credentials as any;
+
       setNewCredentials({
-        id: creds.userId ?? creds.username ?? creds.id ?? "",
-        password: creds.password ?? creds.newPassword ?? "",
+        id: result.credentials.id,
+        password: result.credentials.password,
       });
 
       setApprovingApp(null);
@@ -491,6 +491,7 @@ const fetchData = useCallback(async () => {
       setIsActionLoading(false);
     }
   };
+
 
 
 

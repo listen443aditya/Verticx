@@ -110,9 +110,9 @@ export class PrincipalApiService {
   async approveFacultyApplication(
     applicationId: string,
     salary?: number
-  ): Promise<{ credentials: { username: string; password: string } }> {
+  ): Promise<{ credentials: { id: string; password: string } }> {
     const { data } = await baseApi.post<{
-      credentials: { username: string; password: string };
+      credentials: { id: string; password: string };
     }>(
       `/principal/faculty-applications/${encodeURIComponent(
         applicationId
