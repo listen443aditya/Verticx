@@ -449,8 +449,12 @@ const fetchData = useCallback(async () => {
         approvingApp.id,
         salary
       );
+
+      const creds = result.credentials as any;
+      const rawId =
+        creds.userId || creds.username || creds.id || "ID Not Found";
       setNewCredentials({
-        id: result.credentials.username,
+        id: rawId,
         password: result.credentials.password,
       });
       setApprovingApp(null);
@@ -865,7 +869,6 @@ const fetchData = useCallback(async () => {
         <FacultyDetailModal
           profile={viewingProfile}
           onClose={() => setViewingProfile(null)}
-          // FIX: Pass the flexible handler here
           onResetPassword={(teacherId) => handleResetPassword(teacherId)}
           onUpdateSalary={handleUpdateSalary}
         />
