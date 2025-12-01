@@ -287,7 +287,6 @@ export class PrincipalApiService {
   }
 
   async getStudentProfileDetails(studentId: string): Promise<StudentProfile> {
-
     const { data } = await baseApi.get<StudentProfile>(
       `/principal/students/${encodeURIComponent(studentId)}/profile`,
       getCacheBustConfig()
@@ -481,6 +480,14 @@ export class PrincipalApiService {
       getCacheBustConfig()
     );
     return data;
+  }
+
+  async clearTeacherComplaints(): Promise<void> {
+    await baseApi.delete("/principal/complaints/teacher/clear");
+  }
+
+  async clearStudentComplaints(): Promise<void> {
+    await baseApi.delete("/principal/complaints/student/clear");
   }
 
   async getSuspensions(): Promise<any[]> {

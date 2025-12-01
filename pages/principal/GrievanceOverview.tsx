@@ -6,6 +6,7 @@ import Card from "../../components/ui/Card.tsx";
 import Input from "../../components/ui/Input.tsx";
 import { AlertTriangleIcon } from "../../components/icons/Icons.tsx";
 import Button from "../../components/ui/Button.tsx";
+import ConfirmationModal from "../../components/ui/ConfirmationModal.tsx"; // Import Modal
 
 const apiService = new PrincipalApiService();
 
@@ -15,12 +16,14 @@ const ComplaintsAboutTeachers: React.FC = () => {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [isConfirmingClear, setIsConfirmingClear] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
       const data = await apiService.getTeacherComplaints();
-      // Filter: Only show complaints raised BY students
       const studentComplaints = (data as unknown as Complaint[]).filter(
         (c) => c.raisedByRole === "Student"
       );
@@ -36,6 +39,20 @@ const ComplaintsAboutTeachers: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
+  const handleClearHistory = async () => {
+    setIsClearing(true);
+    try {
+      await apiService.clearTeacherComplaints();
+      await fetchData(); // Refresh list
+      setIsConfirmingClear(false);
+    } catch (error) {
+      console.error(error);
+      alert("Failed to clear history.");
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   const getStatusChip = (status: string) => {
     return status === "Open"
       ? "bg-yellow-100 text-yellow-800"
@@ -44,40 +61,71 @@ const ComplaintsAboutTeachers: React.FC = () => {
 
   if (loading) return <p className="p-4 text-center">Loading complaints...</p>;
 
-  return complaints.length === 0 ? (
-    <p className="text-center text-text-secondary-dark p-8">
-      There are no complaints from students to review.
-    </p>
-  ) : (
+  return (
     <div className="space-y-4">
-      {complaints.map((complaint) => (
-        <details key={complaint.id} className="bg-slate-50 p-4 rounded-lg" open>
-          <summary className="cursor-pointer font-semibold text-text-primary-dark flex justify-between items-center">
-            <div>
-              <span className="font-normal">Complaint by </span>
-              <strong>{complaint.raisedByName}</strong>
-              <span className="text-xs text-slate-500 ml-2">(Student)</span>
+      {/* Header Action */}
+      {complaints.length > 0 && (
+        <div className="flex justify-end mb-4">
+          <Button
+            variant="danger"
+            className="!py-1 !px-3 text-sm"
+            onClick={() => setIsConfirmingClear(true)}
+          >
+            Clear Complaint Log
+          </Button>
+        </div>
+      )}
+
+      {complaints.length === 0 ? (
+        <p className="text-center text-text-secondary-dark p-8">
+          There are no complaints from students to review.
+        </p>
+      ) : (
+        complaints.map((complaint) => (
+          <details
+            key={complaint.id}
+            className="bg-slate-50 p-4 rounded-lg"
+            open
+          >
+            <summary className="cursor-pointer font-semibold text-text-primary-dark flex justify-between items-center">
+              <div>
+                <span className="font-normal">Complaint by </span>
+                <strong>{complaint.raisedByName}</strong>
+                <span className="text-xs text-slate-500 ml-2">(Student)</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <span
+                  className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChip(
+                    complaint.status
+                  )}`}
+                >
+                  {complaint.status}
+                </span>
+                <span className="text-sm font-normal text-text-secondary-dark">
+                  {new Date(complaint.submittedAt).toLocaleString()}
+                </span>
+              </div>
+            </summary>
+            <div className="mt-4 pt-4 border-t border-slate-200">
+              <p className="text-sm text-text-primary-dark whitespace-pre-wrap">
+                {complaint.complaintText}
+              </p>
             </div>
-            <div className="flex items-center gap-4">
-              <span
-                className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChip(
-                  complaint.status
-                )}`}
-              >
-                {complaint.status}
-              </span>
-              <span className="text-sm font-normal text-text-secondary-dark">
-                {new Date(complaint.submittedAt).toLocaleString()}
-              </span>
-            </div>
-          </summary>
-          <div className="mt-4 pt-4 border-t border-slate-200">
-            <p className="text-sm text-text-primary-dark whitespace-pre-wrap">
-              {complaint.complaintText}
-            </p>
-          </div>
-        </details>
-      ))}
+          </details>
+        ))
+      )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={isConfirmingClear}
+        onClose={() => setIsConfirmingClear(false)}
+        onConfirm={handleClearHistory}
+        title="Clear Teacher Complaints"
+        message="Are you sure you want to delete ALL complaints raised by students? This cannot be undone."
+        confirmVariant="danger"
+        confirmText="Clear All"
+        isConfirming={isClearing}
+      />
     </div>
   );
 };
@@ -90,6 +138,10 @@ const ComplaintsAboutStudents: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+
+  // Clear History State
+  const [isConfirmingClear, setIsConfirmingClear] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -139,6 +191,20 @@ const ComplaintsAboutStudents: React.FC = () => {
     setEndDate("");
   };
 
+  const handleClearHistory = async () => {
+    setIsClearing(true);
+    try {
+      await apiService.clearStudentComplaints();
+      await fetchData();
+      setIsConfirmingClear(false);
+    } catch (error) {
+      console.error(error);
+      alert("Failed to clear discipline log.");
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   if (loading)
     return <p className="p-4 text-center">Loading discipline log...</p>;
 
@@ -169,6 +235,19 @@ const ComplaintsAboutStudents: React.FC = () => {
           Clear Filters
         </Button>
       </div>
+
+      {/* Clear Button */}
+      {complaints.length > 0 && (
+        <div className="flex justify-end mb-4">
+          <Button
+            variant="danger"
+            className="!py-1 !px-3 text-sm"
+            onClick={() => setIsConfirmingClear(true)}
+          >
+            Clear Discipline Log
+          </Button>
+        </div>
+      )}
 
       {filteredComplaints.length === 0 ? (
         <p className="text-center text-text-secondary-dark p-8">
@@ -225,6 +304,18 @@ const ComplaintsAboutStudents: React.FC = () => {
           ))}
         </div>
       )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={isConfirmingClear}
+        onClose={() => setIsConfirmingClear(false)}
+        onConfirm={handleClearHistory}
+        title="Clear Discipline Log"
+        message="Are you sure you want to delete ALL student discipline records? This cannot be undone."
+        confirmVariant="danger"
+        confirmText="Clear All"
+        isConfirming={isClearing}
+      />
     </div>
   );
 };
