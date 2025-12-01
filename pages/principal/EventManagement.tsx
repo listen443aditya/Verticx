@@ -536,9 +536,7 @@ const EventManagement: React.FC = () => {
                           {event.name}
                         </p>
                         <p className="text-xs text-text-secondary-dark">
-                          {new Date(
-                            event.date + "T00:00:00"
-                          ).toLocaleDateString("en-US", {
+                          {new Date(event.date).toLocaleDateString("en-US", {
                             weekday: "short",
                             month: "short",
                             day: "numeric",
