@@ -67,10 +67,10 @@ const RegistrarSidebarContent: React.FC<{ onClose?: () => void, onOpenProfile: (
         <aside className="w-64 bg-slate-800 text-slate-100 flex flex-col p-4 border-r border-slate-700 h-full">
             <div className="flex items-center justify-between mb-8 px-2">
                 <div className="flex items-center overflow-hidden">
-                    <div className="w-8 h-8 mr-3 flex-shrink-0">
+                    {/* <div className="w-8 h-8 mr-3 flex-shrink-0">
                         <VerticxLogo className="w-full h-full" />
-                    </div>
-                    <span className="text-xl font-bold text-white truncate min-w-0">VERTICX</span>
+                    </div> */}
+                    <span className="text-xl font-bold text-white truncate min-w-0">{user?.schoolName}</span>
                 </div>
                 {onClose && (
                     <button onClick={onClose} className="lg:hidden p-1 text-slate-300 hover:text-white">
