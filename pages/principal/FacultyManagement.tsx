@@ -387,66 +387,52 @@ const FacultyManagement: React.FC = () => {
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   // Data Fetching
- const fetchData = useCallback(async () => {
-   if (!user?.branchId) return;
-   setLoading(true);
-   try {
-     const [allStaff, applicationData, subjectData] = await Promise.all([
-       principalApiService.getStaff(),
-       principalApiService.getFacultyApplications(),
-       sharedApiService.getSubjectsByBranch(user.branchId).catch(() => []),
-     ]);
+const fetchData = useCallback(async () => {
+  if (!user?.branchId) return;
+  setLoading(true);
+  try {
+    const [allStaff, applicationData, subjectData] = await Promise.all([
+      principalApiService.getStaff(),
+      principalApiService.getFacultyApplications(),
+      sharedApiService.getSubjectsByBranch(user.branchId).catch(() => []),
+    ]);
 
-     const staffMap = new Map<string, string>();
-     allStaff.forEach((s) => {
-       staffMap.set(s.id, s.name); // Map database ID
-       if (s.userId) staffMap.set(s.userId, s.name); // Map readable UserID
-     });
-     const enrichedApplications = applicationData.map((app) => {
-       if (!app.submittedBy) {
-         console.log(`Debug App [${app.name}]:`, app);
-       }
+    const staffLookup: Record<string, string> = {};
 
-       let finalSubmitterName = app.submittedBy;
+    allStaff.forEach((staffMember) => {
+      staffLookup[staffMember.id] = staffMember.name;
+      if (staffMember.userId) {
+        staffLookup[staffMember.userId] = staffMember.name;
+      }
+    });
+    const fixedApplications = applicationData.map((app) => {
+      const rawValue =
+        app.submittedBy || (app as any).registrarId || (app as any).createdById;
+      const realName = staffLookup[rawValue] || rawValue;
 
-       if (!finalSubmitterName || staffMap.has(finalSubmitterName)) {
-         if (staffMap.has(finalSubmitterName)) {
-           finalSubmitterName = staffMap.get(finalSubmitterName)!;
-         }
-         else {
-           const hiddenId =
-             (app as any).submittedById ||
-             (app as any).registrarId ||
-             (app as any).userId;
-           if (hiddenId && staffMap.has(hiddenId)) {
-             finalSubmitterName = staffMap.get(hiddenId)!;
-           }
-         }
-       }
+      return {
+        ...app,
+        submittedBy: realName || "Unknown", 
+      };
+    });
+    setTeachers(allStaff.filter((u) => u.role === "Teacher"));
+    setSupportStaff(
+      allStaff.filter((u) => u.role !== "Teacher" && u.role !== "Principal")
+    );
 
-       return {
-         ...app,
-         submittedBy: finalSubmitterName,
-       };
-     });
-     setTeachers(allStaff.filter((u) => u.role === "Teacher"));
-     setSupportStaff(
-       allStaff.filter((u) => u.role !== "Teacher" && u.role !== "Principal")
-     );
-
-     setApplications(
-       enrichedApplications.sort(
-         (a, b) =>
-           new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
-       )
-     );
-     setSubjects(subjectData);
-   } catch (err) {
-     console.error("Failed to load data", err);
-   } finally {
-     setLoading(false);
-   }
- }, [user, refreshKey]);
+    setApplications(
+      fixedApplications.sort(
+        (a, b) =>
+          new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+      )
+    );
+    setSubjects(subjectData);
+  } catch (err) {
+    console.error("Failed to load data", err);
+  } finally {
+    setLoading(false);
+  }
+}, [user, refreshKey]);
 
   useEffect(() => {
     fetchData();
