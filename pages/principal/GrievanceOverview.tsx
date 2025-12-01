@@ -57,7 +57,7 @@ const ComplaintsAboutTeachers: React.FC = () => {
               ) : (
                 <span className="font-normal"> (General Complaint)</span>
               )}
-              <span className="font-normal"> by </span> {complaint.studentId}
+              <span className="font-normal"> by </span> {complaint.studentName}
             </div>
             <div className="flex items-center gap-4">
               <span
@@ -94,9 +94,7 @@ const ComplaintsAboutStudents: React.FC = () => {
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    // FIX: The method is now 'getComplaintsAboutStudents' and takes no arguments.
     const data = await apiService.getComplaintsAboutStudents();
-    // FIX: Added explicit types to sort parameters to satisfy TypeScript.
     setComplaints(
       data.sort(
         (a: ComplaintAboutStudent, b: ComplaintAboutStudent) =>
