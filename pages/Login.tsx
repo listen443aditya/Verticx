@@ -159,7 +159,7 @@ const LoginPage: React.FC = () => {
                         </Button>
                     </form>
                 </Card>
-                 <div className="mt-4 text-center">
+                 {/* <div className="mt-4 text-center">
                     <p className="text-sm text-text-secondary-dark mb-2">Quick Logins (Demo)</p>
                     <div className="flex flex-wrap justify-center gap-2">
                         <Button variant="secondary" className="text-xs !px-2 !py-1" onClick={() => quickLogin('superadmin@verticx.com', 'superadmin123')}>Super Admin</Button>
@@ -171,7 +171,7 @@ const LoginPage: React.FC = () => {
                         <Button variant="secondary" className="text-xs !px-2 !py-1" onClick={() => quickLogin('VRTX-STU-0001', 'student123')}>Student</Button>
                         <Button variant="secondary" className="text-xs !px-2 !py-1" onClick={() => quickLogin('parent.sarah@verticx.com', 'parent123')}>Parent</Button>
                     </div>
-                </div>
+                </div> */}
                 <p className="text-center text-sm text-text-secondary-dark mt-6">
                     Need to register your institution?{' '}
                     <button onClick={() => navigate('/landing')} className="font-semibold text-brand-accent hover:underline">
