@@ -387,53 +387,6 @@ const FacultyManagement: React.FC = () => {
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   // Data Fetching
-// const fetchData = useCallback(async () => {
-//   if (!user?.branchId) return;
-//   setLoading(true);
-//   try {
-//     const [allStaff, applicationData, subjectData] = await Promise.all([
-//       principalApiService.getStaff(),
-//       principalApiService.getFacultyApplications(),
-//       sharedApiService.getSubjectsByBranch(user.branchId).catch(() => []),
-//     ]);
-
-//     const staffLookup: Record<string, string> = {};
-
-//     allStaff.forEach((staffMember) => {
-//       staffLookup[staffMember.id] = staffMember.name;
-//       if (staffMember.userId) {
-//         staffLookup[staffMember.userId] = staffMember.name;
-//       }
-//     });
-//     const fixedApplications = applicationData.map((app) => {
-//       const rawValue =
-//         app.submittedBy || (app as any).registrarId || (app as any).createdById;
-//       const realName = staffLookup[rawValue] || rawValue;
-
-//       return {
-//         ...app,
-//         submittedBy: realName || "Unknown", 
-//       };
-//     });
-//     setTeachers(allStaff.filter((u) => u.role === "Teacher"));
-//     setSupportStaff(
-//       allStaff.filter((u) => u.role !== "Teacher" && u.role !== "Principal")
-//     );
-
-//     setApplications(
-//       fixedApplications.sort(
-//         (a, b) =>
-//           new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
-//       )
-//     );
-//     setSubjects(subjectData);
-//   } catch (err) {
-//     console.error("Failed to load data", err);
-//   } finally {
-//     setLoading(false);
-//   }
-// }, [user, refreshKey]);
-
 const fetchData = useCallback(async () => {
   if (!user?.branchId) return;
   setLoading(true);
@@ -444,32 +397,35 @@ const fetchData = useCallback(async () => {
       sharedApiService.getSubjectsByBranch(user.branchId).catch(() => []),
     ]);
 
-    // --- DEBUGGING LOGS (Please check your Browser Console F12) ---
-    console.log("🔍 DEBUG: Full Staff List (First Item):", allStaff[0]);
-    console.log("🔍 DEBUG: Application Data (First Item):", applicationData[0]);
+    const staffLookup: Record<string, string> = {};
 
-    // Check specifically what fields are available in the application
-    if (applicationData.length > 0) {
-      const app = applicationData[0];
-      console.log("Checking keys for Submitted By:", {
-        submittedBy: app.submittedBy,
-        // Check hidden fields
-        submittedById: (app as any).submittedById,
-        registrarId: (app as any).registrarId,
-        createdById: (app as any).createdById,
-        userId: (app as any).userId,
-      });
-    }
-    // -------------------------------------------------------------
+    allStaff.forEach((staffMember) => {
+      staffLookup[staffMember.id] = staffMember.name;
+      if (staffMember.userId) {
+        staffLookup[staffMember.userId] = staffMember.name;
+      }
+    });
+    const fixedApplications = applicationData.map((app) => {
+      const rawValue =
+        app.submittedBy || (app as any).registrarId || (app as any).createdById;
+      const realName = staffLookup[rawValue] || rawValue;
 
-    // ... rest of your existing logic (setTeachers, setSupportStaff, etc) ...
-
-    // Keep the rest of the function the same for now so the page doesn't crash
+      return {
+        ...app,
+        submittedBy: realName || "Unknown", 
+      };
+    });
     setTeachers(allStaff.filter((u) => u.role === "Teacher"));
     setSupportStaff(
       allStaff.filter((u) => u.role !== "Teacher" && u.role !== "Principal")
     );
-    setApplications(applicationData);
+
+    setApplications(
+      fixedApplications.sort(
+        (a, b) =>
+          new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+      )
+    );
     setSubjects(subjectData);
   } catch (err) {
     console.error("Failed to load data", err);
@@ -477,6 +433,7 @@ const fetchData = useCallback(async () => {
     setLoading(false);
   }
 }, [user, refreshKey]);
+
 
 
   useEffect(() => {
