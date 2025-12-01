@@ -627,7 +627,6 @@ export interface TeacherComplaint {
 }
 export type ComplaintStatus = "Open" | "UnderReview" | "Resolved" | "Closed";
 
-// Add this interface to define the shape of a Complaint object
 export interface Complaint {
   id: string;
   complaintText: string;
@@ -638,7 +637,6 @@ export interface Complaint {
   raisedByName: string;
   raisedByRole: string;
   branchId: string;
-
   // This comes from the `include` in your backend Prisma query
   student: {
     name: string;

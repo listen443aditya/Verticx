@@ -1,27 +1,30 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth.ts";
-// FIX: Corrected the import to use the Class, not the instance.
 import { PrincipalApiService } from "../../services";
-import type { TeacherComplaint, ComplaintAboutStudent } from "../../types.ts";
+// FIX: Import the correct 'Complaint' type that matches your Prisma model
+import type { Complaint, ComplaintAboutStudent } from "../../types.ts";
 import Card from "../../components/ui/Card.tsx";
 import Input from "../../components/ui/Input.tsx";
 import { AlertTriangleIcon } from "../../components/icons/Icons.tsx";
 import Button from "../../components/ui/Button.tsx";
 
-// Create a single instance of the service.
 const apiService = new PrincipalApiService();
 
 const ComplaintsAboutTeachers: React.FC = () => {
   const { user } = useAuth();
-  const [complaints, setComplaints] = useState<TeacherComplaint[]>([]);
+  // FIX: Use Complaint[] type instead of TeacherComplaint[]
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-  
     const data = await apiService.getTeacherComplaints();
-    setComplaints(data);
+    const studentComplaints = (data as unknown as Complaint[]).filter(
+      (c) => c.raisedByRole === "Student"
+    );
+
+    setComplaints(studentComplaints);
     setLoading(false);
   }, [user]);
 
@@ -29,7 +32,7 @@ const ComplaintsAboutTeachers: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
-  const getStatusChip = (status: "Open" | "Resolved by Student") => {
+  const getStatusChip = (status: string) => {
     return status === "Open"
       ? "bg-yellow-100 text-yellow-800"
       : "bg-green-100 text-green-800";
@@ -47,17 +50,8 @@ const ComplaintsAboutTeachers: React.FC = () => {
         <details key={complaint.id} className="bg-slate-50 p-4 rounded-lg" open>
           <summary className="cursor-pointer font-semibold text-text-primary-dark flex justify-between items-center">
             <div>
-              {complaint.subject} -
-              {complaint.teacherName ? (
-                <>
-                  {" "}
-                  <span className="font-normal"> against </span>{" "}
-                  {complaint.teacherName}
-                </>
-              ) : (
-                <span className="font-normal"> (General Complaint)</span>
-              )}
-              <span className="font-normal"> by </span> {complaint.studentName}
+              <span className="font-normal">Complaint by </span>
+              <strong>{complaint.raisedByName}</strong>
             </div>
             <div className="flex items-center gap-4">
               <span
@@ -95,6 +89,7 @@ const ComplaintsAboutStudents: React.FC = () => {
     if (!user) return;
     setLoading(true);
     const data = await apiService.getComplaintsAboutStudents();
+
     setComplaints(
       data.sort(
         (a: ComplaintAboutStudent, b: ComplaintAboutStudent) =>
@@ -120,8 +115,10 @@ const ComplaintsAboutStudents: React.FC = () => {
     return complaints.filter((c) => {
       const matchesSearch =
         !searchTerm ||
-        c.studentName.toLowerCase().includes(lowercasedTerm) ||
-        c.raisedByName.toLowerCase().includes(lowercasedTerm) ||
+        (c.studentName &&
+          c.studentName.toLowerCase().includes(lowercasedTerm)) ||
+        (c.raisedByName &&
+          c.raisedByName.toLowerCase().includes(lowercasedTerm)) ||
         c.complaintText.toLowerCase().includes(lowercasedTerm);
 
       const complaintDate = new Date(c.submittedAt);
@@ -188,7 +185,7 @@ const ComplaintsAboutStudents: React.FC = () => {
                     <p className="font-bold text-red-800">
                       Complaint against:{" "}
                       <span className="text-brand-secondary">
-                        {complaint.studentName}
+                        {complaint.studentName || "Unknown Student"}
                       </span>
                     </p>
                     <p className="text-xs text-red-700">
