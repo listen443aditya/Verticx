@@ -780,7 +780,6 @@ const CtaSection: React.FC = () => (
 );
 
 const ContactSection: React.FC = () => {
-  // FIX: State now includes registrationId and phone, and removes password.
   const [formData, setFormData] = useState({
     schoolName: "",
     registrationId: "",
@@ -866,7 +865,6 @@ const ContactSection: React.FC = () => {
               onChange={handleChange}
               required
             />
-            {/* FIX: registrationId field is now part of the form */}
             <Input
               name="registrationId"
               label="School Registration ID"
@@ -889,7 +887,6 @@ const ContactSection: React.FC = () => {
               onChange={handleChange}
               required
             />
-            {/* FIX: phone field is now part of the form */}
             <Input
               name="phone"
               label="Contact Phone Number"

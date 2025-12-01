@@ -13,23 +13,23 @@ export const DashboardIcon: React.FC<IconProps> = ({ className }) => (
 );
 
 export const VerticxLogo: React.FC<IconProps> = ({ className }) => (
-    <svg
-        className={className}
-        viewBox="0 0 48 48"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        xmlnsXlink="http://www.w3.org/1999/xlink"
-        role="img"
-        aria-label="Verticx Logo"
-    >
-        <image 
-            href="data:image/png;base64,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" 
-            height="48" 
-            width="48"
-            x="0"
-            y="0"
-        />
-    </svg>
+  <svg
+    className={className}
+    viewBox="0 0 48 48"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    xmlnsXlink="http://www.w3.org/1999/xlink"
+    role="img"
+    aria-label="Verticx Logo"
+  >
+    <image
+      href="/verticx.png"
+      height="48"
+      width="48"
+      x="0"
+      y="0"
+    />
+  </svg>
 );
 
 export const LogoutIcon: React.FC<IconProps> = ({ className }) => (
