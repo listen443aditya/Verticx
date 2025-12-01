@@ -1,5 +1,5 @@
 // pages/Login.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth.ts";
 import { VerticxLogo } from "../components/icons/Icons.tsx";
@@ -7,43 +7,44 @@ import Button from "../components/ui/Button.tsx";
 import Input from "../components/ui/Input.tsx";
 import type { User, UserRole } from "../types.ts";
 
+// CSS for the Solar System Animation
 const styles = `
-  @keyframes blob {
-    0% { transform: translate(0px, 0px) scale(1); }
-    33% { transform: translate(30px, -50px) scale(1.1); }
-    66% { transform: translate(-20px, 20px) scale(0.9); }
-    100% { transform: translate(0px, 0px) scale(1); }
+  @keyframes orbit-spin {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
   }
+  
+  .orbit-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 1px dashed rgba(203, 213, 225, 0.6); /* Slate-300 transparent */
+    pointer-events: none; /* Let clicks pass through to the form */
+  }
+
+  .planet {
+    position: absolute;
+    top: -6px; /* Offset to sit on the line */
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
+  }
+
+  .orbit-1 { width: 300px; height: 300px; animation: orbit-spin 20s linear infinite; }
+  .orbit-2 { width: 500px; height: 500px; animation: orbit-spin 35s linear infinite reverse; }
+  .orbit-3 { width: 700px; height: 700px; animation: orbit-spin 50s linear infinite; }
+  .orbit-4 { width: 950px; height: 950px; animation: orbit-spin 70s linear infinite reverse; }
+
+  /* Entry Animation */
   @keyframes fadeInUp {
     from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
   }
-  .animate-blob {
-    animation: blob 7s infinite;
-  }
-  .animation-delay-2000 {
-    animation-delay: 2s;
-  }
-  .animation-delay-4000 {
-    animation-delay: 4s;
-  }
-  .animate-fade-in-up {
+  .animate-enter {
     animation: fadeInUp 0.6s ease-out forwards;
-    opacity: 0;
-  }
-  .delay-100 { animation-delay: 0.1s; }
-  .delay-200 { animation-delay: 0.2s; }
-  .delay-300 { animation-delay: 0.3s; }
-  
-  /* Glassmorphism Input overrides if your Input component supports className appending */
-  .glass-input input {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.1);
-    color: white;
-  }
-  .glass-input input:focus {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: #6366f1; /* Indigo-500 */
   }
 `;
 
@@ -139,68 +140,85 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="relative min-h-screen bg-slate-900 flex items-center justify-center p-4 overflow-hidden font-sans">
+    <div className="relative min-h-screen bg-slate-50 flex items-center justify-center p-4 overflow-hidden font-sans text-slate-800">
       <style>{styles}</style>
 
-      {/* --- Animated Background Blobs --- */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
-        <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-[128px] opacity-40 animate-blob"></div>
-        <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-indigo-500 rounded-full mix-blend-multiply filter blur-[128px] opacity-40 animate-blob animation-delay-2000"></div>
-        <div className="absolute bottom-[-20%] left-[20%] w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-[128px] opacity-40 animate-blob animation-delay-4000"></div>
+      {/* --- Solar System Background --- */}
+      <div className="absolute inset-0 z-0 overflow-hidden">
+        {/* Sun (Center Glow) */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-100 rounded-full blur-3xl opacity-50"></div>
+
+        {/* Orbit 1 (Smallest) - Mercury */}
+        <div className="orbit-container orbit-1">
+          <div className="planet w-3 h-3 bg-indigo-500"></div>
+        </div>
+
+        {/* Orbit 2 - Venus */}
+        <div className="orbit-container orbit-2">
+          <div className="planet w-4 h-4 bg-purple-500"></div>
+        </div>
+
+        {/* Orbit 3 - Earth */}
+        <div className="orbit-container orbit-3">
+          <div className="planet w-5 h-5 bg-blue-500"></div>
+        </div>
+
+        {/* Orbit 4 (Largest) - Mars */}
+        <div className="orbit-container orbit-4">
+          <div className="planet w-6 h-6 bg-orange-400"></div>
+        </div>
       </div>
 
-      {/* --- Glass Card Container --- */}
-      <div className="relative z-10 w-full max-w-md">
-        {/* Logo Section */}
-        <div className="text-center mb-8 animate-fade-in-up">
-          <div className="inline-block p-4 rounded-full bg-white/5 backdrop-blur-sm shadow-xl ring-1 ring-white/10 mb-4 transition-transform hover:scale-105 duration-300">
-            <VerticxLogo className="w-16 h-16 text-indigo-400" />
+      {/* --- Login Card --- */}
+      <div className="relative z-10 w-full max-w-md animate-enter">
+        {/* Header Section */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center p-3 bg-white rounded-xl shadow-md mb-4 ring-1 ring-slate-100">
+            <VerticxLogo className="w-12 h-12 text-indigo-600" />
           </div>
-          <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-purple-200 to-indigo-200 tracking-tight">
-            VERTICX
+          <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
+            Welcome to VERTICX
           </h1>
-          <p className="text-indigo-200/60 text-sm mt-2 font-medium tracking-wide uppercase">
-            School Management Ecosystem
+          <p className="text-slate-500 mt-2 text-sm">
+            School Management System
           </p>
         </div>
 
-        {/* The "Card" - Replaced standard Card with a custom Glass Div for this page */}
-        <div className="bg-white/10 backdrop-blur-lg border border-white/20 shadow-2xl rounded-3xl p-8 animate-fade-in-up delay-100">
+        {/* Card Container */}
+        <div className="bg-white/80 backdrop-blur-md border border-white/50 shadow-xl rounded-2xl p-8 ring-1 ring-slate-200/50">
           {/* View: OTP Screen */}
           {showOtpScreen ? (
-            <div className="animate-fade-in-up">
-              <h2 className="text-xl font-semibold text-white text-center mb-2">
+            <div className="animate-enter">
+              <h2 className="text-xl font-semibold text-slate-800 text-center mb-2">
                 Two-Factor Authentication
               </h2>
-              <p className="text-indigo-200/70 text-center text-sm mb-6">
+              <p className="text-slate-500 text-center text-sm mb-6">
                 Enter the 6-digit code sent to your device.
               </p>
 
               <form onSubmit={handleVerifyOtp} className="space-y-6">
                 {error && (
-                  <div className="p-3 rounded-lg bg-red-500/20 border border-red-500/30 text-red-200 text-sm text-center animate-pulse">
+                  <div className="p-3 rounded-lg bg-red-50 text-red-600 text-sm text-center border border-red-100">
                     {error}
                   </div>
                 )}
-                <div className="glass-input">
-                  <Input
-                    label="Verification Code"
-                    id="otp"
-                    type="text"
-                    value={otp}
-                    onChange={(e) =>
-                      setOtp(e.target.value.replace(/[^0-9]/g, ""))
-                    }
-                    required
-                    maxLength={6}
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    className="text-center tracking-[0.5em] font-bold text-xl bg-black/20 border-white/10 text-white focus:ring-indigo-500 focus:border-indigo-500 placeholder-transparent"
-                  />
-                </div>
+                <Input
+                  label="Verification Code"
+                  id="otp"
+                  type="text"
+                  value={otp}
+                  onChange={(e) =>
+                    setOtp(e.target.value.replace(/[^0-9]/g, ""))
+                  }
+                  required
+                  maxLength={6}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  className="text-center tracking-[0.5em] font-bold text-xl bg-slate-50 border-slate-200 text-slate-800 focus:ring-indigo-500 focus:border-indigo-500"
+                />
                 <Button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-500/30 transition-all hover:shadow-indigo-500/50 hover:-translate-y-0.5"
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl shadow-md shadow-indigo-200 transition-all"
                   disabled={loading}
                 >
                   {loading ? "Verifying..." : "Verify & Sign In"}
@@ -209,7 +227,7 @@ const LoginPage: React.FC = () => {
               <div className="mt-6 text-center">
                 <button
                   onClick={handleBackToLogin}
-                  className="text-sm text-indigo-300 hover:text-white transition-colors"
+                  className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
                 >
                   ← Back to login
                 </button>
@@ -217,12 +235,9 @@ const LoginPage: React.FC = () => {
             </div>
           ) : (
             /* View: Login Screen */
-            <form
-              onSubmit={handleLogin}
-              className="space-y-5 animate-fade-in-up delay-200"
-            >
+            <form onSubmit={handleLogin} className="space-y-5">
               {error && (
-                <div className="p-3 rounded-lg bg-red-500/20 border border-red-500/30 text-red-200 text-sm text-center animate-pulse">
+                <div className="p-3 rounded-lg bg-red-50 text-red-600 text-sm text-center border border-red-100">
                   {error}
                 </div>
               )}
@@ -234,7 +249,7 @@ const LoginPage: React.FC = () => {
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   required
-                  className="bg-black/20 border-white/10 text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all duration-300"
+                  className="bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                 />
                 <div className="relative">
                   <Input
@@ -244,18 +259,15 @@ const LoginPage: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="bg-black/20 border-white/10 text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all duration-300"
+                    className="bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                   />
-                  <div className="absolute right-0 top-0 mt-[-2px]">
-                    {/* Optional: Add Forgot Password link here later */}
-                  </div>
                 </div>
               </div>
 
               <div className="pt-2">
                 <Button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-500/30 transition-all hover:shadow-indigo-500/50 hover:-translate-y-0.5"
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-indigo-200 transition-all hover:-translate-y-0.5"
                   disabled={loading}
                 >
                   {loading ? (
@@ -292,11 +304,11 @@ const LoginPage: React.FC = () => {
         </div>
 
         {/* Footer Link */}
-        <p className="text-center text-sm text-indigo-200/50 mt-8 animate-fade-in-up delay-300">
+        <p className="text-center text-sm text-slate-500 mt-8">
           Need to register your institution?{" "}
           <button
             onClick={() => navigate("/landing")}
-            className="font-semibold text-indigo-300 hover:text-white transition-colors hover:underline decoration-indigo-500 underline-offset-4"
+            className="font-semibold text-indigo-600 hover:text-indigo-800 hover:underline"
           >
             Register here
           </button>
