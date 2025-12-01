@@ -38,42 +38,82 @@ const LibrarianSidebarContent: React.FC<{ onClose?: () => void, onOpenProfile: (
         }`;
 
     return (
-        <aside className="w-64 bg-slate-800 text-slate-100 flex flex-col p-4 border-r border-slate-700 h-full">
-            <div className="flex items-center justify-between mb-8 px-2">
-                <div className="flex items-center overflow-hidden">
-                    <div className="w-8 h-8 mr-3 flex-shrink-0">
+      <aside className="w-64 bg-slate-800 text-slate-100 flex flex-col p-4 border-r border-slate-700 h-full">
+        <div className="flex items-center justify-between mb-8 px-2">
+          <div className="flex items-center overflow-hidden">
+            {/* <div className="w-8 h-8 mr-3 flex-shrink-0">
                         <VerticxLogo className="w-full h-full" />
                     </div>
-                    <span className="text-xl font-bold text-white truncate min-w-0">VERTICX</span>
-                </div>
-                {onClose && (
-                    <button onClick={onClose} className="lg:hidden p-1 text-slate-300 hover:text-white">
-                        <XIcon className="w-6 h-6" />
-                    </button>
-                )}
+                    <span className="text-xl font-bold text-white truncate min-w-0">VERTICX</span> */}
+            <span className="text-xl font-bold text-white truncate min-w-0">
+              {user?.schoolName}
+            </span>
+          </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="lg:hidden p-1 text-slate-300 hover:text-white"
+            >
+              <XIcon className="w-6 h-6" />
+            </button>
+          )}
+        </div>
+        <nav className="flex-1 space-y-2">
+          <NavLink to="/librarian/dashboard" className={navLinkClasses}>
+            <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+              <DashboardIcon className="w-full h-full" />
             </div>
-            <nav className="flex-1 space-y-2">
-                <NavLink to="/librarian/dashboard" className={navLinkClasses}><div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><DashboardIcon className="w-full h-full" /></div><span className="truncate min-w-0">Dashboard</span></NavLink>
-                <NavLink to="/librarian/books" className={navLinkClasses}><div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><LibraryIcon className="w-full h-full" /></div><span className="truncate min-w-0">Book Catalog</span></NavLink>
-                <NavLink to="/librarian/issuance" className={navLinkClasses}><div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><MoveIcon className="w-full h-full" /></div><span className="truncate min-w-0">Issue & Returns</span></NavLink>
-                <NavLink to="/librarian/my-attendance" className={navLinkClasses}><div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><AttendanceIcon className="w-full h-full" /></div><span className="truncate min-w-0">My Attendance</span></NavLink>
-                <NavLink to="/librarian/apply-leave" className={navLinkClasses}><div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><FileTextIcon className="w-full h-full" /></div><span className="truncate min-w-0">Apply for Leave</span></NavLink>
-            </nav>
-            <div className="mt-auto">
-                <button
-                    onClick={onOpenProfile}
-                    className="w-full text-left px-4 py-3 mb-2 border-t border-slate-700 hover:bg-slate-700 rounded-lg transition-colors focus:outline-none"
-                    aria-label="Open user profile modal"
-                >
-                    <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
-                    <p className="text-xs text-slate-400 truncate">{user?.role} ({user?.schoolName})</p>
-                </button>
-                <button onClick={handleLogout} className="flex items-center w-full px-4 py-3 text-sm font-medium text-slate-300 hover:bg-red-800 hover:text-white rounded-lg transition-colors duration-200">
-                    <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0"><LogoutIcon className="w-full h-full" /></div>
-                    <span className="truncate min-w-0">Logout</span>
-                </button>
+            <span className="truncate min-w-0">Dashboard</span>
+          </NavLink>
+          <NavLink to="/librarian/books" className={navLinkClasses}>
+            <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+              <LibraryIcon className="w-full h-full" />
             </div>
-        </aside>
+            <span className="truncate min-w-0">Book Catalog</span>
+          </NavLink>
+          <NavLink to="/librarian/issuance" className={navLinkClasses}>
+            <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+              <MoveIcon className="w-full h-full" />
+            </div>
+            <span className="truncate min-w-0">Issue & Returns</span>
+          </NavLink>
+          <NavLink to="/librarian/my-attendance" className={navLinkClasses}>
+            <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+              <AttendanceIcon className="w-full h-full" />
+            </div>
+            <span className="truncate min-w-0">My Attendance</span>
+          </NavLink>
+          <NavLink to="/librarian/apply-leave" className={navLinkClasses}>
+            <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+              <FileTextIcon className="w-full h-full" />
+            </div>
+            <span className="truncate min-w-0">Apply for Leave</span>
+          </NavLink>
+        </nav>
+        <div className="mt-auto">
+          <button
+            onClick={onOpenProfile}
+            className="w-full text-left px-4 py-3 mb-2 border-t border-slate-700 hover:bg-slate-700 rounded-lg transition-colors focus:outline-none"
+            aria-label="Open user profile modal"
+          >
+            <p className="text-sm font-semibold text-white truncate">
+              {user?.name}
+            </p>
+            <p className="text-xs text-slate-400 truncate">
+              {user?.role} ({user?.schoolName})
+            </p>
+          </button>
+          <button
+            onClick={handleLogout}
+            className="flex items-center w-full px-4 py-3 text-sm font-medium text-slate-300 hover:bg-red-800 hover:text-white rounded-lg transition-colors duration-200"
+          >
+            <div className="w-4 h-4 mr-3 flex items-center justify-center flex-shrink-0">
+              <LogoutIcon className="w-full h-full" />
+            </div>
+            <span className="truncate min-w-0">Logout</span>
+          </button>
+        </div>
+      </aside>
     );
 };
 
