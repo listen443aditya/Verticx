@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth.ts";
 import { PrincipalApiService } from "../../services";
-// FIX: Import the correct 'Complaint' type that matches your Prisma model
-import type { Complaint, ComplaintAboutStudent } from "../../types.ts";
+import type { Complaint } from "../../types.ts";
 import Card from "../../components/ui/Card.tsx";
 import Input from "../../components/ui/Input.tsx";
 import { AlertTriangleIcon } from "../../components/icons/Icons.tsx";
@@ -10,22 +9,27 @@ import Button from "../../components/ui/Button.tsx";
 
 const apiService = new PrincipalApiService();
 
+// --- COMPONENT: Complaints About Teachers ---
 const ComplaintsAboutTeachers: React.FC = () => {
   const { user } = useAuth();
-  // FIX: Use Complaint[] type instead of TeacherComplaint[]
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const data = await apiService.getTeacherComplaints();
-    const studentComplaints = (data as unknown as Complaint[]).filter(
-      (c) => c.raisedByRole === "Student"
-    );
-
-    setComplaints(studentComplaints);
-    setLoading(false);
+    try {
+      const data = await apiService.getTeacherComplaints();
+      // Filter: Only show complaints raised BY students
+      const studentComplaints = (data as unknown as Complaint[]).filter(
+        (c) => c.raisedByRole === "Student"
+      );
+      setComplaints(studentComplaints);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => {
@@ -38,7 +42,7 @@ const ComplaintsAboutTeachers: React.FC = () => {
       : "bg-green-100 text-green-800";
   };
 
-  if (loading) return <p>Loading complaints...</p>;
+  if (loading) return <p className="p-4 text-center">Loading complaints...</p>;
 
   return complaints.length === 0 ? (
     <p className="text-center text-text-secondary-dark p-8">
@@ -52,6 +56,7 @@ const ComplaintsAboutTeachers: React.FC = () => {
             <div>
               <span className="font-normal">Complaint by </span>
               <strong>{complaint.raisedByName}</strong>
+              <span className="text-xs text-slate-500 ml-2">(Student)</span>
             </div>
             <div className="flex items-center gap-4">
               <span
@@ -77,9 +82,10 @@ const ComplaintsAboutTeachers: React.FC = () => {
   );
 };
 
+// --- COMPONENT: Complaints About Students (Discipline) ---
 const ComplaintsAboutStudents: React.FC = () => {
   const { user } = useAuth();
-  const [complaints, setComplaints] = useState<ComplaintAboutStudent[]>([]);
+  const [complaints, setComplaints] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -88,15 +94,14 @@ const ComplaintsAboutStudents: React.FC = () => {
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const data = await apiService.getComplaintsAboutStudents();
-
-    setComplaints(
-      data.sort(
-        (a: ComplaintAboutStudent, b: ComplaintAboutStudent) =>
-          new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
-      )
-    );
-    setLoading(false);
+    try {
+      const data = await apiService.getComplaintsAboutStudents();
+      setComplaints(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => {
@@ -105,10 +110,8 @@ const ComplaintsAboutStudents: React.FC = () => {
 
   const filteredComplaints = useMemo(() => {
     const lowercasedTerm = searchTerm.toLowerCase();
-
     const start = startDate ? new Date(startDate) : null;
     if (start) start.setHours(0, 0, 0, 0);
-
     const end = endDate ? new Date(endDate) : null;
     if (end) end.setHours(23, 59, 59, 999);
 
@@ -119,7 +122,8 @@ const ComplaintsAboutStudents: React.FC = () => {
           c.studentName.toLowerCase().includes(lowercasedTerm)) ||
         (c.raisedByName &&
           c.raisedByName.toLowerCase().includes(lowercasedTerm)) ||
-        c.complaintText.toLowerCase().includes(lowercasedTerm);
+        (c.complaintText &&
+          c.complaintText.toLowerCase().includes(lowercasedTerm));
 
       const complaintDate = new Date(c.submittedAt);
       const matchesDate =
@@ -135,14 +139,15 @@ const ComplaintsAboutStudents: React.FC = () => {
     setEndDate("");
   };
 
-  if (loading) return <p>Loading complaint log...</p>;
+  if (loading)
+    return <p className="p-4 text-center">Loading discipline log...</p>;
 
   return (
     <div>
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6 items-end">
         <Input
           label="Search Keywords"
-          placeholder="Student, teacher, etc..."
+          placeholder="Student name, teacher, or issue..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="md:col-span-2"
@@ -167,7 +172,7 @@ const ComplaintsAboutStudents: React.FC = () => {
 
       {filteredComplaints.length === 0 ? (
         <p className="text-center text-text-secondary-dark p-8">
-          No complaints found matching your criteria.
+          No discipline records found matching your criteria.
         </p>
       ) : (
         <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
@@ -180,25 +185,41 @@ const ComplaintsAboutStudents: React.FC = () => {
                 <AlertTriangleIcon className="w-6 h-6" />
               </div>
               <div className="flex-grow">
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center mb-1">
                   <div>
-                    <p className="font-bold text-red-800">
-                      Complaint against:{" "}
-                      <span className="text-brand-secondary">
-                        {complaint.studentName || "Unknown Student"}
+                    <p className="font-bold text-red-800 text-lg">
+                      Against:{" "}
+                      <span className="text-red-950">
+                        {complaint.studentName}
                       </span>
+                      {complaint.studentClass && (
+                        <span className="text-sm font-normal text-red-700 ml-2">
+                          ({complaint.studentClass})
+                        </span>
+                      )}
                     </p>
-                    <p className="text-xs text-red-700">
-                      By: {complaint.raisedByName} ({complaint.raisedByRole})
+                    <p className="text-xs text-red-700 mt-1">
+                      Reported By: <strong>{complaint.raisedByName}</strong> (
+                      {complaint.raisedByRole})
                     </p>
                   </div>
-                  <p className="text-xs text-red-600">
-                    {new Date(complaint.submittedAt).toLocaleString()}
+                  <div className="text-right">
+                    <p className="text-xs text-red-600 font-medium">
+                      {new Date(complaint.submittedAt).toLocaleDateString()}
+                    </p>
+                    <p className="text-xs text-red-500">
+                      {new Date(complaint.submittedAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-red-200/50">
+                  <p className="text-sm text-red-900 whitespace-pre-wrap leading-relaxed">
+                    {complaint.complaintText}
                   </p>
                 </div>
-                <p className="mt-2 text-sm text-red-900 whitespace-pre-wrap">
-                  {complaint.complaintText}
-                </p>
               </div>
             </div>
           ))}
@@ -208,6 +229,7 @@ const ComplaintsAboutStudents: React.FC = () => {
   );
 };
 
+// --- MAIN PAGE ---
 const GrievanceOverview: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"aboutTeachers" | "aboutStudents">(
     "aboutTeachers"
