@@ -7,14 +7,6 @@ import Button from "../components/ui/Button.tsx";
 import Input from "../components/ui/Input.tsx";
 import type { User, UserRole } from "../types.ts";
 
-// --- Types for Vanta (to satisfy TypeScript) ---
-declare global {
-  interface Window {
-    VANTA: any;
-    THREE: any;
-  }
-}
-
 // --- Icons ---
 const EyeIcon = ({ className }: { className?: string }) => (
   <svg
@@ -33,7 +25,6 @@ const EyeIcon = ({ className }: { className?: string }) => (
     <circle cx="12" cy="12" r="3" />
   </svg>
 );
-
 const EyeOffIcon = ({ className }: { className?: string }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -55,9 +46,8 @@ const EyeOffIcon = ({ className }: { className?: string }) => (
 );
 
 const LoginPage: React.FC = () => {
-  // Refs for Vanta
-  const vantaRef = useRef<HTMLDivElement>(null);
-  const [vantaEffect, setVantaEffect] = useState<any>(null);
+  // --- CANVAS ANIMATION REF ---
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Form State
   const [identifier, setIdentifier] = useState("VRTX-REG-001");
@@ -66,75 +56,142 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Auth & Nav
   const { login, verifyOtpAndLogin } = useAuth();
   const navigate = useNavigate();
-
-  // 2FA State
   const [showOtpScreen, setShowOtpScreen] = useState(false);
   const [pendingUser, setPendingUser] = useState<User | null>(null);
   const [otp, setOtp] = useState("");
 
-  // --- SENIOR DEV LOGIC: Vanta Effect Initialization ---
+  // --- CUSTOM ANIMATION LOGIC: VERTICX NETWORK ---
   useEffect(() => {
-    // 1. Helper to load scripts sequentially
-    const loadScript = (src: string) => {
-      return new Promise((resolve, reject) => {
-        if (document.querySelector(`script[src="${src}"]`)) {
-          resolve(true); // Already loaded
-          return;
-        }
-        const script = document.createElement("script");
-        script.src = src;
-        script.async = true;
-        script.onload = () => resolve(true);
-        script.onerror = reject;
-        document.body.appendChild(script);
-      });
-    };
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    // 2. Load Three.js first, then Vanta
-    const initVanta = async () => {
-      try {
-        // Load Three.js (Must be r134 or similar for Vanta)
-        await loadScript(
-          "https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"
-        );
-        // Load Vanta Globe
-        await loadScript(
-          "https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.globe.min.js"
-        );
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-        // 3. Initialize Effect on the Ref
-        if (!vantaEffect && vantaRef.current && window.VANTA) {
-          setVantaEffect(
-            window.VANTA.GLOBE({
-              el: vantaRef.current,
-              mouseControls: true,
-              touchControls: true,
-              gyroControls: false,
-              minHeight: 200.0,
-              minWidth: 200.0,
-              scale: 1.0,
-              scaleMobile: 1.0,
-              // YOUR CUSTOM COLORS
-              color: 0x1c231a, // Dark Greenish
-              color2: 0x612525, // Dark Reddish
-              backgroundColor: 0xa7a7c2, // Light Grey-Purple
-            })
-          );
-        }
-      } catch (error) {
-        console.error("Failed to load Vanta scripts", error);
+    let animationFrameId: number;
+    let w = (canvas.width = window.innerWidth);
+    let h = (canvas.height = window.innerHeight);
+
+    // Configuration
+    const particleCount = 70; // Number of dots
+    const connectionDistance = 140; // Max distance to draw lines
+    const mouseDistance = 200; // Interaction radius
+
+    // Particle Class
+    class Particle {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      size: number;
+
+      constructor() {
+        this.x = Math.random() * w;
+        this.y = Math.random() * h;
+        // Random velocity
+        this.vx = (Math.random() - 0.5) * 0.5;
+        this.vy = (Math.random() - 0.5) * 0.5;
+        this.size = Math.random() * 2 + 1;
       }
+
+      update(mouse: { x: number; y: number }) {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Bounce off edges
+        if (this.x < 0 || this.x > w) this.vx *= -1;
+        if (this.y < 0 || this.y > h) this.vy *= -1;
+
+        // Mouse Interaction (Gentle repulsion)
+        const dx = mouse.x - this.x;
+        const dy = mouse.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < mouseDistance) {
+          const forceDirectionX = dx / distance;
+          const forceDirectionY = dy / distance;
+          const force = (mouseDistance - distance) / mouseDistance;
+          // Push away slightly
+          this.vx -= forceDirectionX * force * 0.05;
+          this.vy -= forceDirectionY * force * 0.05;
+        }
+      }
+
+      draw() {
+        if (!ctx) return;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = "#4f46e5"; // Indigo-600
+        ctx.fill();
+      }
+    }
+
+    // Initialize Particles
+    const particles: Particle[] = [];
+    for (let i = 0; i < particleCount; i++) {
+      particles.push(new Particle());
+    }
+
+    let mouse = { x: -1000, y: -1000 };
+
+    const animate = () => {
+      if (!ctx) return;
+      ctx.clearRect(0, 0, w, h);
+
+      // Draw connecting lines first (behind dots)
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < connectionDistance) {
+            ctx.beginPath();
+            const opacity = 1 - distance / connectionDistance;
+            ctx.strokeStyle = `rgba(79, 70, 229, ${opacity * 0.4})`; // Indigo lines
+            ctx.lineWidth = 1;
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Update and draw particles
+      particles.forEach((p) => {
+        p.update(mouse);
+        p.draw();
+      });
+
+      animationFrameId = requestAnimationFrame(animate);
     };
 
-    initVanta();
+    animate();
 
-    // 4. Cleanup: Destroy effect when component unmounts
+    // Event Listeners
+    const handleResize = () => {
+      w = canvas.width = window.innerWidth;
+      h = canvas.height = window.innerHeight;
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    };
+
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("mousemove", handleMouseMove);
+
+    // Cleanup
     return () => {
-      if (vantaEffect) vantaEffect.destroy();
+      cancelAnimationFrame(animationFrameId);
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("mousemove", handleMouseMove);
     };
-  }, [vantaEffect]);
+  }, []);
 
   const navigateToPortal = (userRole: UserRole) => {
     switch (userRole) {
@@ -215,38 +272,42 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    // Attach the Ref here for the Background
-    <div
-      ref={vantaRef}
-      className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden font-sans text-slate-800"
-    >
-      {/* --- Login Card (Glassmorphism to see the Globe) --- */}
-      <div className="relative z-10 w-full max-w-md animate-enter">
+    <div className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden font-sans text-slate-800 bg-slate-50">
+      {/* --- CUSTOM CANVAS BACKGROUND --- */}
+      <canvas
+        ref={canvasRef}
+        className="absolute top-0 left-0 w-full h-full z-0"
+        style={{
+          background: "linear-gradient(to bottom right, #f8fafc, #e0e7ff)",
+        }}
+      />
+
+      {/* Login Card (Glassmorphism) */}
+      <div className="relative z-10 w-full max-w-md animate-[fadeInUp_0.6s_ease-out_forwards]">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-3 bg-white/90 backdrop-blur-sm rounded-xl shadow-md mb-4 ring-1 ring-slate-100">
-            <VerticxLogo className="w-12 h-12 text-indigo-900" />
+          <div className="inline-flex items-center justify-center p-3 bg-white/80 backdrop-blur-sm rounded-xl shadow-md mb-4 ring-1 ring-slate-200">
+            <VerticxLogo className="w-12 h-12 text-indigo-600" />
           </div>
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
             Welcome to VERTICX
           </h1>
-          <p className="text-slate-700 font-medium mt-2 text-sm">
-            School Management System
+          <p className="text-slate-600 font-medium mt-2 text-sm">
+            School Management Ecosystem
           </p>
         </div>
 
-        {/* Increased opacity on card background to ensure readability over the dynamic globe */}
-        <div className="bg-white/60 backdrop-blur-xl border border-white/40 shadow-2xl rounded-2xl p-8 ring-1 ring-white/50">
+        <div className="bg-white/60 backdrop-blur-xl border border-white/60 shadow-2xl rounded-2xl p-8 ring-1 ring-white/50">
           {showOtpScreen ? (
-            <div className="animate-fade-in-up">
+            <div className="animate-pulse-fade-in">
               <h2 className="text-xl font-semibold text-slate-900 text-center mb-2">
                 Two-Factor Authentication
               </h2>
-              <p className="text-slate-700 text-center text-sm mb-6">
+              <p className="text-slate-600 text-center text-sm mb-6">
                 Enter the 6-digit code sent to your device.
               </p>
               <form onSubmit={handleVerifyOtp} className="space-y-6">
                 {error && (
-                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-900 text-sm text-center font-medium">
+                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-700 text-sm text-center font-medium">
                     {error}
                   </div>
                 )}
@@ -262,7 +323,7 @@ const LoginPage: React.FC = () => {
                   maxLength={6}
                   inputMode="numeric"
                   autoComplete="one-time-code"
-                  className="text-center tracking-[0.5em] font-bold text-xl bg-white/80 border-slate-300 text-slate-900 focus:ring-indigo-900 focus:border-indigo-900"
+                  className="text-center tracking-[0.5em] font-bold text-xl bg-white/70 border-slate-300 text-slate-900 focus:ring-indigo-600 focus:border-indigo-600"
                 />
                 <Button
                   type="submit"
@@ -275,7 +336,7 @@ const LoginPage: React.FC = () => {
               <div className="mt-6 text-center">
                 <button
                   onClick={handleBackToLogin}
-                  className="text-sm text-slate-800 hover:text-black font-semibold transition-colors"
+                  className="text-sm text-indigo-700 hover:text-indigo-900 font-semibold transition-colors"
                 >
                   ← Back to login
                 </button>
@@ -284,7 +345,7 @@ const LoginPage: React.FC = () => {
           ) : (
             <form onSubmit={handleLogin} className="space-y-5">
               {error && (
-                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-900 text-sm text-center font-medium">
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-700 text-sm text-center font-medium">
                   {error}
                 </div>
               )}
@@ -296,10 +357,8 @@ const LoginPage: React.FC = () => {
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   required
-                  className="bg-white/80 border-slate-300 text-slate-900 placeholder-slate-500 focus:ring-2 focus:ring-indigo-900/20 focus:border-indigo-900 transition-all font-medium"
+                  className="bg-white/70 border-slate-300 text-slate-900 placeholder-slate-500 focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all font-medium"
                 />
-
-                {/* Password with Eye Icon */}
                 <div className="relative">
                   <Input
                     label="Password"
@@ -308,12 +367,12 @@ const LoginPage: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="bg-white/80 border-slate-300 text-slate-900 placeholder-slate-500 focus:ring-2 focus:ring-indigo-900/20 focus:border-indigo-900 transition-all pr-10 font-medium"
+                    className="bg-white/70 border-slate-300 text-slate-900 placeholder-slate-500 focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all pr-10 font-medium"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-[38px] text-slate-500 hover:text-indigo-900 transition-colors duration-200 focus:outline-none"
+                    className="absolute right-3 top-[38px] text-slate-400 hover:text-indigo-600 transition-colors duration-200 focus:outline-none"
                     aria-label={
                       showPassword ? "Hide password" : "Show password"
                     }
@@ -340,11 +399,11 @@ const LoginPage: React.FC = () => {
           )}
         </div>
 
-        <p className="text-center text-sm text-slate-800 font-medium mt-8 drop-shadow-sm">
+        <p className="text-center text-sm text-slate-600 font-medium mt-8">
           Need to register your institution?{" "}
           <button
             onClick={() => navigate("/landing")}
-            className="font-bold text-indigo-900 hover:text-black hover:underline"
+            className="font-bold text-indigo-700 hover:text-indigo-900 hover:underline"
           >
             Register here
           </button>
