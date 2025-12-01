@@ -478,7 +478,7 @@ const fetchData = useCallback(async () => {
       );
 
       setNewCredentials({
-        id: result.credentials.id,
+        id: result.credentials.userId, 
         password: result.credentials.password,
       });
 

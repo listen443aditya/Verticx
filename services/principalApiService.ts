@@ -109,10 +109,10 @@ export class PrincipalApiService {
 
   async approveFacultyApplication(
     applicationId: string,
-    salary?: number
-  ): Promise<{ credentials: { id: string; password: string } }> {
+    salary: number
+  ): Promise<{ credentials: { userId: string; password: string } }> {
     const { data } = await baseApi.post<{
-      credentials: { id: string; password: string };
+      credentials: { userId: string; password: string };
     }>(
       `/principal/faculty-applications/${encodeURIComponent(
         applicationId
@@ -121,7 +121,6 @@ export class PrincipalApiService {
     );
     return data;
   }
-
   async rejectFacultyApplication(applicationId: string) {
     await baseApi.post(
       `/principal/faculty-applications/${encodeURIComponent(
