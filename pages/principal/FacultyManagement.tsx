@@ -387,43 +387,71 @@ const FacultyManagement: React.FC = () => {
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   // Data Fetching
-  const fetchData = useCallback(async () => {
-    if (!user?.branchId) return;
-    setLoading(true);
-    try {
-      const [allStaff, applicationData, subjectData] = await Promise.all([
-        principalApiService.getStaff(),
-        principalApiService.getFacultyApplications(),
-        // FETCHING REAL SUBJECTS NOW to ensure mapping works
-        sharedApiService.getSubjectsByBranch(user.branchId).catch(() => []),
-      ]);
+ const fetchData = useCallback(async () => {
+   if (!user?.branchId) return;
+   setLoading(true);
+   try {
+     const [allStaff, applicationData, subjectData] = await Promise.all([
+       principalApiService.getStaff(),
+       principalApiService.getFacultyApplications(),
+       sharedApiService.getSubjectsByBranch(user.branchId).catch(() => []),
+     ]);
 
-      // Split staff into Teachers and Others
-      setTeachers(allStaff.filter((u) => u.role === "Teacher"));
-      setSupportStaff(
-        allStaff.filter((u) => u.role !== "Teacher" && u.role !== "Principal")
-      );
+     const staffMap = new Map<string, string>();
+     allStaff.forEach((s) => {
+       staffMap.set(s.id, s.name); // Map database ID
+       if (s.userId) staffMap.set(s.userId, s.name); // Map readable UserID
+     });
+     const enrichedApplications = applicationData.map((app) => {
+       if (!app.submittedBy) {
+         console.log(`Debug App [${app.name}]:`, app);
+       }
 
-      setApplications(
-        applicationData.sort(
-          (a, b) =>
-            new Date(b.submittedAt).getTime() -
-            new Date(a.submittedAt).getTime()
-        )
-      );
-      setSubjects(subjectData);
-    } catch (err) {
-      console.error("Failed to load data", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [user, refreshKey]);
+       let finalSubmitterName = app.submittedBy;
+
+       if (!finalSubmitterName || staffMap.has(finalSubmitterName)) {
+         if (staffMap.has(finalSubmitterName)) {
+           finalSubmitterName = staffMap.get(finalSubmitterName)!;
+         }
+         else {
+           const hiddenId =
+             (app as any).submittedById ||
+             (app as any).registrarId ||
+             (app as any).userId;
+           if (hiddenId && staffMap.has(hiddenId)) {
+             finalSubmitterName = staffMap.get(hiddenId)!;
+           }
+         }
+       }
+
+       return {
+         ...app,
+         submittedBy: finalSubmitterName,
+       };
+     });
+     setTeachers(allStaff.filter((u) => u.role === "Teacher"));
+     setSupportStaff(
+       allStaff.filter((u) => u.role !== "Teacher" && u.role !== "Principal")
+     );
+
+     setApplications(
+       enrichedApplications.sort(
+         (a, b) =>
+           new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+       )
+     );
+     setSubjects(subjectData);
+   } catch (err) {
+     console.error("Failed to load data", err);
+   } finally {
+     setLoading(false);
+   }
+ }, [user, refreshKey]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // --- HANDLERS ---
 
   const handleApproveApplication = async (salary: number) => {
     if (!approvingApp) return;
