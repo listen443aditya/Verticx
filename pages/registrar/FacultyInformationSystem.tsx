@@ -307,29 +307,38 @@ const FacultyInformationSystem: React.FC = () => {
     password: string;
   } | null>(null);
 
-  const fetchData = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    const [allStaff, staffData, applicationData, subjectData] =
-      await Promise.all([
-        apiService.getAllStaff(),
-        apiService.getSupportStaff(),
-        apiService.getFacultyApplications(),
-        apiService.getSubjects(),
-      ]);
+ const fetchData = useCallback(async () => {
+   if (!user) return;
+   setLoading(true);
+   try {
+     const [allStaff, staffData, applicationData, subjectData] =
+       await Promise.all([
+         apiService.getAllStaff(),
+         apiService.getSupportStaff(),
+         apiService.getFacultyApplications(),
+         apiService.getSubjects(),
+       ]);
 
-    setTeachers(allStaff.filter((u: User) => u.role === "Teacher"));
-    setSupportStaff(staffData);
-    setApplications(
-      applicationData.sort((a: FacultyApplication, b: FacultyApplication) => {
-        const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
-        const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
-        return dateB - dateA;
-      })
-    );
-    setSubjects(subjectData);
-    setLoading(false);
-  }, [user, refreshKey]);
+     setTeachers(allStaff.filter((u: User) => u.role === "Teacher"));
+     setSupportStaff(staffData);
+     const mappedApplications = applicationData.map((app: any) => ({
+       ...app,
+       submittedAt: app.submittedAt || app.createdAt,
+     }));
+
+     setApplications(
+       mappedApplications.sort(
+         (a: FacultyApplication, b: FacultyApplication) =>
+           new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+       )
+     );
+     setSubjects(subjectData);
+   } catch (err) {
+     console.error("Failed to load data", err);
+   } finally {
+     setLoading(false);
+   }
+ }, [user, refreshKey]);
 
   useEffect(() => {
     fetchData();
