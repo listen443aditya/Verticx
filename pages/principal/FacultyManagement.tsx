@@ -234,7 +234,6 @@ const AddEditStaffModal: React.FC<{
   );
 };
 
-
 const EditTeacherModal: React.FC<{
   teacher: Teacher;
   allSubjects: Subject[];
@@ -395,9 +394,8 @@ const FacultyManagement: React.FC = () => {
       const [allStaff, applicationData, subjectData] = await Promise.all([
         principalApiService.getStaff(),
         principalApiService.getFacultyApplications(),
-        // Assuming getSubjects exists on shared. If not, remove or use empty array
-        // sharedApiService.getSubjectsByBranch(user.branchId).catch(() => [])
-        Promise.resolve([] as Subject[]),
+        // FETCHING REAL SUBJECTS NOW to ensure mapping works
+        sharedApiService.getSubjectsByBranch(user.branchId).catch(() => []),
       ]);
 
       // Split staff into Teachers and Others
@@ -596,6 +594,8 @@ const FacultyManagement: React.FC = () => {
                 <tr>
                   <th className="p-2">Name</th>
                   <th className="p-2">Qualification</th>
+                  {/* NEW COLUMN: Subjects */}
+                  <th className="p-2">Subjects</th>
                   <th className="p-2">Submitted By</th>
                   <th className="p-2"></th>
                 </tr>
@@ -607,7 +607,32 @@ const FacultyManagement: React.FC = () => {
                     <tr key={app.id} className="border-b">
                       <td className="p-2 font-medium">{app.name}</td>
                       <td className="p-2">{app.qualification}</td>
-                      <td className="p-2">{app.submittedBy}</td>
+
+                      {/* MAPPED SUBJECTS */}
+                      <td className="p-2 text-sm text-gray-700">
+                        {app.subjectIds && app.subjectIds.length > 0 ? (
+                          app.subjectIds
+                            .map(
+                              (id) => subjects.find((s) => s.id === id)?.name
+                            )
+                            .filter(Boolean)
+                            .join(", ")
+                        ) : (
+                          <span className="text-gray-400 italic text-xs">
+                            Not Assigned
+                          </span>
+                        )}
+                      </td>
+
+                      {/* SUBMITTED BY with Fallback */}
+                      <td className="p-2 text-sm">
+                        {app.submittedBy ? (
+                          app.submittedBy
+                        ) : (
+                          <span className="text-gray-400 italic">N/A</span>
+                        )}
+                      </td>
+
                       <td className="p-2 text-right">
                         <div className="flex gap-2 justify-end">
                           <Button
