@@ -23,7 +23,7 @@ export const VerticxLogo: React.FC<IconProps> = ({ className }) => (
     aria-label="Verticx Logo"
   >
     <image
-      href="/verticx.png"
+      href="/Verticx.png"
       height="48"
       width="48"
       x="0"
