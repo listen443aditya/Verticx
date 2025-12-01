@@ -19,8 +19,7 @@ const ComplaintsAboutTeachers: React.FC = () => {
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    // FIX: The method is now 'getTeacherComplaints' and takes no arguments.
-    // The backend infers the user and their branch from the auth token.
+  
     const data = await apiService.getTeacherComplaints();
     setComplaints(data);
     setLoading(false);
@@ -58,7 +57,7 @@ const ComplaintsAboutTeachers: React.FC = () => {
               ) : (
                 <span className="font-normal"> (General Complaint)</span>
               )}
-              <span className="font-normal"> by </span> {complaint.studentName}
+              <span className="font-normal"> by </span> {complaint.studentId}
             </div>
             <div className="flex items-center gap-4">
               <span
