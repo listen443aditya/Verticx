@@ -1070,6 +1070,13 @@ const [loading, setLoading] = useState(true);
           <ClassFeeStatus />
         )}
       </Card>
+      {selectedStudentForPayment && (
+        <PayFeeModal
+          student={selectedStudentForPayment}
+          onClose={() => setSelectedStudentForPayment(null)}
+          onSuccess={handlePaymentSuccess}
+        />
+      )}
     </div>
   );
 };
