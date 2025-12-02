@@ -985,6 +985,7 @@ export interface AuditLog {
 // For modals and detailed views
 export interface StudentProfile {
   student: Student;
+  userId?: string;
   grades: GradeWithCourse[];
   parent?: User | null;
   studentUser?: User | null;
@@ -1382,46 +1383,47 @@ interface FeeDetails {
 }
 
 export interface StudentDashboardData {
-    student: Student;
-    branch: Branch;
-    branchId: string;
-    profile: {
-        id: string;
-        name: string;
-        class: string;
-        classId?: string;
-        rollNo?: string;
-        profilePictureUrl?: string;
-        mentor: { name: string, email?: string, phone?: string };
-    };
-    performance: { subject: string, score: number, classAverage: number }[];
-    ranks: { class: number, school: number };
-    attendance: {
-        monthlyPercentage: number;
-        history: AttendanceRecord[];
-    };
-    assignments: {
-        pending: Assignment[];
-        graded: any[];
-    };
-    library: {
-        issuedBooks: (BookIssuance & { bookTitle: string })[];
-    };
-    fees: FeeDetails;
-    events: SchoolEvent[];
-    announcements: Announcement[];
-    aiSuggestion: string;
-    timetable: TimetableSlot[];
-    timetableConfig: TimetableConfig | null;
-    examSchedule: (ExamSchedule & { subjectName: string })[];
-    overallMarksPercentage: number;
-    skills: { skill: string; value: number }[];
-    monthlyFeeBreakdown?: MonthlyFee[];
-    selfStudyProgress: {
-        totalLectures: number;
-        studentCompletedLectures: number;
-        teacherCompletedLectures: number;
-    };
+  student: Student;
+  branch: Branch;
+  branchId: string;
+  profile: {
+    id: string;
+    userId?: string;
+    name: string;
+    class: string;
+    classId?: string;
+    rollNo?: string;
+    profilePictureUrl?: string;
+    mentor: { name: string; email?: string; phone?: string };
+  };
+  performance: { subject: string; score: number; classAverage: number }[];
+  ranks: { class: number; school: number };
+  attendance: {
+    monthlyPercentage: number;
+    history: AttendanceRecord[];
+  };
+  assignments: {
+    pending: Assignment[];
+    graded: any[];
+  };
+  library: {
+    issuedBooks: (BookIssuance & { bookTitle: string })[];
+  };
+  fees: FeeDetails;
+  events: SchoolEvent[];
+  announcements: Announcement[];
+  aiSuggestion: string;
+  timetable: TimetableSlot[];
+  timetableConfig: TimetableConfig | null;
+  examSchedule: (ExamSchedule & { subjectName: string })[];
+  overallMarksPercentage: number;
+  skills: { skill: string; value: number }[];
+  monthlyFeeBreakdown?: MonthlyFee[];
+  selfStudyProgress: {
+    totalLectures: number;
+    studentCompletedLectures: number;
+    teacherCompletedLectures: number;
+  };
 }
 
 export interface ChildData {

@@ -245,7 +245,7 @@ const StudentDashboard: React.FC = () => {
               </div>
               <h2 className="text-xl font-bold">{profile.name}</h2>
               <p className="text-sm font-mono text-text-secondary-dark">
-                {student.userId}
+                {profile.userId}
               </p>
               <p className="text-text-secondary-dark">{profile.class}</p>
               <p className="text-sm font-mono text-text-secondary-dark">
