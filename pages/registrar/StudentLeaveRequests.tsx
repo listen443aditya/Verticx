@@ -10,7 +10,6 @@ const StudentLeaveRequestsView: React.FC<{
   view: "Pending" | "Approved" | "Rejected";
 }> = ({ view }) => {
   const { user } = useAuth();
-  // Use 'any' temporarily to handle the mapping transformation
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
@@ -22,13 +21,11 @@ const StudentLeaveRequestsView: React.FC<{
     setLoading(true);
     try {
       const data = await apiService.getStudentLeaveApplications();
-
-      console.log("Fetched Student Leaves:", data);
-
       const formattedData = data.map((req: any) => ({
         ...req,
-        applicantName:
-          req.applicantName || req.applicant?.name || "Unknown Student",
+        applicantName: req.applicantName || "Unknown",
+        studentId: req.studentId || "N/A",
+        studentClass: req.studentClass || "N/A",
         startDate: req.startDate || req.fromDate,
         endDate: req.endDate || req.toDate,
         leaveType: req.leaveType || "General",
@@ -54,7 +51,7 @@ const StudentLeaveRequestsView: React.FC<{
     setActionLoading((prev) => ({ ...prev, [requestId]: true }));
     try {
       await apiService.processLeaveApplication(requestId, status);
-      await fetchData(); // Refresh list
+      await fetchData();
     } catch (error) {
       console.error("Failed to process leave request:", error);
       alert("Failed to process request.");
@@ -78,7 +75,9 @@ const StudentLeaveRequestsView: React.FC<{
       <table className="w-full text-left">
         <thead className="border-b border-slate-200 text-sm text-text-secondary-dark">
           <tr>
-            <th className="p-4">Student</th>
+            <th className="p-4">Student ID</th> 
+            <th className="p-4">Student Name</th>
+            <th className="p-4">Class</th> 
             <th className="p-4">Dates</th>
             <th className="p-4">Type</th>
             <th className="p-4">Reason</th>
@@ -91,8 +90,10 @@ const StudentLeaveRequestsView: React.FC<{
               key={req.id}
               className="border-b border-slate-100 hover:bg-slate-50"
             >
+              <td className="p-4 font-mono text-xs">{req.studentId}</td>{" "}
               <td className="p-4 font-medium">{req.applicantName}</td>
-              <td className="p-4 text-sm">
+              <td className="p-4 text-sm">{req.studentClass}</td>{" "}
+              <td className="p-4 text-sm whitespace-nowrap">
                 {new Date(req.startDate).toLocaleDateString()}
                 <span className="mx-1 text-slate-400">to</span>
                 {new Date(req.endDate).toLocaleDateString()}
@@ -103,11 +104,14 @@ const StudentLeaveRequestsView: React.FC<{
                 </span>
                 {req.isHalfDay && (
                   <span className="ml-2 text-xs text-amber-600 font-bold">
-                    (Half Day)
+                    (Half)
                   </span>
                 )}
               </td>
-              <td className="p-4 text-sm italic text-slate-600">
+              <td
+                className="p-4 text-sm italic text-slate-600 max-w-xs truncate"
+                title={req.reason}
+              >
                 "{req.reason}"
               </td>
               <td className="p-4 text-right">
