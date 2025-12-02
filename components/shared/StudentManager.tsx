@@ -16,6 +16,7 @@ import Button from "../ui/Button.tsx";
 import ConfirmationModal from "../ui/ConfirmationModal.tsx";
 import SendSmsModal from "../modals/SendSmsModal.tsx";
 import StudentDetailModal from "../modals/StudentDetailModal.tsx";
+import AdmissionsManagement from "../../pages/registrar/AdmissionsManagement.tsx";
 import { useDataRefresh } from "../../contexts/DataRefreshContext.tsx";
 
 // FIX: Create instances of the services at the top level
@@ -975,7 +976,7 @@ const profile = (await apiService.getStudentProfileDetails(studentId)) || {};
               {isGeneratingPdf ? "Generating..." : "Generate PDF"}
             </Button>
             <Button
-              onClick={handleAddStudent}
+              onClick={AdmissionsManagement}
               disabled={user?.role !== "Registrar"}
             >
               Add New Student
