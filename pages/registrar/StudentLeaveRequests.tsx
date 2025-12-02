@@ -1,9 +1,8 @@
-// src/pages/registrar/StudentLeaveRequests.tsx
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useAuth } from "../../hooks/useAuth";
+import { useAuth } from "../../hooks/useAuth.ts";
 import { RegistrarApiService } from "../../services/registrarApiService";
-import type { LeaveApplication } from "../../types";
-import Button from "../../components/ui/Button";
+import type { LeaveApplication } from "../../types.ts";
+import Button from "../../components/ui/Button.tsx";
 
 const apiService = new RegistrarApiService();
 
@@ -11,8 +10,7 @@ const StudentLeaveRequestsView: React.FC<{
   view: "Pending" | "Approved" | "Rejected";
 }> = ({ view }) => {
   const { user } = useAuth();
-  // Use 'any' temporarily for state to accept the backend's formatted object
-  // until types.ts is perfectly aligned
+  // Use 'any' temporarily to handle the mapping transformation
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
@@ -23,19 +21,20 @@ const StudentLeaveRequestsView: React.FC<{
     if (!user) return;
     setLoading(true);
     try {
-      // FIX: Use the specific student endpoint which now returns formatted data
-      // Ensure your RegistrarApiService has 'getStudentLeaveApplications()' method
-      // If not, it will likely fall back to 'getLeaveApplications' but we prefer the specific one.
-      let data;
-      if (typeof apiService.getLeaveApplications === "function") {
-        data = await apiService.getLeaveApplications();
-      } else {
-        // Fallback if service method missing, though controller update handles formatting
-        data = await apiService.getLeaveApplications();
-      }
+      const data = await apiService.getStudentLeaveApplications();
 
-      console.log("Fetched Leave Requests:", data); // Debugging log
-      setLeaveRequests(data);
+      console.log("Fetched Student Leaves:", data);
+
+      const formattedData = data.map((req: any) => ({
+        ...req,
+        applicantName:
+          req.applicantName || req.applicant?.name || "Unknown Student",
+        startDate: req.startDate || req.fromDate,
+        endDate: req.endDate || req.toDate,
+        leaveType: req.leaveType || "General",
+      }));
+
+      setLeaveRequests(formattedData);
     } catch (error) {
       console.error("Failed to fetch leave requests", error);
     } finally {
@@ -92,14 +91,11 @@ const StudentLeaveRequestsView: React.FC<{
               key={req.id}
               className="border-b border-slate-100 hover:bg-slate-50"
             >
-              <td className="p-4 font-medium">
-                {/* Handle both field names just in case */}
-                {req.applicantName || req.applicant?.name || "Unknown"}
-              </td>
+              <td className="p-4 font-medium">{req.applicantName}</td>
               <td className="p-4 text-sm">
-                {new Date(req.startDate || req.fromDate).toLocaleDateString()}
+                {new Date(req.startDate).toLocaleDateString()}
                 <span className="mx-1 text-slate-400">to</span>
-                {new Date(req.endDate || req.toDate).toLocaleDateString()}
+                {new Date(req.endDate).toLocaleDateString()}
               </td>
               <td className="p-4 text-sm">
                 <span className="bg-slate-100 px-2 py-1 rounded text-xs font-medium">

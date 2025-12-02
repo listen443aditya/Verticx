@@ -616,6 +616,16 @@ export class RegistrarApiService {
     );
     return data;
   }
+
+  async getStudentLeaveApplications(
+    config: any = {}
+  ): Promise<LeaveApplication[]> {
+    const { data } = await baseApi.get<LeaveApplication[]>(
+      "/registrar/leaves/student-applications",
+      config
+    );
+    return data;
+  }
   async processLeaveApplication(
     requestId: string,
     status: "Approved" | "Rejected"
