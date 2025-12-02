@@ -975,12 +975,12 @@ const profile = (await apiService.getStudentProfileDetails(studentId)) || {};
             >
               {isGeneratingPdf ? "Generating..." : "Generate PDF"}
             </Button>
-            <Button
-              onClick={AdmissionsManagement}
+            {/* <Button
+              onClick={handleAddStudent}
               disabled={user?.role !== "Registrar"}
             >
               Add New Student
-            </Button>
+            </Button> */}
           </div>
         </div>
         {smsConfirmation && (
