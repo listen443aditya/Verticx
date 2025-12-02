@@ -76,7 +76,6 @@ const StudentFormModal: React.FC<{
         await registrarApiService.updateStudent(student.id, dataToSave);
         onSave();
       } else {
-        // FIX: admitStudent now takes only one argument (studentData)
         const result = await registrarApiService.admitStudent(
           dataToSave as Student
         );
