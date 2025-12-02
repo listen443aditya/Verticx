@@ -110,8 +110,6 @@ export class RegistrarApiService {
     return data;
   }
 
-  // Add this method inside your RegistrarApiService class
-
   async getStudentProfileDetails(studentId: string): Promise<StudentProfile> {
     try {
       const response = await baseApi.get<StudentProfile>(
@@ -411,6 +409,19 @@ export class RegistrarApiService {
       "/registrar/fees/class-summaries"
     );
     return data;
+  }
+
+  async getFeeCollectionOverview(): Promise<any[]> {
+    const { data } = await baseApi.get("/registrar/fees/collection-overview");
+    return data;
+  }
+
+  async collectFeePayment(payload: {
+    studentId: string;
+    amount: number;
+    remarks: string;
+  }): Promise<void> {
+    await baseApi.post("/registrar/fees/collect", payload);
   }
 
   async getDefaultersForClass(classId: string): Promise<DefaulterDetails[]> {

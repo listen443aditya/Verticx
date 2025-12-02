@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
 // FIX: Correctly import the service class and create an instance.
 import { RegistrarApiService } from "../../services/registrarApiService";
+import { SharedApiService } from "../../services/sharedApiService";
 import type {
   FeeTemplate,
   ClassFeeSummary,
@@ -13,9 +14,10 @@ import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
 import ClassFeeDetailModal from "../../components/modals/ClassFeeDetailModal";
 import { useDataRefresh } from "../../contexts/DataRefreshContext";
-
+import { BanknoteIcon, AlertTriangleIcon } from "../../components/icons/Icons";
+import ConfirmationModal from "../../components/ui/ConfirmationModal";
 const apiService = new RegistrarApiService();
-
+const sharedApiService = new SharedApiService();
 const ACADEMIC_MONTHS = [
   "April",
   "May",
@@ -30,6 +32,19 @@ const ACADEMIC_MONTHS = [
   "February",
   "March",
 ];
+
+interface FeeCollectionRow {
+  studentId: string;
+  userId: string; 
+  name: string;
+  className: string;
+  totalFee: number;
+  paidAmount: number;
+  pendingAmount: number;
+  lastPaidDate: string | null;
+  dueDate: string;
+  status: "Paid" | "Due";
+}
 
 const FeeTemplateFormModal: React.FC<{
   templateToEdit?: FeeTemplate | null;
@@ -290,6 +305,309 @@ const FeeTemplateFormModal: React.FC<{
               : "Create Template"}
           </Button>
         </div>
+      </Card>
+    </div>
+  );
+};
+
+
+const PayFeeModal: React.FC<{
+  student: FeeCollectionRow;
+  onClose: () => void;
+  onSuccess: () => void;
+}> = ({ student, onClose, onSuccess }) => {
+  const [loadingDetails, setLoadingDetails] = useState(true);
+  const [feeStructure, setFeeStructure] = useState<{
+    monthlyAmount: number;
+    breakdown: { month: string; amount: number }[];
+    adjustments: { type: string; amount: number; reason: string }[];
+  } | null>(null);
+
+  const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
+  const [customAmount, setCustomAmount] = useState("");
+  const [remarks, setRemarks] = useState("");
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Fetch detailed breakdown
+  useEffect(() => {
+    const fetchDetails = async () => {
+      try {
+        const profile = await apiService.getStudentProfileDetails(
+          student.studentId
+        );
+        if (profile) {
+          const baseTotal = profile.feeStatus.total;
+          const adjustments = profile.feeHistory
+            .filter((h: any) => h.itemType === "adjustment")
+            .map((adj: any) => ({
+              type: adj.type,
+              amount: adj.amount,
+              reason: adj.reason,
+            }));
+
+          setFeeStructure({
+            monthlyAmount: baseTotal / 12, 
+            breakdown: ACADEMIC_MONTHS.map((m) => ({
+              month: m,
+              amount: baseTotal / 12,
+            })),
+            adjustments,
+          });
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingDetails(false);
+      }
+    };
+    fetchDetails();
+  }, [student]);
+
+  const paidMonthsCount = useMemo(() => {
+    if (!feeStructure) return 0;
+    let effectivePaid = student.paidAmount;
+    return Math.floor(effectivePaid / feeStructure.monthlyAmount);
+  }, [student.paidAmount, feeStructure]);
+
+  const handleMonthToggle = (index: number) => {
+    if (index < paidMonthsCount) return; // Cannot toggle already paid
+
+    // Auto-select previous months if clicking a future one
+    // This enforces sequential payment
+    if (selectedMonths.includes(index)) {
+      // Deselecting: remove this and all future selected
+      setSelectedMonths((prev) => prev.filter((i) => i < index));
+    } else {
+      // Selecting: select this and all gaps between paid and this
+      const newSelection = [];
+      for (let i = paidMonthsCount; i <= index; i++) {
+        newSelection.push(i);
+      }
+      setSelectedMonths(newSelection);
+    }
+    setCustomAmount(""); // Reset custom if using checkboxes
+  };
+
+  const calculatedAmount = useMemo(() => {
+    if (customAmount) return Number(customAmount);
+    if (!feeStructure) return 0;
+    return selectedMonths.length * feeStructure.monthlyAmount;
+  }, [selectedMonths, feeStructure, customAmount]);
+
+  const handlePay = async () => {
+    setIsProcessing(true);
+    try {
+      await apiService.collectFeePayment({
+        studentId: student.studentId,
+        amount: calculatedAmount,
+        remarks: remarks,
+      });
+      onSuccess();
+      onClose();
+    } catch (e) {
+      alert("Payment Failed");
+    } finally {
+      setIsProcessing(false);
+      setIsConfirming(false);
+    }
+  };
+
+  if (loadingDetails)
+    return (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+        <Card>Loading...</Card>
+      </div>
+    );
+
+  return (
+    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-2xl flex flex-col max-h-[90vh]">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h2 className="text-2xl font-bold text-text-primary-dark">
+              Collect Fee
+            </h2>
+            <p className="text-text-secondary-dark">
+              {student.name} ({student.userId})
+            </p>
+          </div>
+          <button onClick={onClose} className="text-2xl font-light">
+            &times;
+          </button>
+        </div>
+
+        <div className="flex-grow overflow-y-auto pr-2 space-y-6">
+          {/* Fiscal Timeline */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <h3 className="text-sm font-semibold text-text-secondary-dark mb-3 uppercase tracking-wide">
+              Academic Session Timeline
+            </h3>
+            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+              {ACADEMIC_MONTHS.map((month, index) => {
+                const isPaid = index < paidMonthsCount;
+                const isSelected = selectedMonths.includes(index);
+
+                return (
+                  <button
+                    key={month}
+                    disabled={isPaid}
+                    onClick={() => handleMonthToggle(index)}
+                    className={`
+                                    relative p-2 rounded-lg text-xs font-medium border transition-all
+                                    ${
+                                      isPaid
+                                        ? "bg-green-100 border-green-200 text-green-700 cursor-not-allowed"
+                                        : isSelected
+                                        ? "bg-brand-primary text-white border-brand-primary shadow-md transform scale-105"
+                                        : "bg-white border-slate-200 text-slate-600 hover:border-brand-secondary"
+                                    }
+                                `}
+                  >
+                    {month}
+                    {isPaid && (
+                      <span className="absolute top-0 right-1 text-[8px]">
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-3 flex gap-4 text-xs text-slate-500">
+              <span className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-green-100 border border-green-200 rounded"></div>{" "}
+                Paid
+              </span>
+              <span className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-brand-primary rounded"></div>{" "}
+                Selected
+              </span>
+              <span className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-white border border-slate-200 rounded"></div>{" "}
+                Due
+              </span>
+            </div>
+          </div>
+
+          {/* Financial Summary */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-3 rounded-lg border border-slate-100">
+              <span className="text-xs text-slate-500">Total Fee (Year)</span>
+              <p className="text-lg font-semibold">
+                ₹{student.totalFee.toLocaleString()}
+              </p>
+            </div>
+            <div className="p-3 rounded-lg border border-slate-100">
+              <span className="text-xs text-slate-500">Already Paid</span>
+              <p className="text-lg font-semibold text-green-600">
+                ₹{student.paidAmount.toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          {/* Adjustments Section */}
+          {feeStructure?.adjustments && feeStructure.adjustments.length > 0 && (
+            <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100">
+              <h4 className="text-sm font-bold text-yellow-800 mb-2 flex items-center gap-2">
+                <AlertTriangleIcon className="w-4 h-4" /> Principal Adjustments
+              </h4>
+              <ul className="space-y-1">
+                {feeStructure.adjustments.map((adj, i) => (
+                  <li key={i} className="flex justify-between text-xs">
+                    <span>
+                      {adj.reason} ({adj.type})
+                    </span>
+                    <span
+                      className={
+                        adj.type === "charge"
+                          ? "text-red-600"
+                          : "text-green-600"
+                      }
+                    >
+                      {adj.type === "charge" ? "+" : "-"}₹{adj.amount}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Payment Input */}
+          <div className="space-y-4 border-t pt-4">
+            <div className="flex justify-between items-end">
+              <div className="w-1/2">
+                <Input
+                  label="Payment Amount (INR)"
+                  type="number"
+                  value={calculatedAmount || customAmount}
+                  onChange={(e) => {
+                    setSelectedMonths([]);
+                    setCustomAmount(e.target.value);
+                  }}
+                  className="text-xl font-bold text-brand-primary"
+                />
+              </div>
+              <div className="text-right pb-2">
+                <p className="text-xs text-slate-500">Remaining Due</p>
+                <p className="font-mono">
+                  ₹
+                  {(
+                    student.pendingAmount -
+                    Number(calculatedAmount || customAmount)
+                  ).toLocaleString()}
+                </p>
+              </div>
+            </div>
+            <Input
+              label="Remarks / Reference No."
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              placeholder="e.g. Cash payment, Check #123"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 pt-4 border-t flex justify-end gap-3">
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => setIsConfirming(true)}
+            disabled={!calculatedAmount && !customAmount}
+          >
+            Proceed to Pay ₹
+            {(calculatedAmount || Number(customAmount)).toLocaleString()}
+          </Button>
+        </div>
+
+        {/* Confirmation Overlay */}
+        {isConfirming && (
+          <ConfirmationModal
+            isOpen={true}
+            onClose={() => setIsConfirming(false)}
+            onConfirm={handlePay}
+            title="Confirm Payment"
+            message={
+              <>
+                Are you sure you want to record a payment of{" "}
+                <strong>
+                  ₹{(calculatedAmount || Number(customAmount)).toLocaleString()}
+                </strong>{" "}
+                for {student.name}?
+                <br />
+                <br />
+                <span className="text-red-600 text-sm">
+                  This action creates a permanent financial record and cannot be
+                  undone easily.
+                </span>
+              </>
+            }
+            confirmText="Yes, Record Payment"
+            isConfirming={isProcessing}
+          />
+        )}
       </Card>
     </div>
   );
@@ -559,10 +877,26 @@ const FeeTemplates: React.FC<{ onSave: (message: string) => void }> = ({
 };
 
 const FeeManagement: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"templates" | "status">(
-    "templates"
-  );
+  // const [activeTab, setActiveTab] = useState<"templates" | "status">(
+  //   "templates"
+  // );
   const [statusMessage, setStatusMessage] = useState("");
+const { user } = useAuth();
+const { refreshKey } = useDataRefresh();
+const [activeTab, setActiveTab] = useState<
+  "templates" | "status" | "collection"
+>("collection");
+
+const [collectionData, setCollectionData] = useState<FeeCollectionRow[]>([]);
+const [collectionLoading, setCollectionLoading] = useState(false);
+const [selectedStudentForPayment, setSelectedStudentForPayment] =
+  useState<FeeCollectionRow | null>(null);
+
+const [searchTerm, setSearchTerm] = useState("");
+const [templates, setTemplates] = useState<FeeTemplate[]>([]);
+const [summaries, setSummaries] = useState<ClassFeeSummary[]>([]);
+const [loading, setLoading] = useState(true);
+
 
   const handleSave = (message: string) => {
     setStatusMessage(message);
@@ -576,29 +910,155 @@ const FeeManagement: React.FC = () => {
         : "text-text-secondary-dark hover:bg-slate-100"
     }`;
 
+  const fetchCollectionData = useCallback(async () => {
+    setCollectionLoading(true);
+    try {
+      const data = await apiService.getFeeCollectionOverview();
+      setCollectionData(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCollectionLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "collection") {
+      fetchCollectionData();
+    }
+  }, [activeTab, refreshKey]);
+
+  const handlePaymentSuccess = () => {
+    setSelectedStudentForPayment(null);
+    setStatusMessage("Payment recorded successfully!");
+    setTimeout(() => setStatusMessage(""), 4000);
+    fetchCollectionData(); // Refresh table
+  };
+
+  const filteredCollection = useMemo(() => {
+    return collectionData.filter(
+      (row) =>
+        row.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        row.userId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        row.className.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [collectionData, searchTerm]);
+
   return (
     <div>
       <h1 className="text-3xl font-bold text-text-primary-dark mb-6">
         Fees & Finance
       </h1>
-      <div className="mb-4">
-        <div className="flex border-b">
+
+      {statusMessage && (
+        <div className="mb-4 text-center p-3 bg-green-100 text-green-800 rounded-lg border border-green-200 animate-fade-in">
+          {statusMessage}
+        </div>
+      )}
+
+      <div className="mb-4 border-b border-slate-200">
+        <div className="flex gap-2">
+          <button
+            className={tabButtonClasses(activeTab === "collection")}
+            onClick={() => setActiveTab("collection")}
+          >
+            Fee Payments (Counter)
+          </button>
+          <button
+            className={tabButtonClasses(activeTab === "status")}
+            onClick={() => setActiveTab("status")}
+          >
+            Class Status
+          </button>
           <button
             className={tabButtonClasses(activeTab === "templates")}
             onClick={() => setActiveTab("templates")}
           >
             Fee Templates
           </button>
-          <button
-            className={tabButtonClasses(activeTab === "status")}
-            onClick={() => setActiveTab("status")}
-          >
-            Class Fee Status
-          </button>
         </div>
       </div>
 
       <Card>
+        {activeTab === "collection" && (
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Student Fee Counter</h2>
+              <Input
+                placeholder="Search Student by Name, ID or Class..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-96"
+              />
+            </div>
+
+            {collectionLoading ? (
+              <p>Loading...</p>
+            ) : (
+              <div className="overflow-x-auto max-h-[70vh]">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50 border-b sticky top-0">
+                    <tr>
+                      <th className="p-3">ID</th>
+                      <th className="p-3">Name</th>
+                      <th className="p-3">Class</th>
+                      <th className="p-3 text-right">Total Fee</th>
+                      <th className="p-3 text-right">Paid</th>
+                      <th className="p-3 text-right">Due</th>
+                      <th className="p-3">Last Paid</th>
+                      <th className="p-3 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredCollection.map((row) => (
+                      <tr
+                        key={row.studentId}
+                        className="border-b hover:bg-slate-50"
+                      >
+                        <td className="p-3 font-mono text-xs text-text-secondary-dark">
+                          {row.userId}
+                        </td>
+                        <td className="p-3 font-medium">{row.name}</td>
+                        <td className="p-3 text-sm">{row.className}</td>
+                        <td className="p-3 text-right text-sm">
+                          ₹{row.totalFee.toLocaleString()}
+                        </td>
+                        <td className="p-3 text-right text-sm text-green-600">
+                          ₹{row.paidAmount.toLocaleString()}
+                        </td>
+                        <td className="p-3 text-right font-bold text-red-500">
+                          ₹{row.pendingAmount.toLocaleString()}
+                        </td>
+                        <td className="p-3 text-xs text-slate-500">
+                          {row.lastPaidDate
+                            ? new Date(row.lastPaidDate).toLocaleDateString()
+                            : "-"}
+                        </td>
+                        <td className="p-3 text-center">
+                          <Button
+                            className="!py-1 !px-3 text-xs"
+                            disabled={row.pendingAmount <= 0}
+                            onClick={() => setSelectedStudentForPayment(row)}
+                          >
+                            {row.pendingAmount <= 0
+                              ? "Fully Paid"
+                              : "Collect Fee"}
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredCollection.length === 0 && (
+                  <p className="text-center p-8 text-slate-500">
+                    No students found.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {statusMessage && (
           <div className="mb-4 text-center p-2 bg-green-100 text-green-800 rounded-lg text-sm transition-opacity duration-300">
             {statusMessage}
