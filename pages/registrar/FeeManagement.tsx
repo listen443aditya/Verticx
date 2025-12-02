@@ -1,12 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { RegistrarApiService } from "../../services/registrarApiService";
-import { SharedApiService } from "../../services/sharedApiService";
-import type {
-  FeeTemplate,
-  ClassFeeSummary,
-  SchoolClass, // Added this
-} from "../../types";
+import type { FeeTemplate, ClassFeeSummary } from "../../types";
 import Card from "../../components/ui/Card";
 import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
@@ -16,7 +11,6 @@ import { AlertTriangleIcon } from "../../components/icons/Icons";
 import ConfirmationModal from "../../components/ui/ConfirmationModal";
 
 const apiService = new RegistrarApiService();
-const sharedApiService = new SharedApiService();
 
 const ACADEMIC_MONTHS = [
   "April",
@@ -37,8 +31,7 @@ interface FeeCollectionRow {
   studentId: string;
   userId: string;
   name: string;
-  className: string; // e.g. "Grade 10-A"
-  classId?: string; // Added for filtering logic (backend should send this ideally, or we parse className)
+  className: string;
   totalFee: number;
   paidAmount: number;
   pendingAmount: number;
@@ -47,8 +40,8 @@ interface FeeCollectionRow {
   status: "Paid" | "Due";
 }
 
-// ... (FeeTemplateFormModal and DeleteRequestModal remain unchanged) ...
-// ... (Keep your existing FeeTemplateFormModal code here) ...
+// --- Modal Components ---
+
 const FeeTemplateFormModal: React.FC<{
   templateToEdit?: FeeTemplate | null;
   onClose: () => void;
@@ -114,7 +107,13 @@ const FeeTemplateFormModal: React.FC<{
           };
         });
 
-        return { ...month, breakdown: newBreakdownComponents };
+        // Auto-calculate total for this month
+        const newTotal = newBreakdownComponents.reduce(
+          (sum, c) => sum + (Number(c.amount) || 0),
+          0
+        );
+
+        return { ...month, breakdown: newBreakdownComponents, total: newTotal };
       });
 
       return { ...prev, monthlyBreakdown: newMonthlyBreakdown };
@@ -191,6 +190,7 @@ const FeeTemplateFormModal: React.FC<{
             </div>
             <div className="space-y-4">
               {formData.monthlyBreakdown?.map((monthData, monthIndex) => {
+                // Ensure total is up to date
                 const monthTotal = monthData.breakdown.reduce(
                   (sum, comp) => sum + (Number(comp.amount) || 0),
                   0
@@ -304,67 +304,6 @@ const FeeTemplateFormModal: React.FC<{
   );
 };
 
-const DeleteRequestModal: React.FC<{
-  template: FeeTemplate;
-  onClose: () => void;
-  onSave: (message: string) => void;
-}> = ({ template, onClose, onSave }) => {
-  const [reason, setReason] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    await apiService.requestFeeTemplateDeletion(template.id, reason);
-    onSave("Deletion request sent to principal for approval.");
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md">
-        <h2 className="text-xl font-bold text-red-600 mb-2">
-          Request Template Deletion
-        </h2>
-        <p className="text-text-secondary-dark mb-4">
-          You are requesting to delete the template:{" "}
-          <strong>{template.name}</strong>.
-        </p>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-text-secondary-dark mb-1">
-              Reason for Deletion
-            </label>
-            <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              rows={3}
-              className="w-full bg-white border border-slate-300 rounded-md py-2 px-3"
-              required
-            />
-          </div>
-          <div className="flex justify-end gap-4 pt-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onClose}
-              disabled={isSaving}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="danger"
-              disabled={isSaving || !reason}
-            >
-              {isSaving ? "Submitting..." : "Request Deletion"}
-            </Button>
-          </div>
-        </form>
-      </Card>
-    </div>
-  );
-};
-
 const PayFeeModal: React.FC<{
   student: FeeCollectionRow;
   onClose: () => void;
@@ -372,6 +311,7 @@ const PayFeeModal: React.FC<{
 }> = ({ student, onClose, onSuccess }) => {
   const [loadingDetails, setLoadingDetails] = useState(true);
   const [feeStructure, setFeeStructure] = useState<{
+    monthlyAmount: number;
     breakdown: { month: string; amount: number }[];
     adjustments: { type: string; amount: number; reason: string }[];
   } | null>(null);
@@ -385,11 +325,13 @@ const PayFeeModal: React.FC<{
   useEffect(() => {
     const fetchDetails = async () => {
       try {
+        // Use 'any' to bypass strict type checking on the response temporarily
         const profile: any = await apiService.getStudentProfileDetails(
           student.studentId
         );
 
         if (profile) {
+          const baseTotal = profile.feeStatus.total;
           const adjustments = profile.feeHistory
             .filter((h: any) => h.itemType === "adjustment")
             .map((adj: any) => ({
@@ -397,18 +339,42 @@ const PayFeeModal: React.FC<{
               amount: adj.amount,
               reason: adj.reason,
             }));
+
           const templateBreakdown = profile.feeBreakdown || [];
+
+          // --- FIX: Robust Fee Calculation Logic ---
           const realBreakdown = ACADEMIC_MONTHS.map((monthName) => {
             const monthData = templateBreakdown.find(
               (m: any) => m.month === monthName
             );
-            return {
-              month: monthName,
-              amount: monthData ? Number(monthData.total) : 0,
-            };
+            let amount = 0;
+
+            if (monthData) {
+              // 1. Try explicit total
+              if (monthData.total) amount = Number(monthData.total);
+              // 2. If 0, try summing components
+              else if (
+                monthData.breakdown &&
+                Array.isArray(monthData.breakdown)
+              ) {
+                amount = monthData.breakdown.reduce(
+                  (sum: number, c: any) => sum + (Number(c.amount) || 0),
+                  0
+                );
+              }
+            }
+
+            // 3. If still 0, use simple average of total fee (if total fee exists)
+            if (amount === 0 && baseTotal > 0) {
+              amount = Math.ceil(baseTotal / 12);
+            }
+
+            return { month: monthName, amount };
           });
+          // --- END FIX ---
 
           setFeeStructure({
+            monthlyAmount: realBreakdown[0]?.amount || 0, // Just for reference
             breakdown: realBreakdown,
             adjustments,
           });
@@ -424,14 +390,24 @@ const PayFeeModal: React.FC<{
 
   const paidMonthsCount = useMemo(() => {
     if (!feeStructure) return 0;
+
     let effectivePaid = student.paidAmount;
     let count = 0;
+
+    // Calculate how many FULL months are covered by the paid amount
     for (const monthData of feeStructure.breakdown) {
-      if (effectivePaid >= monthData.amount && monthData.amount > 0) {
-        effectivePaid -= monthData.amount;
-        count++;
+      // Only count if the month has a fee > 0
+      if (monthData.amount > 0) {
+        if (effectivePaid >= monthData.amount) {
+          effectivePaid -= monthData.amount;
+          count++;
+        } else {
+          // Not enough to cover this month
+          break;
+        }
       } else {
-        break;
+        // If month fee is 0, consider it "paid"/skipped
+        count++;
       }
     }
     return count;
@@ -532,7 +508,6 @@ const PayFeeModal: React.FC<{
                     `}
                   >
                     <span className="text-xs font-bold">{item.month}</span>
-                    {/* Show the EXACT amount for this month */}
                     <span
                       className={`text-[10px] ${
                         isSelected ? "text-blue-100" : "text-slate-400"
@@ -551,7 +526,6 @@ const PayFeeModal: React.FC<{
               })}
             </div>
             <div className="mt-3 flex gap-4 text-xs text-slate-500">
-              {/* Legend code... */}
               <span className="flex items-center gap-1">
                 <div className="w-3 h-3 bg-green-100 border border-green-200 rounded"></div>{" "}
                 Paid
@@ -566,6 +540,7 @@ const PayFeeModal: React.FC<{
               </span>
             </div>
           </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-4">
               <div className="p-3 rounded-lg border border-slate-100 bg-white">
@@ -711,6 +686,67 @@ const PayFeeModal: React.FC<{
   );
 };
 
+const DeleteRequestModal: React.FC<{
+  template: FeeTemplate;
+  onClose: () => void;
+  onSave: (message: string) => void;
+}> = ({ template, onClose, onSave }) => {
+  const [reason, setReason] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    await apiService.requestFeeTemplateDeletion(template.id, reason);
+    onSave("Deletion request sent to principal for approval.");
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-md">
+        <h2 className="text-xl font-bold text-red-600 mb-2">
+          Request Template Deletion
+        </h2>
+        <p className="text-text-secondary-dark mb-4">
+          You are requesting to delete the template:{" "}
+          <strong>{template.name}</strong>.
+        </p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-text-secondary-dark mb-1">
+              Reason for Deletion
+            </label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={3}
+              className="w-full bg-white border border-slate-300 rounded-md py-2 px-3"
+              required
+            />
+          </div>
+          <div className="flex justify-end gap-4 pt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onClose}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="danger"
+              disabled={isSaving || !reason}
+            >
+              {isSaving ? "Submitting..." : "Request Deletion"}
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </div>
+  );
+};
+
 const ClassFeeStatus: React.FC = () => {
   const { user } = useAuth();
   const { refreshKey } = useDataRefresh();
@@ -745,7 +781,7 @@ const ClassFeeStatus: React.FC = () => {
   return (
     <div>
       {loading ? (
-        <p>Loading...</p>
+        <p>Loading class fee status...</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -760,14 +796,18 @@ const ClassFeeStatus: React.FC = () => {
             <tbody>
               {summaries.filter(Boolean).map((summary) => (
                 <tr
-                  key={summary?.classId}
+                  key={summary?.classId} // Use optional chaining
                   className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
                   onClick={() => setViewingClass(summary)}
                 >
-                  <td className="p-4 font-medium">{summary?.className}</td>
-                  <td className="p-4 text-center">{summary?.studentCount}</td>
-                  <td className="p-4 text-center text-orange-600">
-                    {summary?.defaulterCount}
+                  <td className="p-4 font-medium text-text-primary-dark">
+                    {summary?.className || "Unknown Class"}
+                  </td>
+                  <td className="p-4 text-center">
+                    {summary?.studentCount ?? 0}
+                  </td>
+                  <td className="p-4 text-center font-semibold text-orange-600">
+                    {summary?.defaulterCount ?? 0}
                   </td>
                   <td className="p-4 text-right font-semibold text-red-600">
                     {(summary?.pendingAmount ?? 0).toLocaleString()}
@@ -794,7 +834,7 @@ const FeeTemplates: React.FC<{ onSave: (message: string) => void }> = ({
   onSave,
 }) => {
   const { user } = useAuth();
-  const { refreshKey } = useDataRefresh();
+  const { refreshKey, triggerRefresh } = useDataRefresh();
   const [templates, setTemplates] = useState<FeeTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<"create" | "edit" | "delete" | null>(null);
@@ -805,6 +845,7 @@ const FeeTemplates: React.FC<{ onSave: (message: string) => void }> = ({
   const fetchTemplates = useCallback(async () => {
     if (!user) return;
     setLoading(true);
+    // FIX: Removed branchId from API call.
     const data = await apiService.getFeeTemplates();
     setTemplates(data);
     setLoading(false);
@@ -817,17 +858,20 @@ const FeeTemplates: React.FC<{ onSave: (message: string) => void }> = ({
   const handleSaveAndRefresh = (message: string) => {
     setModal(null);
     setSelectedTemplate(null);
+    triggerRefresh();
     onSave(message);
   };
 
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">Fee Templates</h2>
+        <h2 className="text-xl font-semibold text-text-primary-dark">
+          Fee Templates
+        </h2>
         <Button onClick={() => setModal("create")}>Create New Template</Button>
       </div>
       {loading ? (
-        <p>Loading...</p>
+        <p>Loading templates...</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -845,7 +889,9 @@ const FeeTemplates: React.FC<{ onSave: (message: string) => void }> = ({
                   key={template.id}
                   className="border-b border-slate-100 hover:bg-slate-50"
                 >
-                  <td className="p-4 font-medium">{template.name}</td>
+                  <td className="p-4 font-medium text-text-primary-dark">
+                    {template.name}
+                  </td>
                   <td className="p-4">{template.gradeLevel}</td>
                   <td className="p-4 text-right font-semibold">
                     {template.amount.toLocaleString()}
@@ -910,9 +956,6 @@ const FeeManagement: React.FC = () => {
   const [selectedStudentForPayment, setSelectedStudentForPayment] =
     useState<FeeCollectionRow | null>(null);
 
-  const [classes, setClasses] = useState<SchoolClass[]>([]); // List of classes for filter
-  const [filterClass, setFilterClass] = useState("all"); // Filter state
-  const [sortBy, setSortBy] = useState("name"); // Sort state
   const [searchTerm, setSearchTerm] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
 
@@ -928,22 +971,10 @@ const FeeManagement: React.FC = () => {
         : "text-text-secondary-dark hover:bg-slate-100"
     }`;
 
-  // FIX: Fetch classes for the dropdown
-  const fetchClasses = useCallback(async () => {
-    if (!user) return;
-    try {
-      const data = await apiService.getSchoolClasses();
-      setClasses(data);
-    } catch (e) {
-      console.error(e);
-    }
-  }, [user]);
-
   const fetchCollectionData = useCallback(async () => {
     setCollectionLoading(true);
     try {
       const data = await apiService.getFeeCollectionOverview();
-      // Note: The backend might return data where className is "Grade X-Y", we can parse this for filtering if needed
       setCollectionData(data);
     } catch (e) {
       console.error(e);
@@ -953,70 +984,35 @@ const FeeManagement: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (user) {
-      fetchClasses();
-    }
-  }, [user, fetchClasses]);
-
-  useEffect(() => {
     if (activeTab === "collection") {
       fetchCollectionData();
     }
-  }, [activeTab, refreshKey, fetchCollectionData]);
+  }, [activeTab, refreshKey]);
 
   const handlePaymentSuccess = () => {
     setSelectedStudentForPayment(null);
     setStatusMessage("Payment recorded successfully!");
     setTimeout(() => setStatusMessage(""), 4000);
-    fetchCollectionData();
+    fetchCollectionData(); // Refresh table
   };
 
-  // FIX: Robust filtering and sorting logic
   const filteredCollection = useMemo(() => {
-    let data = [...collectionData];
-
-    // 1. Filter by Search
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      data = data.filter(
-        (row) =>
-          row.name.toLowerCase().includes(term) ||
-          row.userId.toLowerCase().includes(term) ||
-          row.className.toLowerCase().includes(term)
-      );
-    }
-
-    // 2. Filter by Class
-    if (filterClass !== "all") {
-      // Row has 'className' like "Grade 10-A".
-      // We need to match it against the selected class ID.
-      // Ideally backend sends classId. If not, we can try to match string or update backend.
-      // Assuming 'filterClass' holds the class ID, we need to find that class name to compare.
-      const selectedClassObj = classes.find((c) => c.id === filterClass);
-      if (selectedClassObj) {
-        const targetName = `Grade ${selectedClassObj.gradeLevel}-${selectedClassObj.section}`;
-        data = data.filter((row) => row.className === targetName);
-      }
-    }
-
-    // 3. Sort
-    data.sort((a, b) => {
-      if (sortBy === "name") return a.name.localeCompare(b.name);
-      if (sortBy === "id") return a.userId.localeCompare(b.userId);
-      if (sortBy === "due_desc") return b.pendingAmount - a.pendingAmount;
-      return 0;
-    });
-
-    return data;
-  }, [collectionData, searchTerm, filterClass, sortBy, classes]);
+    return collectionData.filter(
+      (row) =>
+        row.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        row.userId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        row.className.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [collectionData, searchTerm]);
 
   return (
     <div>
       <h1 className="text-3xl font-bold text-text-primary-dark mb-6">
         Fees & Finance
       </h1>
+
       {statusMessage && (
-        <div className="mb-4 text-center p-3 bg-green-100 text-green-800 rounded-lg">
+        <div className="mb-4 text-center p-3 bg-green-100 text-green-800 rounded-lg border border-green-200 animate-fade-in">
           {statusMessage}
         </div>
       )}
@@ -1047,49 +1043,14 @@ const FeeManagement: React.FC = () => {
       <Card>
         {activeTab === "collection" && (
           <div>
-            {/* --- Top Toolbar: Search & Filter --- */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 items-end">
-              {/* Search */}
-              <div className="md:col-span-1">
-                <Input
-                  placeholder="Search Student..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              {/* Class Filter */}
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">
-                  Filter by Class
-                </label>
-                <select
-                  value={filterClass}
-                  onChange={(e) => setFilterClass(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-md py-2 px-3"
-                >
-                  <option value="all">All Classes</option>
-                  {classes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      Grade {c.gradeLevel} - {c.section}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {/* Sort */}
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">
-                  Sort By
-                </label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-md py-2 px-3"
-                >
-                  <option value="name">Name (A-Z)</option>
-                  <option value="id">Student ID</option>
-                  <option value="due_desc">Highest Dues First</option>
-                </select>
-              </div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Student Fee Counter</h2>
+              <Input
+                placeholder="Search Student by Name, ID or Class..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-96"
+              />
             </div>
 
             {collectionLoading ? (
