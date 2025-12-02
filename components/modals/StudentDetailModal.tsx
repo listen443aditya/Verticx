@@ -305,7 +305,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 {student.name}
               </h2>
               <p className="text-text-secondary-dark font-mono">
-                {student.userId} | {classInfo}
+                {profile.userId} | {classInfo}
               </p>
             </div>
           </div>
@@ -406,7 +406,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                           Student User ID:
                         </span>
                         <span className="font-mono bg-slate-100 p-1 rounded">
-                          {/* {student.userId || student.id} */}
+                          {student.userId || student.id}
                           {profile.userId ||
                             profile.studentUser?.userId ||
                             profile.student.id}
