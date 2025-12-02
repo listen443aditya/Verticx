@@ -3,7 +3,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { RegistrarApiService } from "../../services/registrarApiService";
-import { SharedApiService } from "../../services/sharedApiService";
 import type { FeeTemplate, ClassFeeSummary, SchoolClass } from "../../types";
 import Card from "../../components/ui/Card";
 import Input from "../../components/ui/Input";
@@ -14,7 +13,6 @@ import { AlertTriangleIcon } from "../../components/icons/Icons";
 import ConfirmationModal from "../../components/ui/ConfirmationModal";
 
 const apiService = new RegistrarApiService();
-// sharedApiService is available if needed for other shared calls
 
 const ACADEMIC_MONTHS = [
   "April",
