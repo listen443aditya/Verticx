@@ -386,12 +386,16 @@ const PayFeeModal: React.FC<{
   useEffect(() => {
     const fetchDetails = async () => {
       try {
-        // Using apiService (Registrar) to fetch student profile
         const profile = await apiService.getStudentProfileDetails(
           student.studentId
         );
         if (profile) {
+          // Use the Total Fee calculated by backend (includes template + adjustments)
+          // Note: In a perfect world, we'd fetch the specific template breakdown.
+          // Here we distribute the Base Fee across 12 months for the visual timeline.
           const baseTotal = profile.feeStatus.total;
+          const monthly = baseTotal > 0 ? Math.ceil(baseTotal / 12) : 0;
+
           const adjustments = profile.feeHistory
             .filter((h: any) => h.itemType === "adjustment")
             .map((adj: any) => ({
@@ -400,11 +404,9 @@ const PayFeeModal: React.FC<{
               reason: adj.reason,
             }));
 
-          // Safe calculation for monthly amount
-          const monthly = baseTotal > 0 ? baseTotal / 12 : 0;
-
           setFeeStructure({
             monthlyAmount: monthly,
+            // Create a breakdown array where each month has its specific amount
             breakdown: ACADEMIC_MONTHS.map((m) => ({
               month: m,
               amount: monthly,
@@ -421,31 +423,43 @@ const PayFeeModal: React.FC<{
     fetchDetails();
   }, [student]);
 
+  // Logic to determine how many months are fully covered by what has been paid so far
   const paidMonthsCount = useMemo(() => {
     if (!feeStructure || feeStructure.monthlyAmount <= 0) return 0;
     let effectivePaid = student.paidAmount;
-    return Math.floor(effectivePaid / feeStructure.monthlyAmount);
+    // Simple logic: Paid amount / Monthly rate = Number of months cleared
+    return Math.min(12, Math.floor(effectivePaid / feeStructure.monthlyAmount));
   }, [student.paidAmount, feeStructure]);
 
   const handleMonthToggle = (index: number) => {
-    if (index < paidMonthsCount) return;
+    if (index < paidMonthsCount) return; // Cannot toggle already paid months
 
     if (selectedMonths.includes(index)) {
+      // Deselecting: Remove this and any subsequent months (enforce sequence)
       setSelectedMonths((prev) => prev.filter((i) => i < index));
     } else {
+      // Selecting: Auto-select all gaps between the last paid month and this one
       const newSelection = [];
+      // Start from the first unpaid month
       for (let i = paidMonthsCount; i <= index; i++) {
         newSelection.push(i);
       }
       setSelectedMonths(newSelection);
     }
+    // Clear custom amount so the calculated amount takes over
     setCustomAmount("");
   };
 
+  // Calculate total based on selected months
   const calculatedAmount = useMemo(() => {
+    // If user typed a custom amount, use that.
     if (customAmount) return Number(customAmount);
+
+    // Otherwise, sum the amounts of the selected months
     if (!feeStructure) return 0;
-    return selectedMonths.length * feeStructure.monthlyAmount;
+    return selectedMonths.reduce((sum, index) => {
+      return sum + (feeStructure.breakdown[index]?.amount || 0);
+    }, 0);
   }, [selectedMonths, feeStructure, customAmount]);
 
   const handlePay = async () => {
@@ -454,7 +468,7 @@ const PayFeeModal: React.FC<{
       await apiService.collectFeePayment({
         studentId: student.studentId,
         amount: calculatedAmount,
-        remarks: remarks,
+        remarks: remarks || `Fee for ${selectedMonths.length} months`,
       });
       onSuccess();
       onClose();
@@ -469,7 +483,7 @@ const PayFeeModal: React.FC<{
   if (loadingDetails)
     return (
       <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-        <Card>Loading details...</Card>
+        <Card>Loading fee structure...</Card>
       </div>
     );
 
@@ -482,7 +496,10 @@ const PayFeeModal: React.FC<{
               Collect Fee
             </h2>
             <p className="text-text-secondary-dark">
-              {student.name} ({student.userId})
+              {student.name}{" "}
+              <span className="font-mono text-xs bg-slate-100 px-1 rounded">
+                {student.userId}
+              </span>
             </p>
           </div>
           <button onClick={onClose} className="text-2xl font-light">
@@ -491,62 +508,171 @@ const PayFeeModal: React.FC<{
         </div>
 
         <div className="flex-grow overflow-y-auto pr-2 space-y-6">
-          {/* Timeline */}
+          {/* Fiscal Timeline */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <h3 className="text-sm font-semibold text-text-secondary-dark mb-3 uppercase tracking-wide">
-              Academic Session Timeline
-            </h3>
+            <div className="flex justify-between items-end mb-3">
+              <h3 className="text-sm font-semibold text-text-secondary-dark uppercase tracking-wide">
+                Academic Session Timeline
+              </h3>
+              <span className="text-xs font-medium text-slate-500">
+                Base Monthly Fee: ₹
+                {feeStructure?.monthlyAmount.toLocaleString()}
+              </span>
+            </div>
+
             <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
               {ACADEMIC_MONTHS.map((month, index) => {
                 const isPaid = index < paidMonthsCount;
                 const isSelected = selectedMonths.includes(index);
+                const amount = feeStructure?.breakdown[index]?.amount || 0;
+
                 return (
                   <button
                     key={month}
                     disabled={isPaid}
                     onClick={() => handleMonthToggle(index)}
-                    className={`relative p-2 rounded-lg text-xs font-medium border transition-all ${
-                      isPaid
-                        ? "bg-green-100 border-green-200 text-green-700 cursor-not-allowed"
-                        : isSelected
-                        ? "bg-brand-primary text-white border-brand-primary shadow-md transform scale-105"
-                        : "bg-white border-slate-200 text-slate-600 hover:border-brand-secondary"
-                    }`}
+                    className={`
+                        relative p-2 rounded-lg border transition-all flex flex-col items-center justify-center h-14
+                        ${
+                          isPaid
+                            ? "bg-green-50 border-green-200 text-green-800 cursor-not-allowed opacity-80"
+                            : isSelected
+                            ? "bg-brand-primary border-brand-primary text-white shadow-md transform scale-105 z-10"
+                            : "bg-white border-slate-200 text-slate-600 hover:border-brand-secondary hover:shadow-sm"
+                        }
+                    `}
                   >
-                    {month}
+                    <span className="text-xs font-bold">{month}</span>
+                    {/* Show amount inside the button */}
+                    <span
+                      className={`text-[10px] ${
+                        isSelected ? "text-blue-100" : "text-slate-400"
+                      }`}
+                    >
+                      ₹{amount.toLocaleString()}
+                    </span>
+
                     {isPaid && (
-                      <span className="absolute top-0 right-1 text-[8px]">
+                      <div className="absolute -top-1 -right-1 bg-green-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] shadow-sm">
                         ✓
-                      </span>
+                      </div>
                     )}
                   </button>
                 );
               })}
             </div>
+            <div className="mt-3 flex gap-4 text-xs text-slate-500">
+              <span className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-green-50 border border-green-200 rounded"></div>{" "}
+                Paid
+              </span>
+              <span className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-brand-primary rounded"></div>{" "}
+                Selected
+              </span>
+              <span className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-white border border-slate-200 rounded"></div>{" "}
+                Due
+              </span>
+            </div>
           </div>
 
-          {/* Summary & Input */}
+          {/* Financial Summary & Adjustments */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-4">
+              <div className="p-3 rounded-lg border border-slate-100 bg-white">
+                <span className="text-xs text-slate-500">Total Fee (Year)</span>
+                <p className="text-lg font-semibold">
+                  ₹{student.totalFee.toLocaleString()}
+                </p>
+              </div>
+              <div className="p-3 rounded-lg border border-slate-100 bg-white">
+                <span className="text-xs text-slate-500">Already Paid</span>
+                <p className="text-lg font-semibold text-green-600">
+                  ₹{student.paidAmount.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 h-full">
+              <h4 className="text-sm font-bold text-yellow-800 mb-2 flex items-center gap-2">
+                <AlertTriangleIcon className="w-4 h-4" /> Principal Adjustments
+              </h4>
+              {feeStructure?.adjustments &&
+              feeStructure.adjustments.length > 0 ? (
+                <ul className="space-y-1 overflow-y-auto max-h-24 pr-1">
+                  {feeStructure.adjustments.map((adj, i) => (
+                    <li
+                      key={i}
+                      className="flex justify-between text-xs border-b border-yellow-200/50 pb-1 last:border-0"
+                    >
+                      <span>{adj.reason}</span>
+                      <span
+                        className={
+                          adj.type === "charge"
+                            ? "text-red-600 font-bold"
+                            : "text-green-600 font-bold"
+                        }
+                      >
+                        {adj.type === "charge" ? "+" : "-"}₹{adj.amount}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-yellow-700/70 italic">
+                  No adjustments applied.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Payment Input Area */}
           <div className="space-y-4 border-t pt-4">
-            <div className="flex justify-between items-end">
-              <div className="w-1/2">
-                <Input
-                  label="Payment Amount (INR)"
-                  type="number"
-                  value={calculatedAmount || customAmount}
-                  onChange={(e) => {
-                    setSelectedMonths([]);
-                    setCustomAmount(e.target.value);
-                  }}
-                  className="text-xl font-bold text-brand-primary"
-                />
+            <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+              <div className="w-full md:w-1/2">
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Payment Amount (INR)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
+                    ₹
+                  </span>
+                  <input
+                    type="number"
+                    value={
+                      customAmount
+                        ? customAmount
+                        : calculatedAmount > 0
+                        ? calculatedAmount
+                        : ""
+                    }
+                    onChange={(e) => {
+                      setSelectedMonths([]); // Clear selection if typing manually
+                      setCustomAmount(e.target.value);
+                    }}
+                    placeholder="0"
+                    className="w-full pl-8 pr-4 py-3 text-2xl font-bold text-brand-primary border-2 border-slate-200 rounded-lg focus:outline-none focus:border-brand-primary transition-colors"
+                  />
+                </div>
               </div>
               <div className="text-right pb-2">
-                <p className="text-xs text-slate-500">Remaining Due</p>
-                <p className="font-mono">
+                <p className="text-xs text-slate-500">
+                  Remaining Due After Payment
+                </p>
+                <p
+                  className={`font-mono text-lg ${
+                    student.pendingAmount -
+                      Number(customAmount || calculatedAmount) <
+                    0
+                      ? "text-green-600"
+                      : "text-slate-800"
+                  }`}
+                >
                   ₹
                   {(
                     student.pendingAmount -
-                    Number(calculatedAmount || customAmount)
+                    Number(customAmount || calculatedAmount)
                   ).toLocaleString()}
                 </p>
               </div>
@@ -555,7 +681,7 @@ const PayFeeModal: React.FC<{
               label="Remarks / Reference No."
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
-              placeholder="e.g. Cash"
+              placeholder="e.g. Cash payment by Guardian, UPI Ref..."
               required
             />
           </div>
@@ -567,21 +693,39 @@ const PayFeeModal: React.FC<{
           </Button>
           <Button
             onClick={() => setIsConfirming(true)}
-            disabled={!calculatedAmount && !customAmount}
+            disabled={
+              (!calculatedAmount && !customAmount) ||
+              Number(customAmount || calculatedAmount) <= 0
+            }
           >
-            Proceed to Pay ₹
-            {(calculatedAmount || Number(customAmount)).toLocaleString()}
+            Record Payment of ₹
+            {(Number(customAmount) || calculatedAmount).toLocaleString()}
           </Button>
         </div>
 
+        {/* Confirmation Overlay */}
         {isConfirming && (
           <ConfirmationModal
             isOpen={true}
             onClose={() => setIsConfirming(false)}
             onConfirm={handlePay}
-            title="Confirm Payment"
-            message="This action creates a permanent record."
-            confirmText="Yes, Record"
+            title="Confirm Fee Payment"
+            message={
+              <>
+                Confirm recording a payment of{" "}
+                <span className="text-lg font-bold text-brand-primary">
+                  ₹{(Number(customAmount) || calculatedAmount).toLocaleString()}
+                </span>{" "}
+                for <strong>{student.name}</strong>?
+                <br />
+                <br />
+                <div className="bg-amber-50 border-l-4 border-amber-500 p-3 text-xs text-amber-800">
+                  <strong>Warning:</strong> This action updates the financial
+                  ledger permanently. Please verify the amount received.
+                </div>
+              </>
+            }
+            confirmText="Confirm & Record"
             isConfirming={isProcessing}
           />
         )}
