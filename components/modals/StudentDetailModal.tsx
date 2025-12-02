@@ -305,6 +305,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 {student.name}
               </h2>
               <p className="text-text-secondary-dark font-mono">
+                {student.userId || student.id}
                 {profile.userId} | {classInfo}
               </p>
             </div>
