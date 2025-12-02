@@ -222,7 +222,7 @@ export class RegistrarApiService {
     parent: { id: string; pass: string } | null;
   }> {
     const { data } = await baseApi.post(
-      `/registrar/students/${studentId}/reset-passwords`
+      `/registrar/students/${encodeURIComponent(studentId)}/reset-passwords`
     );
     return data;
   }
