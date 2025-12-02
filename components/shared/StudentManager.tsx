@@ -681,16 +681,24 @@ const profile = (await apiService.getStudentProfileDetails(studentId)) || {};
 
   const handleResetPasswords = async (studentId: string) => {
     if (user?.role !== "Registrar") return;
+
+    console.log("Resetting password for Student UUID:", studentId); // DEBUG LOG
+
     setIsResetting(true);
+    setShowResetCreds(null); // Clear previous state first
+
     try {
-      // FIX: resetStudentAndParentPasswords now takes 1 argument
       const result = await registrarApiService.resetStudentAndParentPasswords(
         studentId
       );
+
+      console.log("Reset Result:", result); // DEBUG LOG
+
       setShowResetCreds(result);
       setViewingStudent(null);
     } catch (error) {
       console.error("Failed to reset passwords:", error);
+      alert("Failed to reset passwords.");
     } finally {
       setIsResetting(false);
     }
