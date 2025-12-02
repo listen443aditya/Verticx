@@ -1,23 +1,17 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
-// FIX: Correctly import the service class and create an instance.
 import { RegistrarApiService } from "../../services/registrarApiService";
-import { SharedApiService } from "../../services/sharedApiService";
-import type {
-  FeeTemplate,
-  ClassFeeSummary,
-  MonthlyFee,
-  FeeComponent,
-} from "../../types";
+import type { FeeTemplate, ClassFeeSummary } from "../../types";
 import Card from "../../components/ui/Card";
 import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
 import ClassFeeDetailModal from "../../components/modals/ClassFeeDetailModal";
 import { useDataRefresh } from "../../contexts/DataRefreshContext";
-import { BanknoteIcon, AlertTriangleIcon } from "../../components/icons/Icons";
+import { AlertTriangleIcon } from "../../components/icons/Icons";
 import ConfirmationModal from "../../components/ui/ConfirmationModal";
+
 const apiService = new RegistrarApiService();
-const sharedApiService = new SharedApiService();
+
 const ACADEMIC_MONTHS = [
   "April",
   "May",
@@ -35,7 +29,7 @@ const ACADEMIC_MONTHS = [
 
 interface FeeCollectionRow {
   studentId: string;
-  userId: string; 
+  userId: string;
   name: string;
   className: string;
   totalFee: number;
@@ -45,6 +39,8 @@ interface FeeCollectionRow {
   dueDate: string;
   status: "Paid" | "Due";
 }
+
+// --- Modal Components ---
 
 const FeeTemplateFormModal: React.FC<{
   templateToEdit?: FeeTemplate | null;
@@ -134,7 +130,6 @@ const FeeTemplateFormModal: React.FC<{
     e.preventDefault();
     setIsSaving(true);
     if (isEditMode) {
-      // FIX: Removed registrarId from the call.
       await apiService.requestFeeTemplateUpdate(
         templateToEdit!.id,
         formData,
@@ -142,12 +137,11 @@ const FeeTemplateFormModal: React.FC<{
       );
       onSave("Update request sent to principal for approval.");
     } else {
-      // FIX: Removed branchId from the call.
       await apiService.createFeeTemplate(formData as Omit<FeeTemplate, "id">);
       onSave("New fee template created successfully.");
     }
     setIsSaving(false);
-    onClose(); // Close modal on save
+    onClose();
   };
 
   return (
@@ -310,7 +304,6 @@ const FeeTemplateFormModal: React.FC<{
   );
 };
 
-
 const PayFeeModal: React.FC<{
   student: FeeCollectionRow;
   onClose: () => void;
@@ -329,7 +322,6 @@ const PayFeeModal: React.FC<{
   const [isConfirming, setIsConfirming] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Fetch detailed breakdown
   useEffect(() => {
     const fetchDetails = async () => {
       try {
@@ -347,7 +339,7 @@ const PayFeeModal: React.FC<{
             }));
 
           setFeeStructure({
-            monthlyAmount: baseTotal / 12, 
+            monthlyAmount: baseTotal / 12,
             breakdown: ACADEMIC_MONTHS.map((m) => ({
               month: m,
               amount: baseTotal / 12,
@@ -367,26 +359,24 @@ const PayFeeModal: React.FC<{
   const paidMonthsCount = useMemo(() => {
     if (!feeStructure) return 0;
     let effectivePaid = student.paidAmount;
+    // If feeStructure is somehow 0 (e.g. new student, no fees set), avoid division by zero
+    if (feeStructure.monthlyAmount <= 0) return 0;
     return Math.floor(effectivePaid / feeStructure.monthlyAmount);
   }, [student.paidAmount, feeStructure]);
 
   const handleMonthToggle = (index: number) => {
     if (index < paidMonthsCount) return; // Cannot toggle already paid
 
-    // Auto-select previous months if clicking a future one
-    // This enforces sequential payment
     if (selectedMonths.includes(index)) {
-      // Deselecting: remove this and all future selected
       setSelectedMonths((prev) => prev.filter((i) => i < index));
     } else {
-      // Selecting: select this and all gaps between paid and this
       const newSelection = [];
       for (let i = paidMonthsCount; i <= index; i++) {
         newSelection.push(i);
       }
       setSelectedMonths(newSelection);
     }
-    setCustomAmount(""); // Reset custom if using checkboxes
+    setCustomAmount("");
   };
 
   const calculatedAmount = useMemo(() => {
@@ -416,7 +406,7 @@ const PayFeeModal: React.FC<{
   if (loadingDetails)
     return (
       <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-        <Card>Loading...</Card>
+        <Card>Loading details...</Card>
       </div>
     );
 
@@ -582,7 +572,6 @@ const PayFeeModal: React.FC<{
           </Button>
         </div>
 
-        {/* Confirmation Overlay */}
         {isConfirming && (
           <ConfirmationModal
             isOpen={true}
@@ -599,8 +588,7 @@ const PayFeeModal: React.FC<{
                 <br />
                 <br />
                 <span className="text-red-600 text-sm">
-                  This action creates a permanent financial record and cannot be
-                  undone easily.
+                  This action creates a permanent financial record.
                 </span>
               </>
             }
@@ -624,7 +612,6 @@ const DeleteRequestModal: React.FC<{
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    // FIX: Removed registrarId from the call.
     await apiService.requestFeeTemplateDeletion(template.id, reason);
     onSave("Deletion request sent to principal for approval.");
   };
@@ -688,7 +675,6 @@ const ClassFeeStatus: React.FC = () => {
     if (!user) return;
     setLoading(true);
     try {
-      // <-- ADD TRY
       const data = await apiService.getClassFeeSummaries();
       setSummaries(
         data.sort((a: ClassFeeSummary, b: ClassFeeSummary) =>
@@ -696,11 +682,10 @@ const ClassFeeStatus: React.FC = () => {
         )
       );
     } catch (error) {
-      // <-- ADD CATCH
       console.error("Failed to fetch class fee summaries:", error);
-      setSummaries([]); // Set to an empty array on error to prevent crash
+      setSummaries([]);
     } finally {
-      setLoading(false); // <-- ADD FINALLY
+      setLoading(false);
     }
   }, [user, refreshKey]);
 
@@ -724,10 +709,9 @@ const ClassFeeStatus: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-             
               {summaries.filter(Boolean).map((summary) => (
                 <tr
-                  key={summary?.classId} // Use optional chaining
+                  key={summary?.classId}
                   className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
                   onClick={() => setViewingClass(summary)}
                 >
@@ -741,7 +725,6 @@ const ClassFeeStatus: React.FC = () => {
                     {summary?.defaulterCount ?? 0}
                   </td>
                   <td className="p-4 text-right font-semibold text-red-600">
-                    {/* Use fallback '0' and optional chaining */}
                     {(summary?.pendingAmount ?? 0).toLocaleString()}
                   </td>
                 </tr>
@@ -777,7 +760,6 @@ const FeeTemplates: React.FC<{ onSave: (message: string) => void }> = ({
   const fetchTemplates = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    // FIX: Removed branchId from API call.
     const data = await apiService.getFeeTemplates();
     setTemplates(data);
     setLoading(false);
@@ -877,26 +859,19 @@ const FeeTemplates: React.FC<{ onSave: (message: string) => void }> = ({
 };
 
 const FeeManagement: React.FC = () => {
-  // const [activeTab, setActiveTab] = useState<"templates" | "status">(
-  //   "templates"
-  // );
+  const { user } = useAuth();
+  const { refreshKey } = useDataRefresh();
+  const [activeTab, setActiveTab] = useState<
+    "templates" | "status" | "collection"
+  >("collection");
+
+  const [collectionData, setCollectionData] = useState<FeeCollectionRow[]>([]);
+  const [collectionLoading, setCollectionLoading] = useState(false);
+  const [selectedStudentForPayment, setSelectedStudentForPayment] =
+    useState<FeeCollectionRow | null>(null);
+
+  const [searchTerm, setSearchTerm] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
-const { user } = useAuth();
-const { refreshKey } = useDataRefresh();
-const [activeTab, setActiveTab] = useState<
-  "templates" | "status" | "collection"
->("collection");
-
-const [collectionData, setCollectionData] = useState<FeeCollectionRow[]>([]);
-const [collectionLoading, setCollectionLoading] = useState(false);
-const [selectedStudentForPayment, setSelectedStudentForPayment] =
-  useState<FeeCollectionRow | null>(null);
-
-const [searchTerm, setSearchTerm] = useState("");
-const [templates, setTemplates] = useState<FeeTemplate[]>([]);
-const [summaries, setSummaries] = useState<ClassFeeSummary[]>([]);
-const [loading, setLoading] = useState(true);
-
 
   const handleSave = (message: string) => {
     setStatusMessage(message);
@@ -1059,17 +1034,10 @@ const [loading, setLoading] = useState(true);
           </div>
         )}
 
-        {statusMessage && (
-          <div className="mb-4 text-center p-2 bg-green-100 text-green-800 rounded-lg text-sm transition-opacity duration-300">
-            {statusMessage}
-          </div>
-        )}
-        {activeTab === "templates" ? (
-          <FeeTemplates onSave={handleSave} />
-        ) : (
-          <ClassFeeStatus />
-        )}
+        {activeTab === "templates" && <FeeTemplates onSave={handleSave} />}
+        {activeTab === "status" && <ClassFeeStatus />}
       </Card>
+
       {selectedStudentForPayment && (
         <PayFeeModal
           student={selectedStudentForPayment}
