@@ -977,10 +977,15 @@ const [classes, setClasses] = useState<EnrichedSchoolClass[]>([]);
      }
    };
 
-  const getMentorName = (teacherId?: string) =>
-    teachers.find((t) => t.id === teacherId)?.name || (
-      <span className="text-slate-400">Unassigned</span>
+  const getMentorName = (teacherId?: string) => {
+    if (!teacherId) return <span className="text-slate-400">Unassigned</span>;
+    const teacher = teachers.find((t) => t.id === teacherId);
+    return teacher ? (
+      teacher.name
+    ) : (
+      <span className="text-slate-400">Unknown</span>
     );
+  };
 
   const tabButtonClasses = (isActive: boolean) =>
     `px-4 py-2 text-sm font-medium transition-colors focus:outline-none ${
