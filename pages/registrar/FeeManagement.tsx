@@ -1,7 +1,12 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { RegistrarApiService } from "../../services/registrarApiService";
-import type { FeeTemplate, ClassFeeSummary } from "../../types";
+import { SharedApiService } from "../../services/sharedApiService";
+import type {
+  FeeTemplate,
+  ClassFeeSummary,
+  SchoolClass, // Added this
+} from "../../types";
 import Card from "../../components/ui/Card";
 import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
@@ -11,6 +16,7 @@ import { AlertTriangleIcon } from "../../components/icons/Icons";
 import ConfirmationModal from "../../components/ui/ConfirmationModal";
 
 const apiService = new RegistrarApiService();
+const sharedApiService = new SharedApiService();
 
 const ACADEMIC_MONTHS = [
   "April",
@@ -31,7 +37,8 @@ interface FeeCollectionRow {
   studentId: string;
   userId: string;
   name: string;
-  className: string;
+  className: string; // e.g. "Grade 10-A"
+  classId?: string; // Added for filtering logic (backend should send this ideally, or we parse className)
   totalFee: number;
   paidAmount: number;
   pendingAmount: number;
@@ -40,8 +47,8 @@ interface FeeCollectionRow {
   status: "Paid" | "Due";
 }
 
-// --- Modal Components ---
-
+// ... (FeeTemplateFormModal and DeleteRequestModal remain unchanged) ...
+// ... (Keep your existing FeeTemplateFormModal code here) ...
 const FeeTemplateFormModal: React.FC<{
   templateToEdit?: FeeTemplate | null;
   onClose: () => void;
@@ -174,7 +181,6 @@ const FeeTemplateFormModal: React.FC<{
                 required
               />
             </div>
-
             <div className="p-3 bg-slate-100 rounded-lg text-center">
               <p className="text-sm font-medium text-text-secondary-dark">
                 Total Annual Fee
@@ -183,11 +189,6 @@ const FeeTemplateFormModal: React.FC<{
                 {totalAnnualAmount.toLocaleString()}
               </p>
             </div>
-
-            <h3 className="text-lg font-semibold text-text-secondary-dark border-t pt-4">
-              Monthly Fee Breakdown
-            </h3>
-
             <div className="space-y-4">
               {formData.monthlyBreakdown?.map((monthData, monthIndex) => {
                 const monthTotal = monthData.breakdown.reduce(
@@ -261,7 +262,6 @@ const FeeTemplateFormModal: React.FC<{
                 );
               })}
             </div>
-
             {isEditMode && (
               <div className="pt-4 border-t">
                 <label className="block text-sm font-medium text-text-secondary-dark mb-1">
@@ -299,303 +299,6 @@ const FeeTemplateFormModal: React.FC<{
               : "Create Template"}
           </Button>
         </div>
-      </Card>
-    </div>
-  );
-};
-
-const PayFeeModal: React.FC<{
-  student: FeeCollectionRow;
-  onClose: () => void;
-  onSuccess: () => void;
-}> = ({ student, onClose, onSuccess }) => {
-  const [loadingDetails, setLoadingDetails] = useState(true);
-  const [feeStructure, setFeeStructure] = useState<{
-    monthlyAmount: number;
-    breakdown: { month: string; amount: number }[];
-    adjustments: { type: string; amount: number; reason: string }[];
-  } | null>(null);
-
-  const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
-  const [customAmount, setCustomAmount] = useState("");
-  const [remarks, setRemarks] = useState("");
-  const [isConfirming, setIsConfirming] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  useEffect(() => {
-    const fetchDetails = async () => {
-      try {
-        const profile = await apiService.getStudentProfileDetails(
-          student.studentId
-        );
-        if (profile) {
-          const baseTotal = profile.feeStatus.total;
-          const adjustments = profile.feeHistory
-            .filter((h: any) => h.itemType === "adjustment")
-            .map((adj: any) => ({
-              type: adj.type,
-              amount: adj.amount,
-              reason: adj.reason,
-            }));
-
-          setFeeStructure({
-            monthlyAmount: baseTotal / 12,
-            breakdown: ACADEMIC_MONTHS.map((m) => ({
-              month: m,
-              amount: baseTotal / 12,
-            })),
-            adjustments,
-          });
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoadingDetails(false);
-      }
-    };
-    fetchDetails();
-  }, [student]);
-
-  const paidMonthsCount = useMemo(() => {
-    if (!feeStructure) return 0;
-    let effectivePaid = student.paidAmount;
-    // If feeStructure is somehow 0 (e.g. new student, no fees set), avoid division by zero
-    if (feeStructure.monthlyAmount <= 0) return 0;
-    return Math.floor(effectivePaid / feeStructure.monthlyAmount);
-  }, [student.paidAmount, feeStructure]);
-
-  const handleMonthToggle = (index: number) => {
-    if (index < paidMonthsCount) return; // Cannot toggle already paid
-
-    if (selectedMonths.includes(index)) {
-      setSelectedMonths((prev) => prev.filter((i) => i < index));
-    } else {
-      const newSelection = [];
-      for (let i = paidMonthsCount; i <= index; i++) {
-        newSelection.push(i);
-      }
-      setSelectedMonths(newSelection);
-    }
-    setCustomAmount("");
-  };
-
-  const calculatedAmount = useMemo(() => {
-    if (customAmount) return Number(customAmount);
-    if (!feeStructure) return 0;
-    return selectedMonths.length * feeStructure.monthlyAmount;
-  }, [selectedMonths, feeStructure, customAmount]);
-
-  const handlePay = async () => {
-    setIsProcessing(true);
-    try {
-      await apiService.collectFeePayment({
-        studentId: student.studentId,
-        amount: calculatedAmount,
-        remarks: remarks,
-      });
-      onSuccess();
-      onClose();
-    } catch (e) {
-      alert("Payment Failed");
-    } finally {
-      setIsProcessing(false);
-      setIsConfirming(false);
-    }
-  };
-
-  if (loadingDetails)
-    return (
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-        <Card>Loading details...</Card>
-      </div>
-    );
-
-  return (
-    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-2xl flex flex-col max-h-[90vh]">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <h2 className="text-2xl font-bold text-text-primary-dark">
-              Collect Fee
-            </h2>
-            <p className="text-text-secondary-dark">
-              {student.name} ({student.userId})
-            </p>
-          </div>
-          <button onClick={onClose} className="text-2xl font-light">
-            &times;
-          </button>
-        </div>
-
-        <div className="flex-grow overflow-y-auto pr-2 space-y-6">
-          {/* Fiscal Timeline */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <h3 className="text-sm font-semibold text-text-secondary-dark mb-3 uppercase tracking-wide">
-              Academic Session Timeline
-            </h3>
-            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-              {ACADEMIC_MONTHS.map((month, index) => {
-                const isPaid = index < paidMonthsCount;
-                const isSelected = selectedMonths.includes(index);
-
-                return (
-                  <button
-                    key={month}
-                    disabled={isPaid}
-                    onClick={() => handleMonthToggle(index)}
-                    className={`
-                                    relative p-2 rounded-lg text-xs font-medium border transition-all
-                                    ${
-                                      isPaid
-                                        ? "bg-green-100 border-green-200 text-green-700 cursor-not-allowed"
-                                        : isSelected
-                                        ? "bg-brand-primary text-white border-brand-primary shadow-md transform scale-105"
-                                        : "bg-white border-slate-200 text-slate-600 hover:border-brand-secondary"
-                                    }
-                                `}
-                  >
-                    {month}
-                    {isPaid && (
-                      <span className="absolute top-0 right-1 text-[8px]">
-                        ✓
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mt-3 flex gap-4 text-xs text-slate-500">
-              <span className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-green-100 border border-green-200 rounded"></div>{" "}
-                Paid
-              </span>
-              <span className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-brand-primary rounded"></div>{" "}
-                Selected
-              </span>
-              <span className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-white border border-slate-200 rounded"></div>{" "}
-                Due
-              </span>
-            </div>
-          </div>
-
-          {/* Financial Summary */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-3 rounded-lg border border-slate-100">
-              <span className="text-xs text-slate-500">Total Fee (Year)</span>
-              <p className="text-lg font-semibold">
-                ₹{student.totalFee.toLocaleString()}
-              </p>
-            </div>
-            <div className="p-3 rounded-lg border border-slate-100">
-              <span className="text-xs text-slate-500">Already Paid</span>
-              <p className="text-lg font-semibold text-green-600">
-                ₹{student.paidAmount.toLocaleString()}
-              </p>
-            </div>
-          </div>
-
-          {/* Adjustments Section */}
-          {feeStructure?.adjustments && feeStructure.adjustments.length > 0 && (
-            <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100">
-              <h4 className="text-sm font-bold text-yellow-800 mb-2 flex items-center gap-2">
-                <AlertTriangleIcon className="w-4 h-4" /> Principal Adjustments
-              </h4>
-              <ul className="space-y-1">
-                {feeStructure.adjustments.map((adj, i) => (
-                  <li key={i} className="flex justify-between text-xs">
-                    <span>
-                      {adj.reason} ({adj.type})
-                    </span>
-                    <span
-                      className={
-                        adj.type === "charge"
-                          ? "text-red-600"
-                          : "text-green-600"
-                      }
-                    >
-                      {adj.type === "charge" ? "+" : "-"}₹{adj.amount}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Payment Input */}
-          <div className="space-y-4 border-t pt-4">
-            <div className="flex justify-between items-end">
-              <div className="w-1/2">
-                <Input
-                  label="Payment Amount (INR)"
-                  type="number"
-                  value={calculatedAmount || customAmount}
-                  onChange={(e) => {
-                    setSelectedMonths([]);
-                    setCustomAmount(e.target.value);
-                  }}
-                  className="text-xl font-bold text-brand-primary"
-                />
-              </div>
-              <div className="text-right pb-2">
-                <p className="text-xs text-slate-500">Remaining Due</p>
-                <p className="font-mono">
-                  ₹
-                  {(
-                    student.pendingAmount -
-                    Number(calculatedAmount || customAmount)
-                  ).toLocaleString()}
-                </p>
-              </div>
-            </div>
-            <Input
-              label="Remarks / Reference No."
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-              placeholder="e.g. Cash payment, Check #123"
-              required
-            />
-          </div>
-        </div>
-
-        <div className="mt-6 pt-4 border-t flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() => setIsConfirming(true)}
-            disabled={!calculatedAmount && !customAmount}
-          >
-            Proceed to Pay ₹
-            {(calculatedAmount || Number(customAmount)).toLocaleString()}
-          </Button>
-        </div>
-
-        {isConfirming && (
-          <ConfirmationModal
-            isOpen={true}
-            onClose={() => setIsConfirming(false)}
-            onConfirm={handlePay}
-            title="Confirm Payment"
-            message={
-              <>
-                Are you sure you want to record a payment of{" "}
-                <strong>
-                  ₹{(calculatedAmount || Number(customAmount)).toLocaleString()}
-                </strong>{" "}
-                for {student.name}?
-                <br />
-                <br />
-                <span className="text-red-600 text-sm">
-                  This action creates a permanent financial record.
-                </span>
-              </>
-            }
-            confirmText="Yes, Record Payment"
-            isConfirming={isProcessing}
-          />
-        )}
       </Card>
     </div>
   );
@@ -662,6 +365,231 @@ const DeleteRequestModal: React.FC<{
   );
 };
 
+const PayFeeModal: React.FC<{
+  student: FeeCollectionRow;
+  onClose: () => void;
+  onSuccess: () => void;
+}> = ({ student, onClose, onSuccess }) => {
+  const [loadingDetails, setLoadingDetails] = useState(true);
+  const [feeStructure, setFeeStructure] = useState<{
+    monthlyAmount: number;
+    breakdown: { month: string; amount: number }[];
+    adjustments: { type: string; amount: number; reason: string }[];
+  } | null>(null);
+
+  const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
+  const [customAmount, setCustomAmount] = useState("");
+  const [remarks, setRemarks] = useState("");
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    const fetchDetails = async () => {
+      try {
+        // Using apiService (Registrar) to fetch student profile
+        const profile = await apiService.getStudentProfileDetails(
+          student.studentId
+        );
+        if (profile) {
+          const baseTotal = profile.feeStatus.total;
+          const adjustments = profile.feeHistory
+            .filter((h: any) => h.itemType === "adjustment")
+            .map((adj: any) => ({
+              type: adj.type,
+              amount: adj.amount,
+              reason: adj.reason,
+            }));
+
+          // Safe calculation for monthly amount
+          const monthly = baseTotal > 0 ? baseTotal / 12 : 0;
+
+          setFeeStructure({
+            monthlyAmount: monthly,
+            breakdown: ACADEMIC_MONTHS.map((m) => ({
+              month: m,
+              amount: monthly,
+            })),
+            adjustments,
+          });
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingDetails(false);
+      }
+    };
+    fetchDetails();
+  }, [student]);
+
+  const paidMonthsCount = useMemo(() => {
+    if (!feeStructure || feeStructure.monthlyAmount <= 0) return 0;
+    let effectivePaid = student.paidAmount;
+    return Math.floor(effectivePaid / feeStructure.monthlyAmount);
+  }, [student.paidAmount, feeStructure]);
+
+  const handleMonthToggle = (index: number) => {
+    if (index < paidMonthsCount) return;
+
+    if (selectedMonths.includes(index)) {
+      setSelectedMonths((prev) => prev.filter((i) => i < index));
+    } else {
+      const newSelection = [];
+      for (let i = paidMonthsCount; i <= index; i++) {
+        newSelection.push(i);
+      }
+      setSelectedMonths(newSelection);
+    }
+    setCustomAmount("");
+  };
+
+  const calculatedAmount = useMemo(() => {
+    if (customAmount) return Number(customAmount);
+    if (!feeStructure) return 0;
+    return selectedMonths.length * feeStructure.monthlyAmount;
+  }, [selectedMonths, feeStructure, customAmount]);
+
+  const handlePay = async () => {
+    setIsProcessing(true);
+    try {
+      await apiService.collectFeePayment({
+        studentId: student.studentId,
+        amount: calculatedAmount,
+        remarks: remarks,
+      });
+      onSuccess();
+      onClose();
+    } catch (e) {
+      alert("Payment Failed");
+    } finally {
+      setIsProcessing(false);
+      setIsConfirming(false);
+    }
+  };
+
+  if (loadingDetails)
+    return (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+        <Card>Loading details...</Card>
+      </div>
+    );
+
+  return (
+    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-2xl flex flex-col max-h-[90vh]">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h2 className="text-2xl font-bold text-text-primary-dark">
+              Collect Fee
+            </h2>
+            <p className="text-text-secondary-dark">
+              {student.name} ({student.userId})
+            </p>
+          </div>
+          <button onClick={onClose} className="text-2xl font-light">
+            &times;
+          </button>
+        </div>
+
+        <div className="flex-grow overflow-y-auto pr-2 space-y-6">
+          {/* Timeline */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <h3 className="text-sm font-semibold text-text-secondary-dark mb-3 uppercase tracking-wide">
+              Academic Session Timeline
+            </h3>
+            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+              {ACADEMIC_MONTHS.map((month, index) => {
+                const isPaid = index < paidMonthsCount;
+                const isSelected = selectedMonths.includes(index);
+                return (
+                  <button
+                    key={month}
+                    disabled={isPaid}
+                    onClick={() => handleMonthToggle(index)}
+                    className={`relative p-2 rounded-lg text-xs font-medium border transition-all ${
+                      isPaid
+                        ? "bg-green-100 border-green-200 text-green-700 cursor-not-allowed"
+                        : isSelected
+                        ? "bg-brand-primary text-white border-brand-primary shadow-md transform scale-105"
+                        : "bg-white border-slate-200 text-slate-600 hover:border-brand-secondary"
+                    }`}
+                  >
+                    {month}
+                    {isPaid && (
+                      <span className="absolute top-0 right-1 text-[8px]">
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Summary & Input */}
+          <div className="space-y-4 border-t pt-4">
+            <div className="flex justify-between items-end">
+              <div className="w-1/2">
+                <Input
+                  label="Payment Amount (INR)"
+                  type="number"
+                  value={calculatedAmount || customAmount}
+                  onChange={(e) => {
+                    setSelectedMonths([]);
+                    setCustomAmount(e.target.value);
+                  }}
+                  className="text-xl font-bold text-brand-primary"
+                />
+              </div>
+              <div className="text-right pb-2">
+                <p className="text-xs text-slate-500">Remaining Due</p>
+                <p className="font-mono">
+                  ₹
+                  {(
+                    student.pendingAmount -
+                    Number(calculatedAmount || customAmount)
+                  ).toLocaleString()}
+                </p>
+              </div>
+            </div>
+            <Input
+              label="Remarks / Reference No."
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              placeholder="e.g. Cash"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 pt-4 border-t flex justify-end gap-3">
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => setIsConfirming(true)}
+            disabled={!calculatedAmount && !customAmount}
+          >
+            Proceed to Pay ₹
+            {(calculatedAmount || Number(customAmount)).toLocaleString()}
+          </Button>
+        </div>
+
+        {isConfirming && (
+          <ConfirmationModal
+            isOpen={true}
+            onClose={() => setIsConfirming(false)}
+            onConfirm={handlePay}
+            title="Confirm Payment"
+            message="This action creates a permanent record."
+            confirmText="Yes, Record"
+            isConfirming={isProcessing}
+          />
+        )}
+      </Card>
+    </div>
+  );
+};
+
 const ClassFeeStatus: React.FC = () => {
   const { user } = useAuth();
   const { refreshKey } = useDataRefresh();
@@ -696,7 +624,7 @@ const ClassFeeStatus: React.FC = () => {
   return (
     <div>
       {loading ? (
-        <p>Loading class fee status...</p>
+        <p>Loading...</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -715,14 +643,10 @@ const ClassFeeStatus: React.FC = () => {
                   className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
                   onClick={() => setViewingClass(summary)}
                 >
-                  <td className="p-4 font-medium text-text-primary-dark">
-                    {summary?.className || "Unknown Class"}
-                  </td>
-                  <td className="p-4 text-center">
-                    {summary?.studentCount ?? 0}
-                  </td>
-                  <td className="p-4 text-center font-semibold text-orange-600">
-                    {summary?.defaulterCount ?? 0}
+                  <td className="p-4 font-medium">{summary?.className}</td>
+                  <td className="p-4 text-center">{summary?.studentCount}</td>
+                  <td className="p-4 text-center text-orange-600">
+                    {summary?.defaulterCount}
                   </td>
                   <td className="p-4 text-right font-semibold text-red-600">
                     {(summary?.pendingAmount ?? 0).toLocaleString()}
@@ -749,7 +673,7 @@ const FeeTemplates: React.FC<{ onSave: (message: string) => void }> = ({
   onSave,
 }) => {
   const { user } = useAuth();
-  const { refreshKey, triggerRefresh } = useDataRefresh();
+  const { refreshKey } = useDataRefresh();
   const [templates, setTemplates] = useState<FeeTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<"create" | "edit" | "delete" | null>(null);
@@ -772,20 +696,17 @@ const FeeTemplates: React.FC<{ onSave: (message: string) => void }> = ({
   const handleSaveAndRefresh = (message: string) => {
     setModal(null);
     setSelectedTemplate(null);
-    triggerRefresh();
     onSave(message);
   };
 
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-text-primary-dark">
-          Fee Templates
-        </h2>
+        <h2 className="text-xl font-semibold">Fee Templates</h2>
         <Button onClick={() => setModal("create")}>Create New Template</Button>
       </div>
       {loading ? (
-        <p>Loading templates...</p>
+        <p>Loading...</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -803,9 +724,7 @@ const FeeTemplates: React.FC<{ onSave: (message: string) => void }> = ({
                   key={template.id}
                   className="border-b border-slate-100 hover:bg-slate-50"
                 >
-                  <td className="p-4 font-medium text-text-primary-dark">
-                    {template.name}
-                  </td>
+                  <td className="p-4 font-medium">{template.name}</td>
                   <td className="p-4">{template.gradeLevel}</td>
                   <td className="p-4 text-right font-semibold">
                     {template.amount.toLocaleString()}
@@ -870,6 +789,9 @@ const FeeManagement: React.FC = () => {
   const [selectedStudentForPayment, setSelectedStudentForPayment] =
     useState<FeeCollectionRow | null>(null);
 
+  const [classes, setClasses] = useState<SchoolClass[]>([]); // List of classes for filter
+  const [filterClass, setFilterClass] = useState("all"); // Filter state
+  const [sortBy, setSortBy] = useState("name"); // Sort state
   const [searchTerm, setSearchTerm] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
 
@@ -885,10 +807,22 @@ const FeeManagement: React.FC = () => {
         : "text-text-secondary-dark hover:bg-slate-100"
     }`;
 
+  // FIX: Fetch classes for the dropdown
+  const fetchClasses = useCallback(async () => {
+    if (!user) return;
+    try {
+      const data = await apiService.getSchoolClasses();
+      setClasses(data);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [user]);
+
   const fetchCollectionData = useCallback(async () => {
     setCollectionLoading(true);
     try {
       const data = await apiService.getFeeCollectionOverview();
+      // Note: The backend might return data where className is "Grade X-Y", we can parse this for filtering if needed
       setCollectionData(data);
     } catch (e) {
       console.error(e);
@@ -898,35 +832,70 @@ const FeeManagement: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (user) {
+      fetchClasses();
+    }
+  }, [user, fetchClasses]);
+
+  useEffect(() => {
     if (activeTab === "collection") {
       fetchCollectionData();
     }
-  }, [activeTab, refreshKey]);
+  }, [activeTab, refreshKey, fetchCollectionData]);
 
   const handlePaymentSuccess = () => {
     setSelectedStudentForPayment(null);
     setStatusMessage("Payment recorded successfully!");
     setTimeout(() => setStatusMessage(""), 4000);
-    fetchCollectionData(); // Refresh table
+    fetchCollectionData();
   };
 
+  // FIX: Robust filtering and sorting logic
   const filteredCollection = useMemo(() => {
-    return collectionData.filter(
-      (row) =>
-        row.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        row.userId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        row.className.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [collectionData, searchTerm]);
+    let data = [...collectionData];
+
+    // 1. Filter by Search
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      data = data.filter(
+        (row) =>
+          row.name.toLowerCase().includes(term) ||
+          row.userId.toLowerCase().includes(term) ||
+          row.className.toLowerCase().includes(term)
+      );
+    }
+
+    // 2. Filter by Class
+    if (filterClass !== "all") {
+      // Row has 'className' like "Grade 10-A".
+      // We need to match it against the selected class ID.
+      // Ideally backend sends classId. If not, we can try to match string or update backend.
+      // Assuming 'filterClass' holds the class ID, we need to find that class name to compare.
+      const selectedClassObj = classes.find((c) => c.id === filterClass);
+      if (selectedClassObj) {
+        const targetName = `Grade ${selectedClassObj.gradeLevel}-${selectedClassObj.section}`;
+        data = data.filter((row) => row.className === targetName);
+      }
+    }
+
+    // 3. Sort
+    data.sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      if (sortBy === "id") return a.userId.localeCompare(b.userId);
+      if (sortBy === "due_desc") return b.pendingAmount - a.pendingAmount;
+      return 0;
+    });
+
+    return data;
+  }, [collectionData, searchTerm, filterClass, sortBy, classes]);
 
   return (
     <div>
       <h1 className="text-3xl font-bold text-text-primary-dark mb-6">
         Fees & Finance
       </h1>
-
       {statusMessage && (
-        <div className="mb-4 text-center p-3 bg-green-100 text-green-800 rounded-lg border border-green-200 animate-fade-in">
+        <div className="mb-4 text-center p-3 bg-green-100 text-green-800 rounded-lg">
           {statusMessage}
         </div>
       )}
@@ -957,14 +926,49 @@ const FeeManagement: React.FC = () => {
       <Card>
         {activeTab === "collection" && (
           <div>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Student Fee Counter</h2>
-              <Input
-                placeholder="Search Student by Name, ID or Class..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-96"
-              />
+            {/* --- Top Toolbar: Search & Filter --- */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 items-end">
+              {/* Search */}
+              <div className="md:col-span-1">
+                <Input
+                  placeholder="Search Student..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              {/* Class Filter */}
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">
+                  Filter by Class
+                </label>
+                <select
+                  value={filterClass}
+                  onChange={(e) => setFilterClass(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-md py-2 px-3"
+                >
+                  <option value="all">All Classes</option>
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      Grade {c.gradeLevel} - {c.section}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {/* Sort */}
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">
+                  Sort By
+                </label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-md py-2 px-3"
+                >
+                  <option value="name">Name (A-Z)</option>
+                  <option value="id">Student ID</option>
+                  <option value="due_desc">Highest Dues First</option>
+                </select>
+              </div>
             </div>
 
             {collectionLoading ? (
