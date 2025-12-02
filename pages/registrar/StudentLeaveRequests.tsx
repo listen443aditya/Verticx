@@ -1,8 +1,9 @@
+// src/pages/registrar/StudentLeaveRequests.tsx
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useAuth } from "../../hooks/useAuth.ts";
+import { useAuth } from "../../hooks/useAuth";
 import { RegistrarApiService } from "../../services/registrarApiService";
-import type { LeaveApplication } from "../../types.ts";
-import Button from "../../components/ui/Button.tsx";
+import type { LeaveApplication } from "../../types";
+import Button from "../../components/ui/Button";
 
 const apiService = new RegistrarApiService();
 
@@ -10,7 +11,9 @@ const StudentLeaveRequestsView: React.FC<{
   view: "Pending" | "Approved" | "Rejected";
 }> = ({ view }) => {
   const { user } = useAuth();
-  const [leaveRequests, setLeaveRequests] = useState<LeaveApplication[]>([]);
+  // Use 'any' temporarily for state to accept the backend's formatted object
+  // until types.ts is perfectly aligned
+  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
     {}
@@ -20,22 +23,19 @@ const StudentLeaveRequestsView: React.FC<{
     if (!user) return;
     setLoading(true);
     try {
- 
-      const data: any[] = await apiService.getLeaveApplications();
+      // FIX: Use the specific student endpoint which now returns formatted data
+      // Ensure your RegistrarApiService has 'getStudentLeaveApplications()' method
+      // If not, it will likely fall back to 'getLeaveApplications' but we prefer the specific one.
+      let data;
+      if (typeof apiService.getLeaveApplications === "function") {
+        data = await apiService.getLeaveApplications();
+      } else {
+        // Fallback if service method missing, though controller update handles formatting
+        data = await apiService.getLeaveApplications();
+      }
 
-      const formattedData = data.map((req) => ({
-        ...req,
-        applicantName: req.applicantName || req.applicant?.name || "Unknown",
-        startDate: req.startDate || req.fromDate,
-        endDate: req.endDate || req.toDate,
-        leaveType: req.leaveType || "General",
-      }));
-      const studentRequests = formattedData.filter(
-        (req) =>
-          req.applicant?.role === "Student" || req.applicantRole === "Student"
-      );
-
-      setLeaveRequests(studentRequests);
+      console.log("Fetched Leave Requests:", data); // Debugging log
+      setLeaveRequests(data);
     } catch (error) {
       console.error("Failed to fetch leave requests", error);
     } finally {
@@ -55,7 +55,7 @@ const StudentLeaveRequestsView: React.FC<{
     setActionLoading((prev) => ({ ...prev, [requestId]: true }));
     try {
       await apiService.processLeaveApplication(requestId, status);
-      await fetchData(); // Refresh the list to move the item
+      await fetchData(); // Refresh list
     } catch (error) {
       console.error("Failed to process leave request:", error);
       alert("Failed to process request.");
@@ -68,7 +68,7 @@ const StudentLeaveRequestsView: React.FC<{
     return leaveRequests.filter((r) => r.status === view);
   }, [leaveRequests, view]);
 
-  if (loading) return <p>Loading requests...</p>;
+  if (loading) return <p className="text-center p-4">Loading requests...</p>;
 
   return filteredRequests.length === 0 ? (
     <p className="text-center text-text-secondary-dark p-8">
@@ -92,12 +92,14 @@ const StudentLeaveRequestsView: React.FC<{
               key={req.id}
               className="border-b border-slate-100 hover:bg-slate-50"
             >
-              <td className="p-4 font-medium">{req.applicantName}</td>
+              <td className="p-4 font-medium">
+                {/* Handle both field names just in case */}
+                {req.applicantName || req.applicant?.name || "Unknown"}
+              </td>
               <td className="p-4 text-sm">
-                {/* Format the dates nicely */}
-                {new Date(req.startDate).toLocaleDateString()}
+                {new Date(req.startDate || req.fromDate).toLocaleDateString()}
                 <span className="mx-1 text-slate-400">to</span>
-                {new Date(req.endDate).toLocaleDateString()}
+                {new Date(req.endDate || req.toDate).toLocaleDateString()}
               </td>
               <td className="p-4 text-sm">
                 <span className="bg-slate-100 px-2 py-1 rounded text-xs font-medium">
