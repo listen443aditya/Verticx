@@ -372,7 +372,6 @@ const PayFeeModal: React.FC<{
 }> = ({ student, onClose, onSuccess }) => {
   const [loadingDetails, setLoadingDetails] = useState(true);
   const [feeStructure, setFeeStructure] = useState<{
-    monthlyAmount: number;
     breakdown: { month: string; amount: number }[];
     adjustments: { type: string; amount: number; reason: string }[];
   } | null>(null);
@@ -386,16 +385,11 @@ const PayFeeModal: React.FC<{
   useEffect(() => {
     const fetchDetails = async () => {
       try {
-        const profile = await apiService.getStudentProfileDetails(
+        const profile: any = await apiService.getStudentProfileDetails(
           student.studentId
         );
-        if (profile) {
-          // Use the Total Fee calculated by backend (includes template + adjustments)
-          // Note: In a perfect world, we'd fetch the specific template breakdown.
-          // Here we distribute the Base Fee across 12 months for the visual timeline.
-          const baseTotal = profile.feeStatus.total;
-          const monthly = baseTotal > 0 ? Math.ceil(baseTotal / 12) : 0;
 
+        if (profile) {
           const adjustments = profile.feeHistory
             .filter((h: any) => h.itemType === "adjustment")
             .map((adj: any) => ({
@@ -403,14 +397,19 @@ const PayFeeModal: React.FC<{
               amount: adj.amount,
               reason: adj.reason,
             }));
+          const templateBreakdown = profile.feeBreakdown || [];
+          const realBreakdown = ACADEMIC_MONTHS.map((monthName) => {
+            const monthData = templateBreakdown.find(
+              (m: any) => m.month === monthName
+            );
+            return {
+              month: monthName,
+              amount: monthData ? Number(monthData.total) : 0,
+            };
+          });
 
           setFeeStructure({
-            monthlyAmount: monthly,
-            // Create a breakdown array where each month has its specific amount
-            breakdown: ACADEMIC_MONTHS.map((m) => ({
-              month: m,
-              amount: monthly,
-            })),
+            breakdown: realBreakdown,
             adjustments,
           });
         }
@@ -423,39 +422,38 @@ const PayFeeModal: React.FC<{
     fetchDetails();
   }, [student]);
 
-  // Logic to determine how many months are fully covered by what has been paid so far
   const paidMonthsCount = useMemo(() => {
-    if (!feeStructure || feeStructure.monthlyAmount <= 0) return 0;
+    if (!feeStructure) return 0;
     let effectivePaid = student.paidAmount;
-    // Simple logic: Paid amount / Monthly rate = Number of months cleared
-    return Math.min(12, Math.floor(effectivePaid / feeStructure.monthlyAmount));
+    let count = 0;
+    for (const monthData of feeStructure.breakdown) {
+      if (effectivePaid >= monthData.amount && monthData.amount > 0) {
+        effectivePaid -= monthData.amount;
+        count++;
+      } else {
+        break;
+      }
+    }
+    return count;
   }, [student.paidAmount, feeStructure]);
 
   const handleMonthToggle = (index: number) => {
-    if (index < paidMonthsCount) return; // Cannot toggle already paid months
+    if (index < paidMonthsCount) return;
 
     if (selectedMonths.includes(index)) {
-      // Deselecting: Remove this and any subsequent months (enforce sequence)
       setSelectedMonths((prev) => prev.filter((i) => i < index));
     } else {
-      // Selecting: Auto-select all gaps between the last paid month and this one
       const newSelection = [];
-      // Start from the first unpaid month
       for (let i = paidMonthsCount; i <= index; i++) {
         newSelection.push(i);
       }
       setSelectedMonths(newSelection);
     }
-    // Clear custom amount so the calculated amount takes over
     setCustomAmount("");
   };
 
-  // Calculate total based on selected months
   const calculatedAmount = useMemo(() => {
-    // If user typed a custom amount, use that.
     if (customAmount) return Number(customAmount);
-
-    // Otherwise, sum the amounts of the selected months
     if (!feeStructure) return 0;
     return selectedMonths.reduce((sum, index) => {
       return sum + (feeStructure.breakdown[index]?.amount || 0);
@@ -468,7 +466,7 @@ const PayFeeModal: React.FC<{
       await apiService.collectFeePayment({
         studentId: student.studentId,
         amount: calculatedAmount,
-        remarks: remarks || `Fee for ${selectedMonths.length} months`,
+        remarks: remarks || `Fee payment for ${selectedMonths.length} month(s)`,
       });
       onSuccess();
       onClose();
@@ -496,10 +494,7 @@ const PayFeeModal: React.FC<{
               Collect Fee
             </h2>
             <p className="text-text-secondary-dark">
-              {student.name}{" "}
-              <span className="font-mono text-xs bg-slate-100 px-1 rounded">
-                {student.userId}
-              </span>
+              {student.name} ({student.userId})
             </p>
           </div>
           <button onClick={onClose} className="text-2xl font-light">
@@ -508,27 +503,21 @@ const PayFeeModal: React.FC<{
         </div>
 
         <div className="flex-grow overflow-y-auto pr-2 space-y-6">
-          {/* Fiscal Timeline */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
             <div className="flex justify-between items-end mb-3">
               <h3 className="text-sm font-semibold text-text-secondary-dark uppercase tracking-wide">
                 Academic Session Timeline
               </h3>
-              <span className="text-xs font-medium text-slate-500">
-                Base Monthly Fee: ₹
-                {feeStructure?.monthlyAmount.toLocaleString()}
-              </span>
             </div>
 
             <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-              {ACADEMIC_MONTHS.map((month, index) => {
+              {feeStructure?.breakdown.map((item, index) => {
                 const isPaid = index < paidMonthsCount;
                 const isSelected = selectedMonths.includes(index);
-                const amount = feeStructure?.breakdown[index]?.amount || 0;
 
                 return (
                   <button
-                    key={month}
+                    key={item.month}
                     disabled={isPaid}
                     onClick={() => handleMonthToggle(index)}
                     className={`
@@ -542,14 +531,14 @@ const PayFeeModal: React.FC<{
                         }
                     `}
                   >
-                    <span className="text-xs font-bold">{month}</span>
-                    {/* Show amount inside the button */}
+                    <span className="text-xs font-bold">{item.month}</span>
+                    {/* Show the EXACT amount for this month */}
                     <span
                       className={`text-[10px] ${
                         isSelected ? "text-blue-100" : "text-slate-400"
                       }`}
                     >
-                      ₹{amount.toLocaleString()}
+                      ₹{item.amount.toLocaleString()}
                     </span>
 
                     {isPaid && (
@@ -562,8 +551,9 @@ const PayFeeModal: React.FC<{
               })}
             </div>
             <div className="mt-3 flex gap-4 text-xs text-slate-500">
+              {/* Legend code... */}
               <span className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-green-50 border border-green-200 rounded"></div>{" "}
+                <div className="w-3 h-3 bg-green-100 border border-green-200 rounded"></div>{" "}
                 Paid
               </span>
               <span className="flex items-center gap-1">
@@ -576,8 +566,6 @@ const PayFeeModal: React.FC<{
               </span>
             </div>
           </div>
-
-          {/* Financial Summary & Adjustments */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-4">
               <div className="p-3 rounded-lg border border-slate-100 bg-white">
@@ -627,7 +615,6 @@ const PayFeeModal: React.FC<{
             </div>
           </div>
 
-          {/* Payment Input Area */}
           <div className="space-y-4 border-t pt-4">
             <div className="flex flex-col md:flex-row justify-between items-end gap-4">
               <div className="w-full md:w-1/2">
@@ -648,7 +635,7 @@ const PayFeeModal: React.FC<{
                         : ""
                     }
                     onChange={(e) => {
-                      setSelectedMonths([]); // Clear selection if typing manually
+                      setSelectedMonths([]);
                       setCustomAmount(e.target.value);
                     }}
                     placeholder="0"
@@ -681,7 +668,7 @@ const PayFeeModal: React.FC<{
               label="Remarks / Reference No."
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
-              placeholder="e.g. Cash payment by Guardian, UPI Ref..."
+              placeholder="e.g. Cash payment, Check #123"
               required
             />
           </div>
@@ -693,39 +680,29 @@ const PayFeeModal: React.FC<{
           </Button>
           <Button
             onClick={() => setIsConfirming(true)}
-            disabled={
-              (!calculatedAmount && !customAmount) ||
-              Number(customAmount || calculatedAmount) <= 0
-            }
+            disabled={!calculatedAmount && !customAmount}
           >
-            Record Payment of ₹
+            Proceed to Pay ₹
             {(Number(customAmount) || calculatedAmount).toLocaleString()}
           </Button>
         </div>
 
-        {/* Confirmation Overlay */}
         {isConfirming && (
           <ConfirmationModal
             isOpen={true}
             onClose={() => setIsConfirming(false)}
             onConfirm={handlePay}
-            title="Confirm Fee Payment"
+            title="Confirm Payment"
             message={
               <>
-                Confirm recording a payment of{" "}
-                <span className="text-lg font-bold text-brand-primary">
+                Are you sure you want to record a payment of{" "}
+                <strong>
                   ₹{(Number(customAmount) || calculatedAmount).toLocaleString()}
-                </span>{" "}
-                for <strong>{student.name}</strong>?
-                <br />
-                <br />
-                <div className="bg-amber-50 border-l-4 border-amber-500 p-3 text-xs text-amber-800">
-                  <strong>Warning:</strong> This action updates the financial
-                  ledger permanently. Please verify the amount received.
-                </div>
+                </strong>
+                ?
               </>
             }
-            confirmText="Confirm & Record"
+            confirmText="Yes, Record Payment"
             isConfirming={isProcessing}
           />
         )}
