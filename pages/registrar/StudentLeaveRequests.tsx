@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useAuth } from "../../hooks/useAuth";
-// FIX: Correctly import the service class and create an instance.
+import { useAuth } from "../../hooks/useAuth.ts";
 import { RegistrarApiService } from "../../services/registrarApiService";
-import type { LeaveApplication } from "../../types";
-import Button from "../../components/ui/Button";
+import type { LeaveApplication } from "../../types.ts";
+import Button from "../../components/ui/Button.tsx";
 
 const apiService = new RegistrarApiService();
 
@@ -20,10 +19,28 @@ const StudentLeaveRequestsView: React.FC<{
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    // FIX: Updated method call to align with the new API service (no branchId).
-    const data = await apiService.getLeaveApplications();
-    setLeaveRequests(data);
-    setLoading(false);
+    try {
+ 
+      const data: any[] = await apiService.getLeaveApplications();
+
+      const formattedData = data.map((req) => ({
+        ...req,
+        applicantName: req.applicantName || req.applicant?.name || "Unknown",
+        startDate: req.startDate || req.fromDate,
+        endDate: req.endDate || req.toDate,
+        leaveType: req.leaveType || "General",
+      }));
+      const studentRequests = formattedData.filter(
+        (req) =>
+          req.applicant?.role === "Student" || req.applicantRole === "Student"
+      );
+
+      setLeaveRequests(studentRequests);
+    } catch (error) {
+      console.error("Failed to fetch leave requests", error);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => {
@@ -37,11 +54,11 @@ const StudentLeaveRequestsView: React.FC<{
     if (!user) return;
     setActionLoading((prev) => ({ ...prev, [requestId]: true }));
     try {
-      // FIX: Updated method call to align with the new API service (no reviewerId).
       await apiService.processLeaveApplication(requestId, status);
-      fetchData();
+      await fetchData(); // Refresh the list to move the item
     } catch (error) {
       console.error("Failed to process leave request:", error);
+      alert("Failed to process request.");
     } finally {
       setActionLoading((prev) => ({ ...prev, [requestId]: false }));
     }
@@ -55,7 +72,7 @@ const StudentLeaveRequestsView: React.FC<{
 
   return filteredRequests.length === 0 ? (
     <p className="text-center text-text-secondary-dark p-8">
-      No {view.toLowerCase()} leave requests found.
+      No {view.toLowerCase()} student leave requests found.
     </p>
   ) : (
     <div className="overflow-x-auto">
@@ -77,10 +94,24 @@ const StudentLeaveRequestsView: React.FC<{
             >
               <td className="p-4 font-medium">{req.applicantName}</td>
               <td className="p-4 text-sm">
-                {req.startDate} to {req.endDate}
+                {/* Format the dates nicely */}
+                {new Date(req.startDate).toLocaleDateString()}
+                <span className="mx-1 text-slate-400">to</span>
+                {new Date(req.endDate).toLocaleDateString()}
               </td>
-              <td className="p-4 text-sm">{req.leaveType}</td>
-              <td className="p-4 text-sm italic">"{req.reason}"</td>
+              <td className="p-4 text-sm">
+                <span className="bg-slate-100 px-2 py-1 rounded text-xs font-medium">
+                  {req.leaveType}
+                </span>
+                {req.isHalfDay && (
+                  <span className="ml-2 text-xs text-amber-600 font-bold">
+                    (Half Day)
+                  </span>
+                )}
+              </td>
+              <td className="p-4 text-sm italic text-slate-600">
+                "{req.reason}"
+              </td>
               <td className="p-4 text-right">
                 {view === "Pending" && (
                   <div className="flex justify-end gap-2">
@@ -103,9 +134,15 @@ const StudentLeaveRequestsView: React.FC<{
                   </div>
                 )}
                 {view !== "Pending" && (
-                  <p className="text-xs font-semibold text-text-secondary-dark">
-                    Reviewed by {req.reviewedBy}
-                  </p>
+                  <span
+                    className={`text-xs font-bold px-2 py-1 rounded ${
+                      view === "Approved"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {view}
+                  </span>
                 )}
               </td>
             </tr>
