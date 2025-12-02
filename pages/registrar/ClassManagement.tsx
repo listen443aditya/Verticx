@@ -899,21 +899,21 @@ const [classes, setClasses] = useState<EnrichedSchoolClass[]>([]);
 
       // FIX 2: Enrich the class data right after fetching.
      const enrichedClasses = classesData.map((sClass: any) => {
-       // 'sClass.subjects' is the array of objects: [{id: '123', name: 'Math'}]
-       // We create 'subjectIds' which is an array of strings: ['123']
        const subjectIds = sClass.subjects
          ? sClass.subjects.map((sub: Subject) => sub.id)
          : [];
 
        return {
          ...sClass,
-         subjectIds: subjectIds, // Add the new array
+         subjectIds: subjectIds,
          mentorName:
-           allStaff.find((t: User) => t.id === sClass.mentorId)?.name || "N/A",
+           allStaff.find((t: User) => t.id === sClass.mentorId)?.name ||
+           "Unassigned",
+
          feeTemplateName:
            feeTemplatesData.find((ft) => ft.id === sClass.feeTemplateId)
              ?.name || "Unassigned",
-         studentCount: sClass._count?.students ?? 0,
+         studentCount: sClass.studentCount ?? 0, 
        };
      });
 

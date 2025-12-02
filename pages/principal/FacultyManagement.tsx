@@ -492,9 +492,6 @@ const fetchData = useCallback(async () => {
     }
   };
 
-
-
-
   const handleRejectApplication = async (id: string) => {
     setIsActionLoading(true);
     try {
