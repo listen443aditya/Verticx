@@ -1,6 +1,6 @@
+// pages/registrar/ClassManagement.tsx
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
-// Corrected the import to use the service class directly.
 import { RegistrarApiService } from "../../services/registrarApiService";
 import type {
   Subject,
@@ -9,7 +9,7 @@ import type {
   ClassDetails,
   Teacher,
   FeeTemplate,
-  User, // Imported User type for staff management.
+  User,
 } from "../../types";
 import Card from "../../components/ui/Card";
 import Input from "../../components/ui/Input";
@@ -25,19 +25,16 @@ import {
 } from "recharts";
 import AssignFeeTemplateModal from "../../components/modals/AssignFeeTemplateModal";
 import ConfirmationModal from "../../components/ui/ConfirmationModal";
-import { TimetableIcon } from "../../components/icons/Icons";
 import { useDataRefresh } from "../../contexts/DataRefreshContext";
 
-// Create an instance of the service.
 const apiService = new RegistrarApiService();
-
-
 
 type EnrichedSchoolClass = SchoolClass & {
   studentCount: number;
   mentorName?: string;
   feeTemplateName?: string;
 };
+
 // --- MODAL COMPONENTS ---
 
 const CreateSubjectModal: React.FC<{
@@ -56,7 +53,6 @@ const CreateSubjectModal: React.FC<{
       return;
     }
     setIsSaving(true);
-    // This is correct: it sends the selected ID (which will now be the Teacher.id)
     await onSave({ name, teacherId: teacherId || undefined });
     setIsSaving(false);
   };
@@ -85,18 +81,13 @@ const CreateSubjectModal: React.FC<{
               className="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-text-primary-dark"
             >
               <option value="">-- Unassigned --</option>
-              {/* --- THIS IS THE FIX ---
-                Iterate over the 'User' list, but use the 'teacher.id' as the value.
-                'user' is the 'User' object, 'user.teacher' is the nested 'Teacher' object.
-              */}
               {teachers.map((user) =>
-                user.teacher ? ( // Only render users who have a teacher profile
+                user.teacher ? (
                   <option key={user.id} value={user.teacher.id}>
                     {user.name}
                   </option>
                 ) : null
               )}
-              {/* --- END OF FIX --- */}
             </select>
           </div>
           <div className="flex justify-end gap-4 pt-4">
@@ -118,8 +109,6 @@ const CreateSubjectModal: React.FC<{
   );
 };
 
-
-// ... (CreateClassModal, EditClassModal, EditSubjectModal, ManageSubjectsModal are unchanged)
 const CreateClassModal: React.FC<{
   onClose: () => void;
   onSave: () => void;
@@ -177,8 +166,6 @@ const CreateClassModal: React.FC<{
   );
 };
 
-
-
 const EditClassModal: React.FC<{
   schoolClass: SchoolClass;
   onClose: () => void;
@@ -235,6 +222,7 @@ const EditClassModal: React.FC<{
     </div>
   );
 };
+
 const EditSubjectModal: React.FC<{
   subject: Subject;
   teachers: User[];
@@ -242,13 +230,13 @@ const EditSubjectModal: React.FC<{
   onSave: (updates: Partial<Subject>) => void;
 }> = ({ subject, teachers, onClose, onSave }) => {
   const [name, setName] = useState(subject.name);
-  const [teacherId, setTeacherId] = useState(subject.teacherId || ""); // This is the Teacher.id
+  const [teacherId, setTeacherId] = useState(subject.teacherId || "");
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    await onSave({ name, teacherId: teacherId }); // teacherId state holds the correct Teacher.id
+    await onSave({ name, teacherId: teacherId });
     setIsSaving(false);
   };
 
@@ -275,22 +263,13 @@ const EditSubjectModal: React.FC<{
               className="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-text-primary-dark"
             >
               <option value="">-- Unassigned --</option>
-
-              {/* --- THIS IS THE FIX ---
-                Iterate over the 'User' list (named 'user'), 
-                but use the nested 'user.teacher.id' as the value.
-              */}
-              {teachers.map(
-                (
-                  user // 'user' is the User object
-                ) =>
-                  user.teacher ? ( // Only render users who have a teacher profile
-                    <option key={user.id} value={user.teacher.id}>
-                      {user.name}
-                    </option>
-                  ) : null
+              {teachers.map((user) =>
+                user.teacher ? (
+                  <option key={user.id} value={user.teacher.id}>
+                    {user.name}
+                  </option>
+                ) : null
               )}
-              {/* --- END OF FIX --- */}
             </select>
           </div>
           <div className="flex justify-end gap-4 pt-4">
@@ -312,7 +291,6 @@ const EditSubjectModal: React.FC<{
   );
 };
 
-
 const ManageSubjectsModal: React.FC<{
   schoolClass: SchoolClass;
   allSubjects: Subject[];
@@ -331,8 +309,6 @@ const ManageSubjectsModal: React.FC<{
         : [...prev, subjectId]
     );
   };
-
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -387,26 +363,19 @@ const ManageSubjectsModal: React.FC<{
   );
 };
 
-
-
-// Modal for managing students in a class
 const ManageStudentsModal: React.FC<{
   schoolClass: SchoolClass;
   onClose: () => void;
   onSave: () => void;
 }> = ({ schoolClass, onClose, onSave }) => {
-  // FIX: Added useAuth() hook to get the user object.
   const { user } = useAuth();
   const [enrolledStudents, setEnrolledStudents] = useState<Student[]>([]);
   const [unassignedStudents, setUnassignedStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
-    // FIX: Check for user and user.branchId before fetching
     if (!user?.branchId) return;
     setLoading(true);
-    // The user variable is now defined in this scope.
-    // NOTE: If you get an error here, it means `getStudentsByBranch` needs to be added to your RegistrarApiService.
     const fetchStudents = (apiService as any).getStudentsByBranch;
     const allBranchStudents = await fetchStudents(user.branchId, {
       params: { _cacheBust: Date.now() },
@@ -414,17 +383,11 @@ const ManageStudentsModal: React.FC<{
     const enrolled = allBranchStudents.filter(
       (s: Student) => s.classId === schoolClass.id
     );
-
-    // 3. Unassigned students are those with no classId AND a matching grade level
-    // const unassigned = allBranchStudents.filter(
-    //   (s: Student) => !s.classId
-    // );
-
     const unassigned = allBranchStudents.filter((s: Student) => !s.classId);
     setUnassignedStudents(unassigned);
     setEnrolledStudents(enrolled);
     setLoading(false);
-  }, [schoolClass, user]); // FIX: Added 'user' to the dependency array.
+  }, [schoolClass, user]);
 
   useEffect(() => {
     fetchData();
@@ -432,16 +395,16 @@ const ManageStudentsModal: React.FC<{
 
   const handleAddStudent = async (studentId: string) => {
     await apiService.assignStudentsToClass(schoolClass.id, [studentId]);
-    fetchData(); // Refresh lists
+    fetchData();
   };
 
   const handleRemoveStudent = async (studentId: string) => {
     await apiService.removeStudentFromClass(schoolClass.id, studentId);
-    fetchData(); // Refresh lists
+    fetchData();
   };
 
   const handleClose = () => {
-    onSave(); // This triggers a refresh on the main page
+    onSave();
     onClose();
   };
 
@@ -456,7 +419,6 @@ const ManageStudentsModal: React.FC<{
           <p>Loading students...</p>
         ) : (
           <div className="grid grid-cols-2 gap-6 flex-grow overflow-hidden">
-            {/* Unassigned Students */}
             <div className="bg-slate-50 p-4 rounded-lg flex flex-col">
               <h3 className="font-semibold mb-2">
                 Unassigned Students (Grade {schoolClass.gradeLevel})
@@ -479,12 +441,11 @@ const ManageStudentsModal: React.FC<{
                   ))
                 ) : (
                   <p className="text-sm text-text-secondary-dark text-center pt-4">
-                    No unassigned students in this grade.
+                    No unassigned students.
                   </p>
                 )}
               </div>
             </div>
-            {/* Enrolled Students */}
             <div className="bg-slate-50 p-4 rounded-lg flex flex-col">
               <h3 className="font-semibold mb-2">
                 Enrolled Students ({enrolledStudents.length})
@@ -528,7 +489,7 @@ const ClassDetailModal: React.FC<{
   const [studentSearch, setStudentSearch] = useState("");
 
   const mentor = useMemo(
-    () => teachers.find((t) => t.id === classInfo.mentorTeacherId),
+    () => teachers.find((t) => t.teacher?.id === classInfo.mentorTeacherId),
     [teachers, classInfo]
   );
 
@@ -720,7 +681,7 @@ const SubjectManager: React.FC = () => {
   const { user } = useAuth();
   const { refreshKey, triggerRefresh } = useDataRefresh();
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [teachers, setTeachers] = useState<User[]>([]); // This is User[]
+  const [teachers, setTeachers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [isCreating, setIsCreating] = useState(false);
@@ -730,7 +691,6 @@ const SubjectManager: React.FC = () => {
   const fetchData = useCallback(async () => {
     if (!user?.branchId) return;
     setLoading(true);
-    // getAllStaff() returns User[] with nested teacher info
     const [subjectData, allStaff] = await Promise.all([
       apiService.getSubjects(),
       apiService.getAllStaff(),
@@ -745,14 +705,12 @@ const SubjectManager: React.FC = () => {
   }, [fetchData]);
 
   const handleCreate = async (data: { name: string; teacherId?: string }) => {
-    // 'data.teacherId' is now the correct Teacher.id
     await apiService.createSubject(data);
     setIsCreating(false);
     triggerRefresh();
   };
 
   const handleSave = async (updates: Partial<Subject>) => {
-    // 'updates.teacherId' is now the correct Teacher.id
     if (editingSubject) {
       await apiService.updateSubject(editingSubject.id, updates);
     }
@@ -792,15 +750,10 @@ const SubjectManager: React.FC = () => {
                 <tr key={subject.id} className="border-b hover:bg-slate-50">
                   <td className="p-2 font-medium">{subject.name}</td>
                   <td className="p-2">
-                    {/* --- THIS IS THE FIX ---
-                      We find the User 't' whose nested 't.teacher.id'
-                      matches the 'subject.teacherId'.
-                    */}
                     {teachers.find((t) => t.teacher?.id === subject.teacherId)
                       ?.name || (
                       <span className="text-slate-400">Unassigned</span>
                     )}
-                    {/* --- END OF FIX --- */}
                   </td>
                   <td className="p-2 text-right">
                     <div className="flex gap-2 justify-end">
@@ -865,7 +818,7 @@ const SubjectManager: React.FC = () => {
 const ClassManagement: React.FC = () => {
   const { user } = useAuth();
   const { refreshKey, triggerRefresh } = useDataRefresh();
-const [classes, setClasses] = useState<EnrichedSchoolClass[]>([]);
+  const [classes, setClasses] = useState<EnrichedSchoolClass[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [teachers, setTeachers] = useState<User[]>([]);
   const [feeTemplates, setFeeTemplates] = useState<FeeTemplate[]>([]);
@@ -888,34 +841,35 @@ const [classes, setClasses] = useState<EnrichedSchoolClass[]>([]);
     if (!user?.branchId) return;
     setLoading(true);
     try {
-      // FIX 1: Fetch all necessary data in parallel for maximum efficiency.
       const [classesData, subjectsData, allStaff, feeTemplatesData] =
         await Promise.all([
           apiService.getSchoolClasses(),
           apiService.getSubjects(),
-          apiService.getAllStaff(), // Assuming this method exists and fetches all staff for the branch
+          apiService.getAllStaff(),
           apiService.getFeeTemplates(),
         ]);
 
-      // FIX 2: Enrich the class data right after fetching.
-     const enrichedClasses = classesData.map((sClass: any) => {
-       const subjectIds = sClass.subjects
-         ? sClass.subjects.map((sub: Subject) => sub.id)
-         : [];
+      // FIX: Correct logic to enrich classes with Mentor Names
+      const enrichedClasses = classesData.map((sClass: any) => {
+        const subjectIds = sClass.subjects
+          ? sClass.subjects.map((sub: Subject) => sub.id)
+          : [];
 
-       return {
-         ...sClass,
-         subjectIds: subjectIds,
-         mentorName:
-           allStaff.find((t: User) => t.id === sClass.mentorId)?.name ||
-           "Unassigned",
+        // Find the user whose nested 'teacher.id' matches 'sClass.mentorId'
+        const mentor = allStaff.find(
+          (t: User) => t.teacher?.id === sClass.mentorId
+        );
 
-         feeTemplateName:
-           feeTemplatesData.find((ft) => ft.id === sClass.feeTemplateId)
-             ?.name || "Unassigned",
-         studentCount: sClass.studentCount ?? 0, 
-       };
-     });
+        return {
+          ...sClass,
+          subjectIds: subjectIds,
+          mentorName: mentor ? mentor.name : "Unassigned", // Set the name directly here
+          feeTemplateName:
+            feeTemplatesData.find((ft) => ft.id === sClass.feeTemplateId)
+              ?.name || "Unassigned",
+          studentCount: sClass.studentCount ?? 0,
+        };
+      });
 
       setClasses(
         enrichedClasses.sort(
@@ -933,27 +887,31 @@ const [classes, setClasses] = useState<EnrichedSchoolClass[]>([]);
     }
   }, [user, refreshKey]);
 
-
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Helper for the table row, simplified since we pre-calc mentorName
+  const getMentorName = (sClass: EnrichedSchoolClass) => {
+    if (sClass.mentorName) return sClass.mentorName;
+    return <span className="text-slate-400">Unassigned</span>;
+  };
 
   const handleSave = () => {
     setModal(null);
     setSelectedClass(null);
     triggerRefresh();
   };
- const handleSaveAndClose = () => {
-   setModal(null);
-   setSelectedClass(null);
-   triggerRefresh(); // Refresh all data from the server
- };
+  const handleSaveAndClose = () => {
+    setModal(null);
+    setSelectedClass(null);
+    triggerRefresh();
+  };
 
   const handleViewDetails = async (sClass: SchoolClass) => {
     setLoading(true);
     try {
-      // FIX 3: Implement the "View Details" feature.
-      const details = await apiService.getClassDetails(sClass.id); // Assuming service method exists
+      const details = await apiService.getClassDetails(sClass.id);
       setClassDetails(details);
       setSelectedClass(sClass as EnrichedSchoolClass);
       setModal("view_details");
@@ -965,26 +923,16 @@ const [classes, setClasses] = useState<EnrichedSchoolClass[]>([]);
     }
   };
 
-   const handleDelete = async () => {
-     if (!deletingClass) return;
-     try {
-       await apiService.deleteSchoolClass(deletingClass.id);
-       handleSaveAndClose(); // Reuse for cleanup and refresh
-     } catch (error: any) {
-       alert(error.response?.data?.message || "Failed to delete class.");
-     } finally {
-       setDeletingClass(null);
-     }
-   };
-
-  const getMentorName = (teacherId?: string) => {
-    if (!teacherId) return <span className="text-slate-400">Unassigned</span>;
-    const teacher = teachers.find((t) => t.id === teacherId);
-    return teacher ? (
-      teacher.name
-    ) : (
-      <span className="text-slate-400">Unknown</span>
-    );
+  const handleDelete = async () => {
+    if (!deletingClass) return;
+    try {
+      await apiService.deleteSchoolClass(deletingClass.id);
+      handleSaveAndClose();
+    } catch (error: any) {
+      alert(error.response?.data?.message || "Failed to delete class.");
+    } finally {
+      setDeletingClass(null);
+    }
   };
 
   const tabButtonClasses = (isActive: boolean) =>
@@ -1046,7 +994,8 @@ const [classes, setClasses] = useState<EnrichedSchoolClass[]>([]);
                       </td>
                       <td className="p-2 text-center">{sClass.studentCount}</td>
                       <td className="p-2">
-                        {getMentorName(sClass.mentorTeacherId)}
+                        {/* Use the pre-calculated name from enrichedClasses */}
+                        {getMentorName(sClass)}
                       </td>
                       <td className="p-2">
                         {feeTemplates.find(
@@ -1157,7 +1106,6 @@ const [classes, setClasses] = useState<EnrichedSchoolClass[]>([]);
           feeTemplates={feeTemplates}
           onClose={() => setModal(null)}
           onSave={async (cid, fid) => {
-            // FIX: Ensure 'fid' is not null before calling the API.
             if (fid) {
               await apiService.assignFeeTemplateToClass(cid, fid);
             }
@@ -1190,8 +1138,5 @@ const [classes, setClasses] = useState<EnrichedSchoolClass[]>([]);
     </div>
   );
 };
-
-
-
 
 export default ClassManagement;
