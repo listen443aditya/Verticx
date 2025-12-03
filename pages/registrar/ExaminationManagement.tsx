@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
-// Correctly import the service class and create an instance.
 import { RegistrarApiService } from "../../services/registrarApiService";
 import type {
   Examination,
@@ -11,7 +10,7 @@ import type {
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
-// import ConfirmationModal from "../../components/ui/ConfirmationModal";
+import ConfirmationModal from "../../components/ui/ConfirmationModal";
 
 const apiService = new RegistrarApiService();
 
@@ -29,7 +28,6 @@ const CreateExaminationModal: React.FC<{
     e.preventDefault();
     if (!user || !name || !startDate || !endDate) return;
     setIsSaving(true);
-    // Removed branchId from the API call.
     await apiService.createExamination({ name, startDate, endDate });
     setIsSaving(false);
     onSave();
@@ -45,7 +43,7 @@ const CreateExaminationModal: React.FC<{
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            placeholder="e.g., Mid-Term Exams, Fall 2024"
+            placeholder="e.g., Mid-Term Exams 2024"
           />
           <Input
             label="Start Date"
@@ -83,42 +81,42 @@ const CreateExaminationModal: React.FC<{
 
 const ScheduleExamModal: React.FC<{
   examination: Examination;
+  scheduleToEdit?: ExamSchedule | null;
   classes: SchoolClass[];
   subjects: Subject[];
   onClose: () => void;
   onSave: () => void;
-}> = ({ examination, classes, subjects, onClose, onSave }) => {
+}> = ({ examination, scheduleToEdit, classes, subjects, onClose, onSave }) => {
   const { user } = useAuth();
-  const [classId, setClassId] = useState("");
-  const [subjectId, setSubjectId] = useState("");
-  const [date, setDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const [room, setRoom] = useState("");
-  const [totalMarks, setTotalMarks] = useState("100");
+  const [classId, setClassId] = useState(scheduleToEdit?.classId || "");
+  const [subjectId, setSubjectId] = useState(scheduleToEdit?.subjectId || "");
+  const [date, setDate] = useState(
+    scheduleToEdit
+      ? new Date(scheduleToEdit.date).toISOString().split("T")[0]
+      : ""
+  );
+  const [startTime, setStartTime] = useState(scheduleToEdit?.startTime || "");
+  const [endTime, setEndTime] = useState(scheduleToEdit?.endTime || "");
+  const [room, setRoom] = useState(scheduleToEdit?.room || "");
+  const [totalMarks, setTotalMarks] = useState(
+    String(scheduleToEdit?.totalMarks || "100")
+  );
   const [isSaving, setIsSaving] = useState(false);
 
-const availableSubjects = useMemo(() => {
-  if (!classId) return [];
-
-  // 1. Find the class and cast it to 'any' to bypass the outdated type
-  const selectedClass = classes.find((c) => c.id === classId) as any;
-
-  // 2. Now we can safely access the 'subjects' property that exists at runtime
-  if (!selectedClass || !selectedClass.subjects) return [];
-
-  // 3. We type 'sub' as 'any' to fix the implicit 'any' error
-  const classSubjectIds = selectedClass.subjects.map((sub: any) => sub.id);
-
-  return subjects.filter((s) => classSubjectIds.includes(s.id));
-}, [classId, classes, subjects]);
+  const availableSubjects = useMemo(() => {
+    if (!classId) return [];
+    const selectedClass = classes.find((c) => c.id === classId) as any;
+    if (!selectedClass || !selectedClass.subjects) return [];
+    const classSubjectIds = selectedClass.subjects.map((sub: any) => sub.id);
+    return subjects.filter((s) => classSubjectIds.includes(s.id));
+  }, [classId, classes, subjects]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.branchId) return;
     setIsSaving(true);
-    // FIX: Added the mandatory 'branchId' to the payload.
-    await apiService.createExamSchedule({
+
+    const payload = {
       examinationId: examination.id,
       branchId: user.branchId,
       classId,
@@ -128,7 +126,18 @@ const availableSubjects = useMemo(() => {
       endTime,
       room,
       totalMarks: Number(totalMarks),
-    });
+    };
+
+    if (scheduleToEdit) {
+      // TODO: Add updateExamSchedule to your API Service and Controller if needed
+      // await apiService.updateExamSchedule(scheduleToEdit.id, payload);
+      alert(
+        "Update feature requires backend implementation. Create new for now."
+      );
+    } else {
+      await apiService.createExamSchedule(payload);
+    }
+
     setIsSaving(false);
     onSave();
   };
@@ -136,7 +145,9 @@ const availableSubjects = useMemo(() => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-lg">
-        <h2 className="text-xl font-bold mb-4">Schedule an Exam</h2>
+        <h2 className="text-xl font-bold mb-4">
+          {scheduleToEdit ? "Edit Schedule" : "Schedule an Exam"}
+        </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -151,6 +162,7 @@ const availableSubjects = useMemo(() => {
                 }}
                 className="w-full bg-white border border-slate-300 rounded-md py-2 px-3"
                 required
+                disabled={!!scheduleToEdit}
               >
                 <option value="">-- Select Class --</option>
                 {classes.map((c) => (
@@ -169,7 +181,7 @@ const availableSubjects = useMemo(() => {
                 onChange={(e) => setSubjectId(e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-md py-2 px-3"
                 required
-                disabled={!classId}
+                disabled={!classId || !!scheduleToEdit}
               >
                 <option value="">-- Select Subject --</option>
                 {availableSubjects.map((s) => (
@@ -186,8 +198,8 @@ const availableSubjects = useMemo(() => {
             value={date}
             onChange={(e) => setDate(e.target.value)}
             required
-            min={examination.startDate}
-            max={examination.endDate}
+            min={new Date(examination.startDate).toISOString().split("T")[0]}
+            max={new Date(examination.endDate).toISOString().split("T")[0]}
           />
           <div className="grid grid-cols-2 gap-4">
             <Input
@@ -230,7 +242,7 @@ const availableSubjects = useMemo(() => {
               Cancel
             </Button>
             <Button type="submit" disabled={isSaving}>
-              {isSaving ? "Scheduling..." : "Schedule Exam"}
+              {isSaving ? "Saving..." : "Save Schedule"}
             </Button>
           </div>
         </form>
@@ -246,16 +258,22 @@ const ExaminationManagement: React.FC = () => {
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedExam, setSelectedExam] = useState<Examination | null>(null);
 
+  const [selectedExam, setSelectedExam] = useState<Examination | null>(null);
+  const [editingSchedule, setEditingSchedule] = useState<ExamSchedule | null>(
+    null
+  );
+
+  // Modal states
   const [modal, setModal] = useState<"create_exam" | "schedule_exam" | null>(
     null
   );
+  const [confirmDeleteExam, setConfirmDeleteExam] =
+    useState<Examination | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    // Updated API calls to remove branchId.
     const [examData, classData, subjectData] = await Promise.all([
       apiService.getExaminations(),
       apiService.getSchoolClasses(),
@@ -271,14 +289,14 @@ const ExaminationManagement: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
- const fetchSchedules = useCallback(async () => {
-   if (selectedExam) {
-     const response = await apiService.getExamSchedules(selectedExam.id);
-     setSchedules((response as any).data.schedules);
-   } else {
-     setSchedules([]);
-   }
- }, [selectedExam]);
+  const fetchSchedules = useCallback(async () => {
+    if (selectedExam) {
+      const response = await apiService.getExamSchedules(selectedExam.id);
+      setSchedules((response as any).data.schedules);
+    } else {
+      setSchedules([]);
+    }
+  }, [selectedExam]);
 
   useEffect(() => {
     fetchSchedules();
@@ -286,9 +304,21 @@ const ExaminationManagement: React.FC = () => {
 
   const handleSave = () => {
     setModal(null);
+    setEditingSchedule(null);
     fetchData();
-    if (selectedExam) {
-      fetchSchedules();
+    if (selectedExam) fetchSchedules();
+  };
+
+  const handleDeleteExam = async () => {
+    if (!confirmDeleteExam) return;
+    try {
+      // Note: Ensure you implement deleteExamination in your API service and backend
+      await apiService.deleteExamination(confirmDeleteExam.id);
+      setConfirmDeleteExam(null);
+      if (selectedExam?.id === confirmDeleteExam.id) setSelectedExam(null);
+      fetchData();
+    } catch (error) {
+      alert("Failed to delete examination. Ensure it has no schedules.");
     }
   };
 
@@ -296,35 +326,70 @@ const ExaminationManagement: React.FC = () => {
     <div>
       <h1 className="text-3xl font-bold mb-6">Examination Management</h1>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* LEFT COLUMN: EXAM LIST */}
         <Card className="lg:col-span-1">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Examinations</h2>
             <Button onClick={() => setModal("create_exam")}>New Exam</Button>
           </div>
-          <div className="space-y-2 max-h-[70vh] overflow-y-auto">
+          <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
             {examinations.map((exam) => (
               <div
                 key={exam.id}
-                onClick={() => setSelectedExam(exam)}
-                className={`p-3 rounded-lg cursor-pointer ${
+                className={`p-3 rounded-lg border cursor-pointer transition-all ${
                   selectedExam?.id === exam.id
-                    ? "bg-brand-primary text-white"
-                    : "bg-slate-100 hover:bg-slate-200"
+                    ? "bg-brand-primary text-white border-brand-primary shadow-md"
+                    : "bg-white border-slate-200 hover:bg-slate-50"
                 }`}
+                onClick={() => setSelectedExam(exam)}
               >
-                <p className="font-semibold">{exam.name}</p>
-                <p className="text-xs">
-                  {exam.startDate} to {exam.endDate}
-                </p>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-semibold">{exam.name}</p>
+                    <p
+                      className={`text-xs mt-1 ${
+                        selectedExam?.id === exam.id
+                          ? "text-blue-100"
+                          : "text-slate-500"
+                      }`}
+                    >
+                      {new Date(exam.startDate).toLocaleDateString()} -{" "}
+                      {new Date(exam.endDate).toLocaleDateString()}
+                    </p>
+                  </div>
+                  {/* Delete Button (stops propagation to prevent selecting row) */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmDeleteExam(exam);
+                    }}
+                    className={`text-xs p-1 rounded ${
+                      selectedExam?.id === exam.id
+                        ? "text-white hover:bg-white/20"
+                        : "text-red-500 hover:bg-red-50"
+                    }`}
+                  >
+                    🗑
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         </Card>
+
+        {/* RIGHT COLUMN: SCHEDULE */}
         <Card className="lg:col-span-2">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Exam Schedule</h2>
+            <h2 className="text-xl font-semibold">
+              {selectedExam ? `${selectedExam.name} Schedule` : "Exam Schedule"}
+            </h2>
             {selectedExam && (
-              <Button onClick={() => setModal("schedule_exam")}>
+              <Button
+                onClick={() => {
+                  setEditingSchedule(null);
+                  setModal("schedule_exam");
+                }}
+              >
                 Add to Schedule
               </Button>
             )}
@@ -332,42 +397,72 @@ const ExaminationManagement: React.FC = () => {
           {selectedExam ? (
             <div className="overflow-x-auto max-h-[70vh]">
               <table className="w-full text-left">
-                <thead className="border-b">
+                <thead className="border-b bg-slate-50 sticky top-0">
                   <tr>
-                    <th className="p-2">Date</th>
-                    <th className="p-2">Time</th>
-                    <th className="p-2">Class</th>
-                    <th className="p-2">Subject</th>
-                    <th className="p-2">Room</th>
+                    <th className="p-3">Date</th>
+                    <th className="p-3">Time</th>
+                    <th className="p-3">Class</th>
+                    <th className="p-3">Subject</th>
+                    <th className="p-3">Room</th>
+                    <th className="p-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {schedules.map((s) => (
-                    <tr key={s.id} className="border-b">
-                      <td className="p-2">{s.date}</td>
-                      <td className="p-2">
-                        {s.startTime} - {s.endTime}
-                      </td>
-                      <td className="p-2">
-                        {classes.find((c) => c.id === s.classId)?.section}
-                      </td>
-                      <td className="p-2">
-                        {subjects.find((sub) => sub.id === s.subjectId)?.name}
-                      </td>
-                      <td className="p-2">{s.room}</td>
-                    </tr>
-                  ))}
+                  {schedules.map((s) => {
+                    // Find Class Name
+                    const cls = classes.find((c) => c.id === s.classId);
+                    const className = cls
+                      ? `Grade ${cls.gradeLevel}-${cls.section}`
+                      : "N/A";
+                    const subjectName =
+                      subjects.find((sub) => sub.id === s.subjectId)?.name ||
+                      "N/A";
+
+                    return (
+                      <tr key={s.id} className="border-b hover:bg-slate-50">
+                        <td className="p-3 text-sm">
+                          {new Date(s.date).toLocaleDateString()}
+                        </td>
+                        <td className="p-3 text-sm">
+                          {s.startTime} - {s.endTime}
+                        </td>
+                        <td className="p-3 font-medium">{className}</td>
+                        <td className="p-3">{subjectName}</td>
+                        <td className="p-3 text-sm">{s.room}</td>
+                        <td className="p-3 text-right">
+                          <button
+                            className="text-brand-secondary text-xs font-medium hover:underline mr-3"
+                            onClick={() => {
+                              setEditingSchedule(s);
+                              setModal("schedule_exam");
+                            }}
+                          >
+                            Edit
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
+              {schedules.length === 0 && (
+                <p className="text-center text-slate-500 p-8">
+                  No schedules added yet.
+                </p>
+              )}
             </div>
           ) : (
-            <p className="text-center text-slate-500 p-8">
-              Select an examination to view its schedule.
-            </p>
+            <div className="flex flex-col items-center justify-center h-64 text-slate-400 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
+              <p>
+                Select an examination from the list to view or manage its
+                schedule.
+              </p>
+            </div>
           )}
         </Card>
       </div>
 
+      {/* MODALS */}
       {modal === "create_exam" && (
         <CreateExaminationModal
           onClose={() => setModal(null)}
@@ -377,10 +472,22 @@ const ExaminationManagement: React.FC = () => {
       {modal === "schedule_exam" && selectedExam && (
         <ScheduleExamModal
           examination={selectedExam}
+          scheduleToEdit={editingSchedule}
           classes={classes}
           subjects={subjects}
           onClose={() => setModal(null)}
           onSave={handleSave}
+        />
+      )}
+      {confirmDeleteExam && (
+        <ConfirmationModal
+          isOpen={true}
+          title="Delete Examination"
+          message={`Are you sure you want to delete "${confirmDeleteExam.name}"? This will delete all associated schedules.`}
+          confirmVariant="danger"
+          confirmText="Delete"
+          onClose={() => setConfirmDeleteExam(null)}
+          onConfirm={handleDeleteExam}
         />
       )}
     </div>

@@ -682,15 +682,59 @@ export class RegistrarApiService {
     await baseApi.post("/registrar/examinations", data);
   }
 
-  async getExamSchedules(examinationId: string): Promise<ExamSchedule[]> {
-    const { data } = await baseApi.get<ExamSchedule[]>(
-      `/registrar/examinations/${examinationId}/schedules`
+  // async getExamSchedules(examinationId: string): Promise<ExamSchedule[]> {
+  //   const { data } = await baseApi.get<ExamSchedule[]>(
+  //     `/registrar/examinations/${examinationId}/schedules`
+  //   );
+  //   return data;
+  // }
+
+  // async createExamSchedule(data: Omit<ExamSchedule, "id">): Promise<void> {
+  //   await baseApi.post("/registrar/examinations/schedules", data);
+  // }
+  
+  async deleteExamination(examId: string): Promise<void> {
+    await baseApi.delete(
+      `/registrar/examinations/${encodeURIComponent(examId)}`
+    );
+  }
+
+  async updateExamination(
+    examId: string,
+    updates: Partial<Examination>
+  ): Promise<void> {
+    await baseApi.patch(
+      `/registrar/examinations/${encodeURIComponent(examId)}`,
+      updates
+    );
+  }
+
+  async createExamSchedule(data: any): Promise<void> {
+    await baseApi.post("/registrar/exam-schedules", data);
+  }
+
+  async getExamSchedules(
+    examId: string
+  ): Promise<{ data: { schedules: ExamSchedule[] } }> {
+    const { data } = await baseApi.get<{ data: { schedules: ExamSchedule[] } }>(
+      `/registrar/examinations/${encodeURIComponent(examId)}/schedules`,
+      getCacheBustConfig()
     );
     return data;
   }
 
-  async createExamSchedule(data: Omit<ExamSchedule, "id">): Promise<void> {
-    await baseApi.post("/registrar/examinations/schedules", data);
+  // Add these just in case you implement the Edit button in the UI later
+  async deleteExamSchedule(scheduleId: string): Promise<void> {
+    await baseApi.delete(
+      `/registrar/exam-schedules/${encodeURIComponent(scheduleId)}`
+    );
+  }
+
+  async updateExamSchedule(scheduleId: string, updates: any): Promise<void> {
+    await baseApi.patch(
+      `/registrar/exam-schedules/${encodeURIComponent(scheduleId)}`,
+      updates
+    );
   }
 
   // --- Communication, Documents & Events ---
