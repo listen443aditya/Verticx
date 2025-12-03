@@ -90,11 +90,13 @@ const ScheduleExamModal: React.FC<{
   const { user } = useAuth();
   const [classId, setClassId] = useState(scheduleToEdit?.classId || "");
   const [subjectId, setSubjectId] = useState(scheduleToEdit?.subjectId || "");
-  const [date, setDate] = useState(
-    scheduleToEdit
-      ? new Date(scheduleToEdit.date).toISOString().split("T")[0]
-      : ""
-  );
+
+  // Handle date parsing safely
+  const initialDate = scheduleToEdit
+    ? new Date(scheduleToEdit.date).toISOString().split("T")[0]
+    : "";
+
+  const [date, setDate] = useState(initialDate);
   const [startTime, setStartTime] = useState(scheduleToEdit?.startTime || "");
   const [endTime, setEndTime] = useState(scheduleToEdit?.endTime || "");
   const [room, setRoom] = useState(scheduleToEdit?.room || "");
@@ -128,18 +130,20 @@ const ScheduleExamModal: React.FC<{
       totalMarks: Number(totalMarks),
     };
 
-    if (scheduleToEdit) {
-      // TODO: Add updateExamSchedule to your API Service and Controller if needed
-      // await apiService.updateExamSchedule(scheduleToEdit.id, payload);
-      alert(
-        "Update feature requires backend implementation. Create new for now."
-      );
-    } else {
-      await apiService.createExamSchedule(payload);
+    try {
+      if (scheduleToEdit) {
+        // FIX: Call the actual update method now that backend supports it
+        await apiService.updateExamSchedule(scheduleToEdit.id, payload);
+      } else {
+        await apiService.createExamSchedule(payload);
+      }
+      onSave();
+    } catch (error) {
+      console.error(error);
+      alert("Failed to save schedule.");
+    } finally {
+      setIsSaving(false);
     }
-
-    setIsSaving(false);
-    onSave();
   };
 
   return (
@@ -162,6 +166,8 @@ const ScheduleExamModal: React.FC<{
                 }}
                 className="w-full bg-white border border-slate-300 rounded-md py-2 px-3"
                 required
+                // Usually, we don't allow changing class/subject on edit to prevent data corruption,
+                // but if your backend allows it, you can remove this disabled prop.
                 disabled={!!scheduleToEdit}
               >
                 <option value="">-- Select Class --</option>
@@ -198,6 +204,7 @@ const ScheduleExamModal: React.FC<{
             value={date}
             onChange={(e) => setDate(e.target.value)}
             required
+            // Ensure min/max dates align with the Exam duration
             min={new Date(examination.startDate).toISOString().split("T")[0]}
             max={new Date(examination.endDate).toISOString().split("T")[0]}
           />
@@ -242,7 +249,11 @@ const ScheduleExamModal: React.FC<{
               Cancel
             </Button>
             <Button type="submit" disabled={isSaving}>
-              {isSaving ? "Saving..." : "Save Schedule"}
+              {isSaving
+                ? "Saving..."
+                : scheduleToEdit
+                ? "Update Schedule"
+                : "Save Schedule"}
             </Button>
           </div>
         </form>
