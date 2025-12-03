@@ -1,8 +1,9 @@
+// src/pages/registrar/EventManagement.tsx
+
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
-// FIX: Corrected import to use the service class directly and create an instance.
 import { RegistrarApiService } from "../../services/registrarApiService";
-import type { SchoolEvent, UserRole } from "../../types";
+import type { SchoolEvent } from "../../types";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
@@ -18,7 +19,8 @@ import {
 
 const apiService = new RegistrarApiService();
 
-// Shared component between Registrar and Principal
+// --- MODAL COMPONENTS ---
+
 const EventFormModal: React.FC<{
   eventToEdit?: SchoolEvent | null;
   initialDate?: string;
@@ -39,22 +41,50 @@ const EventFormModal: React.FC<{
   });
   const [isSaving, setIsSaving] = useState(false);
 
+  // If editing, ensure the date is formatted correctly for the input
+  useEffect(() => {
+    if (eventToEdit?.date) {
+      setFormData((prev) => ({
+        ...prev,
+        date: new Date(eventToEdit.date).toISOString().split("T")[0],
+      }));
+    }
+  }, [eventToEdit]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     setIsSaving(true);
-    const eventData = {
-      ...formData,
-      createdBy: user.name,
-    } as Omit<SchoolEvent, "id" | "status" | "createdAt">;
 
-    if (eventToEdit?.id) {
-      await apiService.updateSchoolEvent(eventToEdit.id, eventData);
-    } else {
-      await apiService.createSchoolEvent(eventData);
-    }
-    setIsSaving(false);
-    onSave();
+    // Prepare payload
+    const eventData = {
+      name: formData.name!,
+      date: formData.date!, // String YYYY-MM-DD
+      description: formData.description,
+      location: formData.location,
+      category: formData.category!,
+      audience: formData.audience!,
+      branchId: user.branchId!,
+      createdBy: user.name,
+      sendNotification: formData.sendNotification ?? true,
+    };
+
+   try {
+     if (eventToEdit?.id) {
+       await apiService.updateSchoolEvent(eventToEdit.id, eventData);
+     } else {
+       await apiService.createSchoolEvent(
+         eventData as Omit<SchoolEvent, "id" | "status" | "createdAt">
+       );
+     }
+     onSave();
+     onClose();
+   } catch (error) {
+     console.error("Failed to save event", error);
+     alert("Failed to save event");
+   } finally {
+     setIsSaving(false);
+   }
   };
 
   const handleAudienceChange = (
@@ -90,7 +120,6 @@ const EventFormModal: React.FC<{
             value={formData.date}
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
             required
-            min={todayString}
           />
           <Input
             label="Location"
@@ -150,7 +179,7 @@ const EventFormModal: React.FC<{
               Cancel
             </Button>
             <Button type="submit" disabled={isSaving}>
-              {isSaving ? "Saving..." : "Submit for Approval"}
+              {isSaving ? "Saving..." : "Submit"}
             </Button>
           </div>
         </form>
@@ -209,8 +238,7 @@ const EventDetailModal: React.FC<{
             <strong>Description:</strong> {event.description || "N/A"}
           </p>
           <p>
-            <strong>Created by:</strong> {event.createdBy} on{" "}
-            {new Date(event.createdAt).toLocaleDateString()}
+            <strong>Created by:</strong> {event.createdBy}
           </p>
         </div>
         <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
@@ -256,9 +284,9 @@ const EventCard: React.FC<{ event: SchoolEvent }> = ({ event }) => {
         <p className="font-bold text-text-primary-dark">{event.name}</p>
         <p className="text-sm text-text-secondary-dark">
           {new Date(event.date).toLocaleDateString("en-US", {
-            weekday: "long",
+            weekday: "short",
             year: "numeric",
-            month: "long",
+            month: "short",
             day: "numeric",
           })}
         </p>
@@ -280,15 +308,22 @@ const EventManagement: React.FC = () => {
   // Modal states
   const [modal, setModal] = useState<"create" | "edit" | "detail" | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<SchoolEvent | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | undefined>(
+    undefined
+  );
   const [deletingEvent, setDeletingEvent] = useState<SchoolEvent | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const data = await apiService.getSchoolEvents();
-    setEvents(data);
-    setLoading(false);
+    try {
+      const data = await apiService.getSchoolEvents();
+      setEvents(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }, [user, refreshKey]);
 
   useEffect(() => {
@@ -298,7 +333,7 @@ const EventManagement: React.FC = () => {
   const handleSave = () => {
     setModal(null);
     setSelectedEvent(null);
-    setSelectedDate(null);
+    setSelectedDate(undefined);
     triggerRefresh();
   };
 
@@ -310,9 +345,10 @@ const EventManagement: React.FC = () => {
     triggerRefresh();
   };
 
-  // Calendar logic
+  // --- Calendar Logic ---
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
   const firstDayOfMonth = new Date(
     currentDate.getFullYear(),
     currentDate.getMonth(),
@@ -323,12 +359,13 @@ const EventManagement: React.FC = () => {
     currentDate.getMonth() + 1,
     0
   ).getDate();
-  const startingDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7; // 0=Monday, 6=Sunday
+  const startingDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
 
+  // FIX: Normalize API event dates to YYYY-MM-DD for easier map lookups
   const eventsByDate = useMemo(() => {
     const map = new Map<string, SchoolEvent[]>();
     events.forEach((event) => {
-      const dateKey = event.date;
+      const dateKey = new Date(event.date).toISOString().split("T")[0];
       if (!map.has(dateKey)) map.set(dateKey, []);
       map.get(dateKey)!.push(event);
     });
@@ -341,14 +378,6 @@ const EventManagement: React.FC = () => {
     );
   };
 
-  const upcomingEvents = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return events
-      .filter((e) => new Date(e.date) >= today)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [events]);
-
   const getStatusColor = (status: SchoolEvent["status"]) => {
     switch (status) {
       case "Pending":
@@ -360,14 +389,38 @@ const EventManagement: React.FC = () => {
     }
   };
 
+  // FIX: Upcoming events filter logic
+  const upcomingEvents = useMemo(() => {
+    return events
+      .filter((e) => {
+        const eventDate = new Date(e.date);
+        const eventDateOnly = new Date(
+          eventDate.getFullYear(),
+          eventDate.getMonth(),
+          eventDate.getDate()
+        );
+        // Show all upcoming events (Pending or Approved)
+        return eventDateOnly >= today;
+      })
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [events]);
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Event Management</h1>
-        <Button onClick={() => setModal("create")}>Create Event</Button>
+        <Button
+          onClick={() => {
+            setSelectedDate(undefined);
+            setModal("create");
+          }}
+        >
+          Create Event
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Calendar Column */}
         <Card className="lg:col-span-2">
           <div className="flex justify-between items-center mb-4">
             <Button onClick={() => changeMonth(-1)}>&larr;</Button>
@@ -394,15 +447,22 @@ const EventManagement: React.FC = () => {
               ></div>
             ))}
             {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+              // FIX: Use Date.UTC to ensure the generated date string matches the backend ISO format exactly
               const date = new Date(
+                Date.UTC(currentDate.getFullYear(), currentDate.getMonth(), day)
+              );
+              const dateString = date.toISOString().split("T")[0];
+
+              // Local date for "isPast" check
+              const localDate = new Date(
                 currentDate.getFullYear(),
                 currentDate.getMonth(),
                 day
               );
-              date.setHours(0, 0, 0, 0);
-              const isPast = date < today;
-              const dateString = date.toISOString().split("T")[0];
+              const isPast = localDate < today;
+
               const dayEvents = eventsByDate.get(dateString) || [];
+
               return (
                 <div
                   key={day}
@@ -427,7 +487,7 @@ const EventManagement: React.FC = () => {
                           setSelectedEvent(event);
                           setModal("detail");
                         }}
-                        className="flex items-center gap-1 text-xs p-1 rounded hover:bg-slate-200"
+                        className="flex items-center gap-1 text-xs p-1 rounded hover:bg-slate-200 cursor-pointer"
                       >
                         <div
                           className={`w-2 h-2 rounded-full ${getStatusColor(
@@ -450,35 +510,56 @@ const EventManagement: React.FC = () => {
           </div>
         </Card>
 
-        <Card>
-          <h2 className="text-xl font-semibold mb-4">Upcoming Events</h2>
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-            {upcomingEvents.length === 0 ? (
-              <p className="text-center p-8 text-text-secondary-dark">
-                No upcoming events scheduled.
-              </p>
-            ) : (
-              upcomingEvents.map((event) => (
-                <EventCard key={event.id} event={event} />
-              ))
-            )}
-          </div>
-        </Card>
+        {/* Sidebar Column */}
+        <div className="space-y-6">
+          {/* Upcoming Events List */}
+          <Card>
+            <h2 className="text-xl font-semibold mb-4 text-text-primary-dark">
+              Upcoming Events
+            </h2>
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+              {loading ? (
+                <p>Loading...</p>
+              ) : upcomingEvents.length === 0 ? (
+                <p className="text-center text-text-secondary-dark p-4">
+                  No upcoming events.
+                </p>
+              ) : (
+                upcomingEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    onClick={() => {
+                      setSelectedEvent(event);
+                      setModal("detail");
+                    }}
+                  >
+                    <EventCard event={event} />
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
+        </div>
       </div>
 
-      {/* FIX: Changed `selectedDate` to `selectedDate || undefined` to satisfy the type requirement. */}
       {(modal === "create" || modal === "edit") && (
         <EventFormModal
           eventToEdit={selectedEvent}
-          initialDate={selectedDate || undefined}
-          onClose={() => setModal(null)}
+          initialDate={selectedDate}
+          onClose={() => {
+            setModal(null);
+            setSelectedEvent(null);
+          }}
           onSave={handleSave}
         />
       )}
       {modal === "detail" && selectedEvent && (
         <EventDetailModal
           event={selectedEvent}
-          onClose={() => setModal(null)}
+          onClose={() => {
+            setModal(null);
+            setSelectedEvent(null);
+          }}
           onEdit={(e) => {
             setSelectedEvent(e);
             setModal("edit");
