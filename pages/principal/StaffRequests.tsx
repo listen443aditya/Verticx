@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useAuth } from "../../hooks/useAuth.ts";
+import { useAuth } from "../../hooks/useAuth";
 import { PrincipalApiService } from "../../services/principalApiService";
 import type {
   TeacherAttendanceRectificationRequest,
   LeaveApplication,
   FeeRectificationRequest,
-} from "../../types.ts";
-import Card from "../../components/ui/Card.tsx";
-import Button from "../../components/ui/Button.tsx";
-import { useDataRefresh } from "../../contexts/DataRefreshContext.tsx";
+} from "../../types";
+import Card from "../../components/ui/Card";
+import Button from "../../components/ui/Button";
+import { useDataRefresh } from "../../contexts/DataRefreshContext";
 
 // Create a single, clean instance of the service
 const apiService = new PrincipalApiService();
@@ -22,7 +22,7 @@ const StaffRequests: React.FC = () => {
     TeacherAttendanceRectificationRequest[]
   >([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveApplication[]>([]);
-  const [feeRequests, setFeeRequests] = useState<FeeRectificationRequest[]>([]); // NEW STATE
+  const [feeRequests, setFeeRequests] = useState<FeeRectificationRequest[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"Pending" | "Approved" | "Rejected">(
@@ -32,7 +32,6 @@ const StaffRequests: React.FC = () => {
     {}
   );
 
-  // Added "fees" to activeTab
   const [activeTab, setActiveTab] = useState<"attendance" | "leave" | "fees">(
     "attendance"
   );
@@ -44,7 +43,7 @@ const StaffRequests: React.FC = () => {
       const [attData, leaveData, feeData] = await Promise.all([
         apiService.getTeacherAttendanceRectificationRequests(),
         apiService.getLeaveApplications(),
-        apiService.getFeeRectificationRequests(), // Fetch Fee Requests
+        apiService.getFeeRectificationRequests(),
       ]);
       setAttendanceRequests(attData);
       setLeaveRequests(leaveData);
@@ -76,7 +75,6 @@ const StaffRequests: React.FC = () => {
       } else if (type === "leave") {
         await apiService.processLeaveApplication(requestId, status);
       } else if (type === "fees") {
-        // NEW: Process Fee Request
         await apiService.processFeeRectificationRequest(requestId, status);
       }
       triggerRefresh();
@@ -86,6 +84,85 @@ const StaffRequests: React.FC = () => {
     } finally {
       setActionLoading((prev) => ({ ...prev, [requestId]: false }));
     }
+  };
+
+  // --- HELPER: Render Fee Changes ---
+  const renderFeeChanges = (req: FeeRectificationRequest) => {
+    if (req.requestType === "delete")
+      return (
+        <span className="text-slate-500 italic">
+          Deletion of entire template
+        </span>
+      );
+
+    const original = req.originalData as any;
+    const newDetails = req.newData as any;
+
+    if (!original || !newDetails)
+      return <span className="text-slate-400">No details</span>;
+
+    const changes = [];
+
+    // Check Amount Change
+    if (
+      newDetails.amount !== undefined &&
+      newDetails.amount !== original.amount
+    ) {
+      changes.push(
+        <div key="amt" className="whitespace-nowrap">
+          <span className="text-xs text-slate-500">Amount:</span>{" "}
+          <span className="text-red-600 line-through text-xs mr-1">
+            {original.amount?.toLocaleString()}
+          </span>
+          <span className="text-green-600 font-bold text-sm">
+            {newDetails.amount?.toLocaleString()}
+          </span>
+        </div>
+      );
+    }
+
+    // Check Name Change
+    if (newDetails.name && newDetails.name !== original.name) {
+      changes.push(
+        <div key="name">
+          <span className="text-xs text-slate-500">Name:</span>{" "}
+          <span className="text-xs">
+            {original.name} &rarr; <strong>{newDetails.name}</strong>
+          </span>
+        </div>
+      );
+    }
+
+    // Check Grade Level Change
+    if (
+      newDetails.gradeLevel &&
+      newDetails.gradeLevel !== original.gradeLevel
+    ) {
+      changes.push(
+        <div key="grade">
+          <span className="text-xs text-slate-500">Grade:</span>{" "}
+          <span className="text-xs">
+            {original.gradeLevel} &rarr;{" "}
+            <strong>{newDetails.gradeLevel}</strong>
+          </span>
+        </div>
+      );
+    }
+
+    // Check if breakdown was modified (simplified check)
+    if (newDetails.monthlyBreakdown) {
+      changes.push(
+        <div key="breakdown" className="text-xs text-blue-600 mt-1">
+          * Monthly breakdown updated
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-1">
+        {changes.length > 0 ? changes : "No changes detected"}
+      </div>
+    );
   };
 
   // --- MEMOIZED FILTERS ---
@@ -325,7 +402,7 @@ const StaffRequests: React.FC = () => {
                 </table>
               ))}
 
-            {/* --- FEE UPDATES TAB (NEW) --- */}
+            {/* --- FEE UPDATES TAB --- */}
             {activeTab === "fees" &&
               (filteredFeeRequests.length === 0 ? (
                 <p className="text-center text-text-secondary-dark p-8">
@@ -338,6 +415,7 @@ const StaffRequests: React.FC = () => {
                       <th className="p-4">Requested By</th>
                       <th className="p-4">Action</th>
                       <th className="p-4">Template</th>
+                      <th className="p-4">Proposed Changes</th>
                       <th className="p-4">Reason</th>
                       <th className="p-4 text-right">Actions</th>
                     </tr>
@@ -366,10 +444,17 @@ const StaffRequests: React.FC = () => {
                           )}
                         </td>
                         <td className="p-4 text-sm font-medium">
-                          {/* Access template.name if available from inclusion */}
                           {(req as any).template?.name || "Unknown Template"}
                         </td>
-                        <td className="p-4 text-sm italic">"{req.reason}"</td>
+                        {/* NEW: Display changes */}
+                        <td className="p-4 text-sm">{renderFeeChanges(req)}</td>
+
+                        <td
+                          className="p-4 text-sm italic max-w-xs truncate"
+                          title={req.reason}
+                        >
+                          "{req.reason}"
+                        </td>
                         <td className="p-4 text-right">
                           {view === "Pending" && (
                             <div className="flex justify-end gap-2">
