@@ -42,6 +42,10 @@ import type {
   FeeRectificationRequest,
 } from "../types";
 
+
+const getCacheBustConfig = () => ({
+  params: { _cacheBust: Date.now() },
+});
 export class RegistrarApiService {
   // --- Dashboard ---
   async getRegistrarDashboardData(): Promise<RegistrarDashboardData> {
@@ -365,13 +369,18 @@ export class RegistrarApiService {
   // --- Fee Management ---
   async getFeeTemplates(): Promise<FeeTemplate[]> {
     const { data } = await baseApi.get<FeeTemplate[]>(
-      "/registrar/fees/templates"
+      "/registrar/fees/templates",
+      getCacheBustConfig()
     );
     return data;
   }
 
-  async createFeeTemplate(template: Omit<FeeTemplate, "id">): Promise<void> {
-    await baseApi.post("/registrar/fees/templates", template);
+  async createFeeTemplate(data: Omit<FeeTemplate, "id">): Promise<FeeTemplate> {
+    const response = await baseApi.post<FeeTemplate>(
+      "/registrar/fees/templates",
+      data
+    );
+    return response.data;
   }
 
   async assignFeeTemplateToClass(
@@ -389,8 +398,14 @@ export class RegistrarApiService {
     reason: string
   ): Promise<void> {
     await baseApi.post(
-      `/registrar/fees/templates/${templateId}/request-update`,
-      { newData, reason }
+      `/registrar/fees/templates/${encodeURIComponent(
+        templateId
+      )}/request-update`,
+      {
+        templateId: templateId,
+        newData: newData,
+        reason: reason,
+      }
     );
   }
 
@@ -399,8 +414,13 @@ export class RegistrarApiService {
     reason: string
   ): Promise<void> {
     await baseApi.post(
-      `/registrar/fees/templates/${templateId}/request-delete`,
-      { reason }
+      `/registrar/fees/templates/${encodeURIComponent(
+        templateId
+      )}/request-delete`,
+      {
+        templateId: templateId,
+        reason: reason,
+      }
     );
   }
 
