@@ -363,82 +363,72 @@ useEffect(() => {
       );
 
       if (profile) {
-        // 1. Extract Adjustments
+        // 1. Adjustments
         const adjustments = profile.feeHistory
-          ? profile.feeHistory
-              .filter((h: any) => h.itemType === "adjustment")
-              .map((adj: any) => ({
-                type: adj.type,
-                amount: adj.amount,
-                reason: adj.reason,
-              }))
-          : [];
+          .filter((h: any) => h.itemType === "adjustment")
+          .map((adj: any) => ({
+            type: adj.type,
+            amount: adj.amount,
+            reason: adj.reason,
+          }));
 
-        // 2. Get the Breakdown directly from Backend
-        const backendBreakdown = profile.feeBreakdown || [];
+        // 2. Service Info for Top Card
+        const s = profile.student;
+        const hostelInfo = s.room
+          ? { room: s.room.roomNumber, fee: Number(s.room.fee) }
+          : undefined;
+        const transportInfo = s.busStop
+          ? { stop: s.busStop.name, fee: Number(s.busStop.charges) }
+          : undefined;
 
-        // 3. Find "Standard Tuition" for Display Card
-        // We look for the first month that has a "Tuition" component to show as the base rate
-        let baseTuition = 0;
-        const monthWithTuition = backendBreakdown.find(
-          (m: any) =>
-            m.breakdown &&
-            m.breakdown.some((comp: any) => comp.component === "Tuition")
-        );
-
-        if (monthWithTuition) {
-          const t = monthWithTuition.breakdown.find(
-            (c: any) => c.component === "Tuition"
-          );
-          baseTuition = t ? t.amount : 0;
-        } else if (profile.student.class?.feeTemplate?.amount) {
-          // Fallback for display only
-          baseTuition = Math.ceil(
-            Number(profile.student.class.feeTemplate.amount) / 12
-          );
+        let tuitionBase = 0;
+        if (s.class?.feeTemplate?.amount) {
+          tuitionBase = Math.ceil(Number(s.class.feeTemplate.amount) / 12);
         }
 
-        // 4. Set Services Info
         setServices({
-          hostel: profile.student.room
-            ? {
-                room: profile.student.room.roomNumber,
-                fee: Number(profile.student.room.fee),
-              }
-            : undefined,
-          transport: profile.student.busStop
-            ? {
-                stop: profile.student.busStop.name,
-                fee: Number(profile.student.busStop.charges),
-              }
-            : undefined,
-          tuition: baseTuition,
+          hostel: hostelInfo,
+          transport: transportInfo,
+          tuition: tuitionBase,
         });
 
-        // 5. Build UI Breakdown (Strictly from Backend Data)
+        // 3. BREAKDOWN LOGIC (THE FIX)
+        const backendBreakdown = profile.feeBreakdown || [];
+
         const realBreakdown = ACADEMIC_MONTHS.map((monthName) => {
           const monthData = backendBreakdown.find(
             (m: any) => m.month === monthName
           );
 
-          if (monthData) {
-            return {
-              month: monthName,
-              amount: monthData.total,
-              details: monthData.details || [`Total: ₹${monthData.total}`],
-            };
+          // A. Use the Backend's calculated total directly
+          // The backend controller we wrote ALREADY includes Tuition + Hostel + Transport logic
+          let amount = monthData ? Number(monthData.total) : 0;
+
+          // B. Construct Tooltip Details
+          const details: string[] = [];
+          if (monthData && Array.isArray(monthData.breakdown)) {
+            monthData.breakdown.forEach((comp: any) => {
+              if (comp.amount > 0) {
+                details.push(`${comp.component}: ₹${comp.amount}`);
+              }
+            });
           }
-          return { month: monthName, amount: 0, details: [] };
+          // If no details but amount exists (fallback for legacy data)
+          else if (amount > 0) {
+            details.push(`Consolidated: ₹${amount}`);
+          }
+
+          return { month: monthName, amount, details };
         });
 
         setFeeStructure({
-          monthlyAmount: baseTuition,
+          monthlyAmount: tuitionBase,
           breakdown: realBreakdown,
           adjustments,
         });
       }
     } catch (e) {
-      console.error("Failed to fetch fee details:", e);
+      console.error(e);
     } finally {
       setLoadingDetails(false);
     }
