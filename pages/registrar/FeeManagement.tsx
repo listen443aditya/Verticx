@@ -363,7 +363,23 @@ useEffect(() => {
       );
 
       if (profile) {
-        // 1. Adjustments
+        const s = profile.student;
+
+        // 1. Services Info for Top Card
+        setServices({
+          hostel: s.room
+            ? { room: s.room.roomNumber, fee: Number(s.room.fee) }
+            : undefined,
+          transport: s.busStop
+            ? { stop: s.busStop.name, fee: Number(s.busStop.charges) }
+            : undefined,
+          // Calculate Annual Tuition for display
+          tuition: s.class?.feeTemplate?.amount
+            ? Math.ceil(Number(s.class.feeTemplate.amount) / 12)
+            : 0,
+        });
+
+        // 2. Adjustments List
         const adjustments = profile.feeHistory
           .filter((h: any) => h.itemType === "adjustment")
           .map((adj: any) => ({
@@ -372,27 +388,7 @@ useEffect(() => {
             reason: adj.reason,
           }));
 
-        // 2. Service Info for Top Card
-        const s = profile.student;
-        const hostelInfo = s.room
-          ? { room: s.room.roomNumber, fee: Number(s.room.fee) }
-          : undefined;
-        const transportInfo = s.busStop
-          ? { stop: s.busStop.name, fee: Number(s.busStop.charges) }
-          : undefined;
-
-        let tuitionBase = 0;
-        if (s.class?.feeTemplate?.amount) {
-          tuitionBase = Math.ceil(Number(s.class.feeTemplate.amount) / 12);
-        }
-
-        setServices({
-          hostel: hostelInfo,
-          transport: transportInfo,
-          tuition: tuitionBase,
-        });
-
-        // 3. BREAKDOWN LOGIC (THE FIX)
+        // 3. Breakdown Logic (The Fix)
         const backendBreakdown = profile.feeBreakdown || [];
 
         const realBreakdown = ACADEMIC_MONTHS.map((monthName) => {
@@ -400,29 +396,44 @@ useEffect(() => {
             (m: any) => m.month === monthName
           );
 
-          // A. Use the Backend's calculated total directly
-          // The backend controller we wrote ALREADY includes Tuition + Hostel + Transport logic
-          let amount = monthData ? Number(monthData.total) : 0;
-
-          // B. Construct Tooltip Details
+          let totalAmount = 0;
           const details: string[] = [];
-          if (monthData && Array.isArray(monthData.breakdown)) {
-            monthData.breakdown.forEach((comp: any) => {
-              if (comp.amount > 0) {
-                details.push(`${comp.component}: ₹${comp.amount}`);
-              }
-            });
-          }
-          // If no details but amount exists (fallback for legacy data)
-          else if (amount > 0) {
-            details.push(`Consolidated: ₹${amount}`);
+
+          if (monthData) {
+            // Trust the backend total if available
+            totalAmount = Number(monthData.total || 0);
+
+            // Build tooltip details
+            if (monthData.breakdown && Array.isArray(monthData.breakdown)) {
+              monthData.breakdown.forEach((comp: any) => {
+                if (comp.amount > 0) {
+                  details.push(
+                    `${comp.component}: ₹${Number(
+                      comp.amount
+                    ).toLocaleString()}`
+                  );
+                }
+              });
+            } else if (totalAmount > 0) {
+              details.push(`Consolidated: ₹${totalAmount.toLocaleString()}`);
+            }
+          } else {
+            // Fallback: If month data missing but student has fee (legacy data)
+            if (student.totalFee > 0) {
+              totalAmount = Math.ceil(student.totalFee / 12);
+              details.push(`Estimated: ₹${totalAmount.toLocaleString()}`);
+            }
           }
 
-          return { month: monthName, amount, details };
+          return {
+            month: monthName,
+            amount: totalAmount,
+            details,
+          };
         });
 
         setFeeStructure({
-          monthlyAmount: tuitionBase,
+          monthlyAmount: 0, // Not used directly anymore
           breakdown: realBreakdown,
           adjustments,
         });
