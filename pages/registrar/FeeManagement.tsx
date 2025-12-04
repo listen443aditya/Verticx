@@ -355,101 +355,103 @@ const PayFeeModal: React.FC<{
   const [isConfirming, setIsConfirming] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  useEffect(() => {
-    const fetchDetails = async () => {
-      try {
-        // Fetch full profile to get services and breakdown
-        const profile: any = await apiService.getStudentProfileDetails(
-          student.studentId
-        );
+useEffect(() => {
+  const fetchDetails = async () => {
+    try {
+      // Fetch full profile to get services and breakdown
+      // Cast to 'any' to access the new fields without type errors
+      const profile: any = await apiService.getStudentProfileDetails(
+        student.studentId
+      );
 
-        if (profile) {
-          // 1. Extract Adjustments
-          const adjustments = profile.feeHistory
-            .filter((h: any) => h.itemType === "adjustment")
-            .map((adj: any) => ({
-              type: adj.type,
-              amount: adj.amount,
-              reason: adj.reason,
-            }));
+      if (profile) {
+        // 1. Extract Adjustments (Fines/Discounts)
+        const adjustments = profile.feeHistory
+          .filter((h: any) => h.itemType === "adjustment")
+          .map((adj: any) => ({
+            type: adj.type,
+            amount: adj.amount,
+            reason: adj.reason,
+          }));
 
-          // 2. Extract Service Info for the UI Card
-          const s = profile.student;
-          const hostelInfo = s.room
-            ? {
-                room: s.room.roomNumber,
-                fee: Number(s.room.fee),
-              }
-            : undefined;
+        // 2. Extract Service Info for the UI Card (Hostel/Transport)
+        const s = profile.student;
+        const hostelInfo = s.room
+          ? {
+              room: s.room.roomNumber,
+              fee: Number(s.room.fee),
+            }
+          : undefined;
 
-          const transportInfo = s.busStop
-            ? {
-                stop: s.busStop.name,
-                fee: Number(s.busStop.charges),
-              }
-            : undefined;
+        const transportInfo = s.busStop
+          ? {
+              stop: s.busStop.name,
+              fee: Number(s.busStop.charges),
+            }
+          : undefined;
 
-          // Calculate Monthly Tuition Base (Total / 12 is a safe bet if template is missing breakdown)
-          let tuitionBase = 0;
-          if (s.class?.feeTemplate?.amount) {
-            tuitionBase = Math.ceil(Number(s.class.feeTemplate.amount) / 12);
+        // Calculate Monthly Tuition Base (Reference only)
+        let tuitionBase = 0;
+        if (s.class?.feeTemplate?.amount) {
+          tuitionBase = Math.ceil(Number(s.class.feeTemplate.amount) / 12);
+        }
+
+        setServices({
+          hostel: hostelInfo,
+          transport: transportInfo,
+          tuition: tuitionBase,
+        });
+
+        // 3. Construct the Real Monthly Breakdown from Backend Data
+        const backendBreakdown = profile.feeBreakdown || [];
+
+        const realBreakdown = ACADEMIC_MONTHS.map((monthName) => {
+          const monthData = backendBreakdown.find(
+            (m: any) => m.month === monthName
+          );
+
+          // A. Get the Total Amount for this month
+          let amount = monthData ? Number(monthData.total) : 0;
+
+          // Fallback: If backend says 0 but the student has a total fee (legacy data), distribute it
+          if (amount === 0 && student.totalFee > 0) {
+            amount = Math.ceil(student.totalFee / 12);
           }
 
-          setServices({
-            hostel: hostelInfo,
-            transport: transportInfo,
-            tuition: tuitionBase,
-          });
+          // B. Build Tooltip Details (Tuition + Hostel + Transport)
+          const details: string[] = [];
 
-          // 3. Construct the Real Monthly Breakdown
-          // We use the backend's 'feeBreakdown' if available and valid.
-          // If it returns 0s (because template breakdown was empty), we fallback to distributing the Total Fee.
-          const backendBreakdown = profile.feeBreakdown || [];
+          if (monthData && Array.isArray(monthData.breakdown)) {
+            // If backend provided component details, use them
+            monthData.breakdown.forEach((comp: any) => {
+              if (comp.amount > 0) {
+                details.push(
+                  `${comp.component}: ₹${Number(comp.amount).toLocaleString()}`
+                );
+              }
+            });
+          } else if (amount > 0) {
+            // Fallback tooltip
+            details.push(`Consolidated: ₹${amount.toLocaleString()}`);
+          }
 
-          const realBreakdown = ACADEMIC_MONTHS.map((monthName) => {
-            const monthData = backendBreakdown.find(
-              (m: any) => m.month === monthName
-            );
+          return { month: monthName, amount, details };
+        });
 
-            // Start with backend value
-            let amount = monthData ? Number(monthData.total) : 0;
-
-            // Fallback: If backend says 0 but we know the student has a total fee, distribute it
-            // This handles cases where the template has a total but no monthly breakdown
-            if (amount === 0 && student.totalFee > 0) {
-              // Simple distribution: Total Fee / 12
-              amount = Math.ceil(student.totalFee / 12);
-            }
-
-            // Build Tooltip Details
-            const details = [];
-            if (monthData && monthData.breakdown) {
-              monthData.breakdown.forEach((comp: any) => {
-                if (comp.amount > 0)
-                  details.push(`${comp.component}: ₹${comp.amount}`);
-              });
-            } else {
-              // If using fallback
-              details.push(`Estimated Monthly Fee: ₹${amount}`);
-            }
-
-            return { month: monthName, amount, details };
-          });
-
-          setFeeStructure({
-            monthlyAmount: realBreakdown[0]?.amount || 0,
-            breakdown: realBreakdown,
-            adjustments,
-          });
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoadingDetails(false);
+        setFeeStructure({
+          monthlyAmount: tuitionBase, // Just for reference
+          breakdown: realBreakdown,
+          adjustments,
+        });
       }
-    };
-    fetchDetails();
-  }, [student]);
+    } catch (e) {
+      console.error("Failed to fetch fee details:", e);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+  fetchDetails();
+}, [student]);
 
   const paidMonthsCount = useMemo(() => {
     if (!feeStructure) return 0;
