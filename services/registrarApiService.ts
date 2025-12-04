@@ -692,7 +692,7 @@ export class RegistrarApiService {
   // async createExamSchedule(data: Omit<ExamSchedule, "id">): Promise<void> {
   //   await baseApi.post("/registrar/examinations/schedules", data);
   // }
-  
+
   async deleteExamination(examId: string): Promise<void> {
     await baseApi.delete(
       `/registrar/examinations/${encodeURIComponent(examId)}`
@@ -841,20 +841,23 @@ export class RegistrarApiService {
 
   async getRooms(hostelId: string): Promise<Room[]> {
     const { data } = await baseApi.get<Room[]>(
-      `/registrar/hostels/${hostelId}/rooms`
+      `/registrar/hostels/${encodeURIComponent(hostelId)}/rooms`
     );
     return data;
   }
 
-  async assignStudentToRoom(studentId: string, roomId: string): Promise<void> {
-    await baseApi.post(`/registrar/hostels/rooms/${roomId}/assign-student`, {
-      studentId,
-    });
+  async assignStudentToRoom(roomId: string, studentId: string): Promise<void> {
+    // URL: /registrar/hostels/rooms/:roomId/assign-student
+    // Body: { studentId }
+    await baseApi.post(
+      `/registrar/hostels/rooms/${encodeURIComponent(roomId)}/assign-student`,
+      { studentId }
+    );
   }
 
   async removeStudentFromRoom(studentId: string): Promise<void> {
     await baseApi.delete(
-      `/registrar/hostels/rooms/remove-student/${studentId}`
+      `/registrar/hostels/rooms/remove-student/${encodeURIComponent(studentId)}`
     );
   }
 

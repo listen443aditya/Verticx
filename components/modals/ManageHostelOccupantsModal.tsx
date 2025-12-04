@@ -17,28 +17,30 @@ const ManageHostelOccupantsModal: React.FC<ManageHostelOccupantsModalProps> = ({
   branchId,
   onClose,
 }) => {
-  const [rooms, setRooms] = useState<any[]>([]); // Use appropriate Room type
+  const [rooms, setRooms] = useState<any[]>([]);
   const [unassignedStudents, setUnassignedStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState<string | null>(null);
 
+  // New state to track selected student per room
+  const [selectedStudents, setSelectedStudents] = useState<
+    Record<string, string>
+  >({});
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Get Rooms for this Hostel
       const roomsData = await apiService.getRooms(hostel.id);
 
-      // 2. Get Unassigned Students
-      // We can reuse getStudentsByBranch and filter client-side,
-      // or create a specific endpoint 'getUnassignedStudents' if list is huge.
-      // For now, client-side filtering:
-      const allStudents = await apiService.getStudents(); // or getStudentsForBranch
+      // Use the generic getStudents (which fetches for the branch)
+      // or getStudentsForBranch if that's what you named it
+      const allStudents = await apiService.getStudents();
       const unassigned = allStudents.filter((s: Student) => !s.roomId);
 
       setRooms(roomsData);
       setUnassignedStudents(unassigned);
     } catch (error) {
-      console.error("Failed to load hostel data:", error);
+      console.error("Failed to load data:", error);
     } finally {
       setLoading(false);
     }
@@ -48,31 +50,41 @@ const ManageHostelOccupantsModal: React.FC<ManageHostelOccupantsModalProps> = ({
     fetchData();
   }, [hostel.id]);
 
-  const handleAssign = async (roomId: string, studentId: string) => {
+  const handleAssign = async (roomId: string) => {
+    // Get the selected student ID from state
+    const studentId = selectedStudents[roomId];
     if (!studentId) return;
+
     setAssigning(studentId);
     try {
+      // FIX: Ensure order is (roomId, studentId) matching the service
       await apiService.assignStudentToRoom(roomId, studentId);
-      // Refresh data to show updated occupancy
+
+      // Clear selection for this room
+      setSelectedStudents((prev) => ({ ...prev, [roomId]: "" }));
       await fetchData();
     } catch (error) {
       console.error("Assign failed:", error);
-      alert("Failed to assign student. Room might be full.");
+      alert("Failed to assign student.");
     } finally {
       setAssigning(null);
     }
   };
 
-  const handleRemove = async (roomId: string, studentId: string) => {
-    setAssigning(studentId); // Reusing state for loading indicator
+  const handleRemove = async (studentId: string) => {
+    setAssigning(studentId);
     try {
-      await apiService.removeStudentFromRoom(studentId); // Assuming API takes studentId
+      await apiService.removeStudentFromRoom(studentId);
       await fetchData();
     } catch (error) {
       console.error("Remove failed:", error);
     } finally {
       setAssigning(null);
     }
+  };
+
+  const onSelectChange = (roomId: string, val: string) => {
+    setSelectedStudents((prev) => ({ ...prev, [roomId]: val }));
   };
 
   return (
@@ -121,37 +133,34 @@ const ManageHostelOccupantsModal: React.FC<ManageHostelOccupantsModalProps> = ({
                       {room.occupantIds.length === 0 && (
                         <p className="text-xs text-slate-400 italic">Empty</p>
                       )}
-                      {room.occupantIds.map((occId: string) => {
-                        // Find student name from our cache or fetch?
-                        // API getRooms should ideally return occupant objects {id, name}, not just IDs.
-                        // Assuming we fix getRooms controller to return objects, or we filter from allStudents list if feasible.
-                        // For this UI demo, we assume we might need to fetch names or the IDs are okay.
-                        // Better approach: Let's assume getRooms returns { id, name } objects in occupantIds
-                        return (
-                          <div
-                            key={occId}
-                            className="flex justify-between items-center bg-slate-50 p-2 rounded text-sm"
+                      {room.occupantIds.map((occId: string) => (
+                        <div
+                          key={occId}
+                          className="flex justify-between items-center bg-slate-50 p-2 rounded text-sm"
+                        >
+                          {/* Ideally we'd show the name here, but we only have ID from room object. 
+                                    For now showing ID or "Occupant" */}
+                          <span className="font-mono text-xs">{occId}</span>
+                          <button
+                            onClick={() => handleRemove(occId)}
+                            className="text-red-500 hover:text-red-700 text-xs font-medium"
+                            disabled={!!assigning}
                           >
-                            <span>Student {occId.slice(0, 6)}...</span>
-                            <button
-                              onClick={() => handleRemove(room.id, occId)}
-                              className="text-red-500 hover:text-red-700 text-xs"
-                              disabled={!!assigning}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        );
-                      })}
+                            Remove
+                          </button>
+                        </div>
+                      ))}
                     </div>
 
                     {/* Assign Action */}
                     {!isFull && (
                       <div className="flex gap-2">
                         <select
-                          id={`select-${room.id}`}
                           className="w-full text-sm border-slate-300 rounded-md"
-                          defaultValue=""
+                          value={selectedStudents[room.id] || ""}
+                          onChange={(e) =>
+                            onSelectChange(room.id, e.target.value)
+                          }
                         >
                           <option value="" disabled>
                             Select Student...
@@ -164,14 +173,8 @@ const ManageHostelOccupantsModal: React.FC<ManageHostelOccupantsModalProps> = ({
                         </select>
                         <Button
                           className="!py-1 !px-3 text-xs"
-                          onClick={() => {
-                            const select = document.getElementById(
-                              `select-${room.id}`
-                            ) as HTMLSelectElement;
-                            if (select.value)
-                              handleAssign(room.id, select.value);
-                          }}
-                          disabled={!!assigning}
+                          onClick={() => handleAssign(room.id)}
+                          disabled={!!assigning || !selectedStudents[room.id]}
                         >
                           Assign
                         </Button>
