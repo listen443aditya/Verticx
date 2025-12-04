@@ -355,99 +355,60 @@ const PayFeeModal: React.FC<{
   const [isConfirming, setIsConfirming] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  useEffect(() => {
-    const fetchDetails = async () => {
-      try {
-        const profile: any = await apiService.getStudentProfileDetails(
-          student.studentId
-        );
+ useEffect(() => {
+   const fetchDetails = async () => {
+     try {
+       // Cast to 'any' to access feeBreakdown
+       const profile: any = await apiService.getStudentProfileDetails(
+         student.studentId
+       );
 
-        if (profile) {
-          // 1. Extract Adjustments
-          const adjustments = profile.feeHistory
-            .filter((h: any) => h.itemType === "adjustment")
-            .map((adj: any) => ({
-              type: adj.type,
-              amount: adj.amount,
-              reason: adj.reason,
-            }));
+       if (profile) {
+         const adjustments = profile.feeHistory
+           .filter((h: any) => h.itemType === "adjustment")
+           .map((adj: any) => ({
+             type: adj.type,
+             amount: adj.amount,
+             reason: adj.reason,
+           }));
 
-          // 2. ROBUST SERVICE EXTRACTION
-          // We read directly from the relation objects, not the calculated timeline
-          const s = profile.student;
+         // 1. Set UI Services Display
+         const s = profile.student;
+         setServices({
+           hostel: s.room
+             ? { room: s.room.roomNumber, fee: Number(s.room.fee) }
+             : undefined,
+           transport: s.busStop
+             ? { stop: s.busStop.name, fee: Number(s.busStop.charges) }
+             : undefined,
+           // Calculate rough tuition for display only
+           tuition: s.class?.feeTemplate?.amount
+             ? Math.ceil(s.class.feeTemplate.amount / 12)
+             : 0,
+         });
 
-          const hostelInfo = s.room
-            ? {
-                room: s.room.roomNumber,
-                fee: Number(s.room.fee),
-              }
-            : undefined;
+         // 2. USE BACKEND BREAKDOWN DIRECTLY
+         // We trust the backend calculated "total" for each month (which includes Hostel+Transport)
+         const realBreakdown = profile.feeBreakdown.map((m: any) => ({
+           month: m.month,
+           amount: Number(m.total), // <--- TRUST THE BACKEND TOTAL
+           details: m.breakdown.map((c: any) => `${c.component}: ₹${c.amount}`), // For Tooltip
+         }));
 
-          const transportInfo = s.busStop
-            ? {
-                stop: s.busStop.name,
-                fee: Number(s.busStop.charges),
-              }
-            : undefined;
-
-          // Calculate Monthly Tuition Base
-          // Total Annual / 12
-          let tuitionBase = 0;
-          if (s.class?.feeTemplate?.amount) {
-            tuitionBase = Math.ceil(Number(s.class.feeTemplate.amount) / 12);
-          }
-
-          setServices({
-            hostel: hostelInfo,
-            transport: transportInfo,
-            tuition: tuitionBase,
-          });
-
-          // 3. Map Breakdown for Timeline
-          const templateBreakdown = profile.feeBreakdown || [];
-          const realBreakdown = ACADEMIC_MONTHS.map((monthName) => {
-            const monthData = templateBreakdown.find(
-              (m: any) => m.month === monthName
-            );
-
-            // Get backend calculated total for this month
-            let total = monthData ? Number(monthData.total) : 0;
-
-            // FALLBACK: If backend total is 0 (e.g. new student), calculate it manually here
-            if (total === 0) {
-              // Only add extras if they are active (logic handled in backend, but safe to replicate for display)
-              // Note: Backend 'getStudentProfileDetails' handles the start-date logic.
-              // If it returns 0 for a month, it means the student wasn't in the hostel that month.
-              // We should trust the backend's 'total' if it provides a breakdown.
-            }
-
-            // Generate Tooltip Details
-            const details: string[] = [];
-            // Look inside breakdown components if available
-            if (monthData && monthData.breakdown) {
-              monthData.breakdown.forEach((comp: any) => {
-                if (comp.amount > 0)
-                  details.push(`${comp.component}: ₹${comp.amount}`);
-              });
-            }
-
-            return { month: monthName, amount: total, details };
-          });
-
-          setFeeStructure({
-            monthlyAmount: tuitionBase, // Reference only
-            breakdown: realBreakdown,
-            adjustments,
-          });
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoadingDetails(false);
-      }
-    };
-    fetchDetails();
-  }, [student]);
+         setFeeStructure({
+           monthlyAmount: realBreakdown[0]?.amount || 0,
+           breakdown: realBreakdown,
+           adjustments,
+         });
+       }
+     } catch (e) {
+       console.error(e);
+     } finally {
+       setLoadingDetails(false);
+     }
+   };
+   fetchDetails();
+ }, [student]);
 
   const paidMonthsCount = useMemo(() => {
     if (!feeStructure) return 0;
