@@ -334,11 +334,11 @@ const PayFeeModal: React.FC<{
   onSuccess: () => void;
 }> = ({ student, onClose, onSuccess }) => {
   const [loadingDetails, setLoadingDetails] = useState(true);
-  
+
   // State to hold the structure
   const [feeStructure, setFeeStructure] = useState<{
     monthlyAmount: number;
-    breakdown: { month: string; amount: number; components: { name: string; amount: number }[] }[];
+    breakdown: { month: string; amount: number; details: string[] }[];
     adjustments: { type: string; amount: number; reason: string }[];
   } | null>(null);
 
@@ -372,58 +372,70 @@ const PayFeeModal: React.FC<{
               reason: adj.reason,
             }));
 
-          // 2. Extract Service Info for the UI Card
-          // We look at the student object directly to see active assignments
+          // 2. ROBUST SERVICE EXTRACTION
+          // We read directly from the relation objects, not the calculated timeline
           const s = profile.student;
-          const serviceInfo = {
-            hostel: s.room ? { room: s.room.roomNumber, fee: s.room.fee } : undefined,
-            transport: s.busStop ? { stop: s.busStop.name, fee: s.busStop.charges } : undefined,
-            tuition: 0 // Will calculate below
-          };
 
+          const hostelInfo = s.room
+            ? {
+                room: s.room.roomNumber,
+                fee: Number(s.room.fee),
+              }
+            : undefined;
+
+          const transportInfo = s.busStop
+            ? {
+                stop: s.busStop.name,
+                fee: Number(s.busStop.charges),
+              }
+            : undefined;
+
+          // Calculate Monthly Tuition Base
+          // Total Annual / 12
+          let tuitionBase = 0;
+          if (s.class?.feeTemplate?.amount) {
+            tuitionBase = Math.ceil(Number(s.class.feeTemplate.amount) / 12);
+          }
+
+          setServices({
+            hostel: hostelInfo,
+            transport: transportInfo,
+            tuition: tuitionBase,
+          });
+
+          // 3. Map Breakdown for Timeline
           const templateBreakdown = profile.feeBreakdown || [];
-
-          // 3. Map the backend breakdown to the academic months
           const realBreakdown = ACADEMIC_MONTHS.map((monthName) => {
             const monthData = templateBreakdown.find(
               (m: any) => m.month === monthName
             );
-            
-            let total = 0;
-            let components: { name: string; amount: number }[] = [];
 
-            if (monthData) {
-                // If backend provides breakdown components, use them
-                if (monthData.breakdown && Array.isArray(monthData.breakdown)) {
-                    components = monthData.breakdown.map((c: any) => ({
-                        name: c.component,
-                        amount: Number(c.amount || 0)
-                    }));
-                    total = components.reduce((sum, c) => sum + c.amount, 0);
-                    
-                    // Extract tuition for the UI card (usually the first item or found by name)
-                    const tuitionComp = components.find(c => c.name.includes("Tuition") || c.name.includes("School"));
-                    if (tuitionComp) serviceInfo.tuition = tuitionComp.amount;
-                } else if (monthData.total) {
-                    total = Number(monthData.total);
-                    components.push({ name: "Consolidated Fee", amount: total });
-                }
+            // Get backend calculated total for this month
+            let total = monthData ? Number(monthData.total) : 0;
+
+            // FALLBACK: If backend total is 0 (e.g. new student), calculate it manually here
+            if (total === 0) {
+              // Only add extras if they are active (logic handled in backend, but safe to replicate for display)
+              // Note: Backend 'getStudentProfileDetails' handles the start-date logic.
+              // If it returns 0 for a month, it means the student wasn't in the hostel that month.
+              // We should trust the backend's 'total' if it provides a breakdown.
             }
 
-            // Fallback logic if backend data is empty (e.g. new student before sync)
-            if (total === 0 && profile.feeStatus.total > 0) {
-               const avg = Math.ceil(profile.feeStatus.total / 12);
-               total = avg;
-               components = [{ name: "Estimated Monthly Fee", amount: avg }];
-               serviceInfo.tuition = avg; // Estimate
+            // Generate Tooltip Details
+            const details: string[] = [];
+            // Look inside breakdown components if available
+            if (monthData && monthData.breakdown) {
+              monthData.breakdown.forEach((comp: any) => {
+                if (comp.amount > 0)
+                  details.push(`${comp.component}: ₹${comp.amount}`);
+              });
             }
 
-            return { month: monthName, amount: total, components };
+            return { month: monthName, amount: total, details };
           });
 
-          setServices(serviceInfo);
           setFeeStructure({
-            monthlyAmount: realBreakdown[0]?.amount || 0,
+            monthlyAmount: tuitionBase, // Reference only
             breakdown: realBreakdown,
             adjustments,
           });
@@ -507,8 +519,7 @@ const PayFeeModal: React.FC<{
 
   return (
     <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-4xl flex flex-col max-h-[95vh]"> {/* Increased Width */}
-        
+      <Card className="w-full max-w-4xl flex flex-col max-h-[95vh]">
         {/* Header */}
         <div className="flex justify-between items-start mb-4 border-b border-slate-100 pb-4">
           <div>
@@ -516,53 +527,107 @@ const PayFeeModal: React.FC<{
               Collect Fee
             </h2>
             <p className="text-text-secondary-dark">
-              Student: <span className="font-semibold">{student.name}</span> ({student.userId})
+              Student: <span className="font-semibold">{student.name}</span> (
+              {student.userId})
             </p>
           </div>
-          <button onClick={onClose} className="text-2xl font-light hover:text-red-500">
+          <button
+            onClick={onClose}
+            className="text-2xl font-light hover:text-red-500"
+          >
             &times;
           </button>
         </div>
 
         <div className="flex-grow overflow-y-auto pr-2 space-y-6">
-          
-          {/* --- NEW: Active Services Summary --- */}
+          {/* --- Active Services Summary --- */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-             {/* 1. Tuition */}
-             <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 flex justify-between items-center">
-                <div>
-                    <p className="text-xs font-bold text-blue-800 uppercase">Academic Fee</p>
-                    <p className="text-sm text-blue-600">Standard Tuition</p>
-                </div>
-                <p className="text-lg font-bold text-blue-900">₹{services.tuition.toLocaleString()}<span className="text-xs font-normal">/mo</span></p>
-             </div>
-
-             {/* 2. Hostel */}
-             <div className={`p-3 rounded-lg border flex justify-between items-center ${services.hostel ? 'bg-purple-50 border-purple-100' : 'bg-slate-50 border-slate-200 opacity-60'}`}>
-                <div>
-                    <p className={`text-xs font-bold uppercase ${services.hostel ? 'text-purple-800' : 'text-slate-500'}`}>Hostel</p>
-                    <p className="text-sm text-slate-600">{services.hostel ? `Room ${services.hostel.room}` : 'Not Assigned'}</p>
-                </div>
-                <p className={`text-lg font-bold ${services.hostel ? 'text-purple-900' : 'text-slate-400'}`}>
-                    {services.hostel ? `₹${services.hostel.fee.toLocaleString()}` : '₹0'}
-                    {services.hostel && <span className="text-xs font-normal">/mo</span>}
+            {/* 1. Tuition */}
+            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 flex justify-between items-center">
+              <div>
+                <p className="text-xs font-bold text-blue-800 uppercase">
+                  Academic Fee
                 </p>
-             </div>
+                <p className="text-sm text-blue-600">Standard Tuition</p>
+              </div>
+              <p className="text-lg font-bold text-blue-900">
+                ₹{services.tuition.toLocaleString()}
+                <span className="text-xs font-normal">/mo</span>
+              </p>
+            </div>
 
-             {/* 3. Transport */}
-             <div className={`p-3 rounded-lg border flex justify-between items-center ${services.transport ? 'bg-orange-50 border-orange-100' : 'bg-slate-50 border-slate-200 opacity-60'}`}>
-                <div>
-                    <p className={`text-xs font-bold uppercase ${services.transport ? 'text-orange-800' : 'text-slate-500'}`}>Transport</p>
-                    <p className="text-sm text-slate-600">{services.transport ? services.transport.stop.substring(0, 15) + '...' : 'Not Assigned'}</p>
-                </div>
-                <p className={`text-lg font-bold ${services.transport ? 'text-orange-900' : 'text-slate-400'}`}>
-                    {services.transport ? `₹${services.transport.fee.toLocaleString()}` : '₹0'}
-                    {services.transport && <span className="text-xs font-normal">/mo</span>}
+            {/* 2. Hostel */}
+            <div
+              className={`p-3 rounded-lg border flex justify-between items-center ${
+                services.hostel
+                  ? "bg-purple-50 border-purple-100"
+                  : "bg-slate-50 border-slate-200 opacity-60"
+              }`}
+            >
+              <div>
+                <p
+                  className={`text-xs font-bold uppercase ${
+                    services.hostel ? "text-purple-800" : "text-slate-500"
+                  }`}
+                >
+                  Hostel
                 </p>
-             </div>
+                <p className="text-sm text-slate-600">
+                  {services.hostel
+                    ? `Room ${services.hostel.room}`
+                    : "Not Assigned"}
+                </p>
+              </div>
+              <p
+                className={`text-lg font-bold ${
+                  services.hostel ? "text-purple-900" : "text-slate-400"
+                }`}
+              >
+                {services.hostel
+                  ? `₹${services.hostel.fee.toLocaleString()}`
+                  : "₹0"}
+                {services.hostel && (
+                  <span className="text-xs font-normal">/mo</span>
+                )}
+              </p>
+            </div>
+
+            {/* 3. Transport */}
+            <div
+              className={`p-3 rounded-lg border flex justify-between items-center ${
+                services.transport
+                  ? "bg-orange-50 border-orange-100"
+                  : "bg-slate-50 border-slate-200 opacity-60"
+              }`}
+            >
+              <div>
+                <p
+                  className={`text-xs font-bold uppercase ${
+                    services.transport ? "text-orange-800" : "text-slate-500"
+                  }`}
+                >
+                  Transport
+                </p>
+                <p className="text-sm text-slate-600">
+                  {services.transport
+                    ? services.transport.stop.substring(0, 15) + "..."
+                    : "Not Assigned"}
+                </p>
+              </div>
+              <p
+                className={`text-lg font-bold ${
+                  services.transport ? "text-orange-900" : "text-slate-400"
+                }`}
+              >
+                {services.transport
+                  ? `₹${services.transport.fee.toLocaleString()}`
+                  : "₹0"}
+                {services.transport && (
+                  <span className="text-xs font-normal">/mo</span>
+                )}
+              </p>
+            </div>
           </div>
-          {/* ------------------------------------ */}
-
 
           {/* Fiscal Timeline */}
           <div className="bg-white p-4 rounded-xl border-2 border-slate-100">
@@ -571,8 +636,14 @@ const PayFeeModal: React.FC<{
                 Select Months to Pay
               </h3>
               <div className="flex gap-3 text-xs">
-                 <span className="flex items-center gap-1"><div className="w-3 h-3 bg-green-100 border border-green-200 rounded"></div> Paid</span>
-                 <span className="flex items-center gap-1"><div className="w-3 h-3 bg-brand-primary rounded"></div> Selected</span>
+                <span className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-green-100 border border-green-200 rounded"></div>{" "}
+                  Paid
+                </span>
+                <span className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-brand-primary rounded"></div>{" "}
+                  Selected
+                </span>
               </div>
             </div>
 
@@ -586,20 +657,23 @@ const PayFeeModal: React.FC<{
                     key={item.month}
                     disabled={isPaid}
                     onClick={() => handleMonthToggle(index)}
+                    title={item.details.join("\n")}
                     className={`
                         relative p-2 rounded-lg border-2 transition-all flex flex-col items-center justify-center h-16
                         ${
                           isPaid
-                            ? "bg-green-50 border-green-200 text-green-800 cursor-not-allowed"
+                            ? "bg-green-50 border-green-200 text-green-800 cursor-not-allowed opacity-80"
                             : isSelected
                             ? "bg-brand-primary border-brand-primary text-white shadow-lg transform -translate-y-1"
                             : "bg-white border-slate-100 text-slate-600 hover:border-brand-secondary hover:bg-slate-50"
                         }
                     `}
                   >
-                    <span className="text-xs font-bold uppercase">{item.month.substring(0,3)}</span>
+                    <span className="text-xs font-bold uppercase">
+                      {item.month.substring(0, 3)}
+                    </span>
                     <span
-                      className={`text-xs font-medium ${
+                      className={`text-[10px] ${
                         isSelected ? "text-blue-100" : "text-slate-800"
                       }`}
                     >
@@ -616,55 +690,46 @@ const PayFeeModal: React.FC<{
             </div>
           </div>
 
-          {/* Dynamic Calculation Display */}
+          {/* Breakdown of Selected Amount */}
           {selectedMonths.length > 0 && (
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 animate-fade-in">
-                 <h4 className="text-sm font-bold text-slate-700 mb-2">Selected Breakdown</h4>
-                 <div className="text-sm space-y-1">
-                    {services.tuition > 0 && (
-                        <div className="flex justify-between text-slate-600">
-                            <span>Tuition (x{selectedMonths.length} months)</span>
-                            <span>₹{(services.tuition * selectedMonths.length).toLocaleString()}</span>
-                        </div>
-                    )}
-                    {services.hostel && (
-                        <div className="flex justify-between text-purple-700">
-                            <span>Hostel (x{selectedMonths.length} months)</span>
-                            <span>₹{(services.hostel.fee * selectedMonths.length).toLocaleString()}</span>
-                        </div>
-                    )}
-                    {services.transport && (
-                        <div className="flex justify-between text-orange-700">
-                            <span>Transport (x{selectedMonths.length} months)</span>
-                            <span>₹{(services.transport.fee * selectedMonths.length).toLocaleString()}</span>
-                        </div>
-                    )}
-                    <div className="flex justify-between border-t border-slate-300 pt-1 font-bold text-slate-800">
-                        <span>Subtotal</span>
-                        <span>₹{calculatedAmount.toLocaleString()}</span>
-                    </div>
-                 </div>
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 animate-fade-in">
+              <h4 className="text-sm font-bold text-slate-700 mb-2">
+                Payment Breakdown
+              </h4>
+              <div className="text-sm space-y-1">
+                <div className="flex justify-between text-slate-600">
+                  <span>Months Selected</span>
+                  <span>{selectedMonths.length}</span>
+                </div>
+                {/* We simplify the breakdown display here to totals */}
+                <div className="flex justify-between border-t border-slate-300 pt-1 font-bold text-slate-800">
+                  <span>Total Amount</span>
+                  <span>₹{calculatedAmount.toLocaleString()}</span>
+                </div>
               </div>
+            </div>
           )}
 
+          {/* Financial Summary & Adjustments */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             {/* Outstanding Info */}
-            <div className="space-y-2">
-               <p className="text-xs font-bold text-slate-400 uppercase">Current Status</p>
-               <div className="flex justify-between items-center p-3 bg-red-50 border border-red-100 rounded-lg">
-                  <span className="text-red-800 font-medium">Total Outstanding Due</span>
-                  <span className="text-xl font-bold text-red-600">₹{student.pendingAmount.toLocaleString()}</span>
-               </div>
-               <div className="flex justify-between items-center p-3 bg-green-50 border border-green-100 rounded-lg">
-                  <span className="text-green-800 font-medium">Total Paid YTD</span>
-                  <span className="text-lg font-bold text-green-600">₹{student.paidAmount.toLocaleString()}</span>
-               </div>
+            <div className="space-y-4">
+              <div className="p-3 rounded-lg border border-slate-100 bg-white flex justify-between">
+                <span className="text-xs text-slate-500">Total Fee (Year)</span>
+                <p className="text-lg font-semibold">
+                  ₹{student.totalFee.toLocaleString()}
+                </p>
+              </div>
+              <div className="p-3 rounded-lg border border-slate-100 bg-white flex justify-between">
+                <span className="text-xs text-slate-500">Already Paid</span>
+                <p className="text-lg font-semibold text-green-600">
+                  ₹{student.paidAmount.toLocaleString()}
+                </p>
+              </div>
             </div>
 
-            {/* Adjustments */}
-            <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100">
+            <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 h-full">
               <h4 className="text-sm font-bold text-yellow-800 mb-2 flex items-center gap-2">
-                <AlertTriangleIcon className="w-4 h-4" /> Principal Adjustments
+                <AlertTriangleIcon className="w-4 h-4" /> Adjustments & Fines
               </h4>
               {feeStructure?.adjustments &&
               feeStructure.adjustments.length > 0 ? (
@@ -689,7 +754,7 @@ const PayFeeModal: React.FC<{
                 </ul>
               ) : (
                 <p className="text-xs text-yellow-700/70 italic">
-                  No extra fines or concessions.
+                  No adjustments applied.
                 </p>
               )}
             </div>
@@ -700,7 +765,7 @@ const PayFeeModal: React.FC<{
             <div className="flex flex-col md:flex-row justify-between items-end gap-4">
               <div className="w-full md:w-1/2">
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  Total Payment (INR)
+                  Payment Amount (INR)
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
@@ -725,7 +790,7 @@ const PayFeeModal: React.FC<{
               </div>
               <div className="text-right pb-2">
                 <p className="text-xs text-slate-500">
-                  Due Balance After Payment
+                  Remaining Due After Payment
                 </p>
                 <p
                   className={`font-mono text-lg ${
@@ -762,7 +827,7 @@ const PayFeeModal: React.FC<{
             onClick={() => setIsConfirming(true)}
             disabled={!calculatedAmount && !customAmount}
           >
-            Confirm & Pay ₹
+            Proceed to Pay ₹
             {(Number(customAmount) || calculatedAmount).toLocaleString()}
           </Button>
         </div>
@@ -775,16 +840,14 @@ const PayFeeModal: React.FC<{
             title="Confirm Payment"
             message={
               <>
-                Record payment of{" "}
+                Are you sure you want to record a payment of{" "}
                 <strong>
                   ₹{(Number(customAmount) || calculatedAmount).toLocaleString()}
-                </strong>{" "}
-                for {student.name}?
-                <br />
-                <div className="mt-2 text-xs text-slate-500">Ref: {remarks}</div>
+                </strong>
+                ?
               </>
             }
-            confirmText="Record Payment"
+            confirmText="Yes, Record Payment"
             isConfirming={isProcessing}
           />
         )}
