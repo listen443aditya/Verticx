@@ -335,10 +335,10 @@ const PayFeeModal: React.FC<{
 }> = ({ student, onClose, onSuccess }) => {
   const [loadingDetails, setLoadingDetails] = useState(true);
 
-  // State to hold the structure
+  // State to hold the fee structure
   const [feeStructure, setFeeStructure] = useState<{
     monthlyAmount: number;
-    breakdown: { month: string; amount: number; details: string[] }[];
+    breakdown: { month: string; amount: number; details: string[] }[]; // Added details for tooltip
     adjustments: { type: string; amount: number; reason: string }[];
   } | null>(null);
 
@@ -355,60 +355,101 @@ const PayFeeModal: React.FC<{
   const [isConfirming, setIsConfirming] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
- useEffect(() => {
-   const fetchDetails = async () => {
-     try {
-       // Cast to 'any' to access feeBreakdown
-       const profile: any = await apiService.getStudentProfileDetails(
-         student.studentId
-       );
+  useEffect(() => {
+    const fetchDetails = async () => {
+      try {
+        // Fetch full profile to get services and breakdown
+        const profile: any = await apiService.getStudentProfileDetails(
+          student.studentId
+        );
 
-       if (profile) {
-         const adjustments = profile.feeHistory
-           .filter((h: any) => h.itemType === "adjustment")
-           .map((adj: any) => ({
-             type: adj.type,
-             amount: adj.amount,
-             reason: adj.reason,
-           }));
+        if (profile) {
+          // 1. Extract Adjustments
+          const adjustments = profile.feeHistory
+            .filter((h: any) => h.itemType === "adjustment")
+            .map((adj: any) => ({
+              type: adj.type,
+              amount: adj.amount,
+              reason: adj.reason,
+            }));
 
-         // 1. Set UI Services Display
-         const s = profile.student;
-         setServices({
-           hostel: s.room
-             ? { room: s.room.roomNumber, fee: Number(s.room.fee) }
-             : undefined,
-           transport: s.busStop
-             ? { stop: s.busStop.name, fee: Number(s.busStop.charges) }
-             : undefined,
-           // Calculate rough tuition for display only
-           tuition: s.class?.feeTemplate?.amount
-             ? Math.ceil(s.class.feeTemplate.amount / 12)
-             : 0,
-         });
+          // 2. Extract Service Info for the UI Card
+          const s = profile.student;
+          const hostelInfo = s.room
+            ? {
+                room: s.room.roomNumber,
+                fee: Number(s.room.fee),
+              }
+            : undefined;
 
-         // 2. USE BACKEND BREAKDOWN DIRECTLY
-         // We trust the backend calculated "total" for each month (which includes Hostel+Transport)
-         const realBreakdown = profile.feeBreakdown.map((m: any) => ({
-           month: m.month,
-           amount: Number(m.total), // <--- TRUST THE BACKEND TOTAL
-           details: m.breakdown.map((c: any) => `${c.component}: ₹${c.amount}`), // For Tooltip
-         }));
+          const transportInfo = s.busStop
+            ? {
+                stop: s.busStop.name,
+                fee: Number(s.busStop.charges),
+              }
+            : undefined;
 
-         setFeeStructure({
-           monthlyAmount: realBreakdown[0]?.amount || 0,
-           breakdown: realBreakdown,
-           adjustments,
-         });
-       }
-     } catch (e) {
-       console.error(e);
-     } finally {
-       setLoadingDetails(false);
-     }
-   };
-   fetchDetails();
- }, [student]);
+          // Calculate Monthly Tuition Base (Total / 12 is a safe bet if template is missing breakdown)
+          let tuitionBase = 0;
+          if (s.class?.feeTemplate?.amount) {
+            tuitionBase = Math.ceil(Number(s.class.feeTemplate.amount) / 12);
+          }
+
+          setServices({
+            hostel: hostelInfo,
+            transport: transportInfo,
+            tuition: tuitionBase,
+          });
+
+          // 3. Construct the Real Monthly Breakdown
+          // We use the backend's 'feeBreakdown' if available and valid.
+          // If it returns 0s (because template breakdown was empty), we fallback to distributing the Total Fee.
+          const backendBreakdown = profile.feeBreakdown || [];
+
+          const realBreakdown = ACADEMIC_MONTHS.map((monthName) => {
+            const monthData = backendBreakdown.find(
+              (m: any) => m.month === monthName
+            );
+
+            // Start with backend value
+            let amount = monthData ? Number(monthData.total) : 0;
+
+            // Fallback: If backend says 0 but we know the student has a total fee, distribute it
+            // This handles cases where the template has a total but no monthly breakdown
+            if (amount === 0 && student.totalFee > 0) {
+              // Simple distribution: Total Fee / 12
+              amount = Math.ceil(student.totalFee / 12);
+            }
+
+            // Build Tooltip Details
+            const details = [];
+            if (monthData && monthData.breakdown) {
+              monthData.breakdown.forEach((comp: any) => {
+                if (comp.amount > 0)
+                  details.push(`${comp.component}: ₹${comp.amount}`);
+              });
+            } else {
+              // If using fallback
+              details.push(`Estimated Monthly Fee: ₹${amount}`);
+            }
+
+            return { month: monthName, amount, details };
+          });
+
+          setFeeStructure({
+            monthlyAmount: realBreakdown[0]?.amount || 0,
+            breakdown: realBreakdown,
+            adjustments,
+          });
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingDetails(false);
+      }
+    };
+    fetchDetails();
+  }, [student]);
 
   const paidMonthsCount = useMemo(() => {
     if (!feeStructure) return 0;
@@ -501,7 +542,7 @@ const PayFeeModal: React.FC<{
         </div>
 
         <div className="flex-grow overflow-y-auto pr-2 space-y-6">
-          {/* --- Active Services Summary --- */}
+          {/* --- Active Services Summary Card --- */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* 1. Tuition */}
             <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 flex justify-between items-center">
@@ -618,7 +659,7 @@ const PayFeeModal: React.FC<{
                     key={item.month}
                     disabled={isPaid}
                     onClick={() => handleMonthToggle(index)}
-                    title={item.details.join("\n")}
+                    title={item.details.join("\n")} // Tooltip shows breakdown!
                     className={`
                         relative p-2 rounded-lg border-2 transition-all flex flex-col items-center justify-center h-16
                         ${
@@ -658,11 +699,39 @@ const PayFeeModal: React.FC<{
                 Payment Breakdown
               </h4>
               <div className="text-sm space-y-1">
-                <div className="flex justify-between text-slate-600">
-                  <span>Months Selected</span>
-                  <span>{selectedMonths.length}</span>
-                </div>
-                {/* We simplify the breakdown display here to totals */}
+                {services.tuition > 0 && (
+                  <div className="flex justify-between text-slate-600">
+                    <span>Tuition (x{selectedMonths.length} months)</span>
+                    <span>
+                      ₹
+                      {(
+                        services.tuition * selectedMonths.length
+                      ).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {services.hostel && (
+                  <div className="flex justify-between text-purple-700">
+                    <span>Hostel (x{selectedMonths.length} months)</span>
+                    <span>
+                      ₹
+                      {(
+                        services.hostel.fee * selectedMonths.length
+                      ).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {services.transport && (
+                  <div className="flex justify-between text-orange-700">
+                    <span>Transport (x{selectedMonths.length} months)</span>
+                    <span>
+                      ₹
+                      {(
+                        services.transport.fee * selectedMonths.length
+                      ).toLocaleString()}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between border-t border-slate-300 pt-1 font-bold text-slate-800">
                   <span>Total Amount</span>
                   <span>₹{calculatedAmount.toLocaleString()}</span>
