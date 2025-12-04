@@ -21,8 +21,6 @@ const ManageHostelOccupantsModal: React.FC<ManageHostelOccupantsModalProps> = ({
   const [unassignedStudents, setUnassignedStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState<string | null>(null);
-
-  // New state to track selected student per room
   const [selectedStudents, setSelectedStudents] = useState<
     Record<string, string>
   >({});
@@ -32,15 +30,18 @@ const ManageHostelOccupantsModal: React.FC<ManageHostelOccupantsModalProps> = ({
     try {
       const roomsData = await apiService.getRooms(hostel.id);
 
-      // Use the generic getStudents (which fetches for the branch)
-      // or getStudentsForBranch if that's what you named it
-      const allStudents = await apiService.getStudents();
+      // Get all students to find unassigned ones
+      // Using 'any' cast on apiService if getStudents isn't strictly typed yet
+      const allStudents = (await (apiService as any).getStudentsForBranch)
+        ? await (apiService as any).getStudentsForBranch(branchId)
+        : await apiService.getStudents();
+
       const unassigned = allStudents.filter((s: Student) => !s.roomId);
 
       setRooms(roomsData);
       setUnassignedStudents(unassigned);
     } catch (error) {
-      console.error("Failed to load data:", error);
+      console.error("Failed to load hostel data:", error);
     } finally {
       setLoading(false);
     }
@@ -51,16 +52,12 @@ const ManageHostelOccupantsModal: React.FC<ManageHostelOccupantsModalProps> = ({
   }, [hostel.id]);
 
   const handleAssign = async (roomId: string) => {
-    // Get the selected student ID from state
     const studentId = selectedStudents[roomId];
     if (!studentId) return;
 
     setAssigning(studentId);
     try {
-      // FIX: Ensure order is (roomId, studentId) matching the service
       await apiService.assignStudentToRoom(roomId, studentId);
-
-      // Clear selection for this room
       setSelectedStudents((prev) => ({ ...prev, [roomId]: "" }));
       await fetchData();
     } catch (error) {
@@ -104,7 +101,10 @@ const ManageHostelOccupantsModal: React.FC<ManageHostelOccupantsModalProps> = ({
             {/* LEFT: List of Rooms */}
             <div className="md:col-span-2 overflow-y-auto pr-2 space-y-4">
               {rooms.map((room) => {
-                const isFull = room.occupantIds.length >= room.capacity;
+                // Use the new 'occupants' array from backend
+                const currentOccupants = room.occupants || [];
+                const isFull = currentOccupants.length >= room.capacity;
+
                 return (
                   <div
                     key={room.id}
@@ -124,25 +124,30 @@ const ManageHostelOccupantsModal: React.FC<ManageHostelOccupantsModalProps> = ({
                             : "bg-green-100 text-green-800"
                         }`}
                       >
-                        {room.occupantIds.length} / {room.capacity}
+                        {currentOccupants.length} / {room.capacity}
                       </span>
                     </div>
 
                     {/* Occupants List */}
                     <div className="space-y-2 mb-3">
-                      {room.occupantIds.length === 0 && (
+                      {currentOccupants.length === 0 && (
                         <p className="text-xs text-slate-400 italic">Empty</p>
                       )}
-                      {room.occupantIds.map((occId: string) => (
+
+                      {currentOccupants.map((occ: any) => (
                         <div
-                          key={occId}
+                          key={occ.id}
                           className="flex justify-between items-center bg-slate-50 p-2 rounded text-sm"
                         >
-                          {/* Ideally we'd show the name here, but we only have ID from room object. 
-                                    For now showing ID or "Occupant" */}
-                          <span className="font-mono text-xs">{occId}</span>
+                          {/* FIX: Display Name and Readable ID */}
+                          <div>
+                            <span className="font-medium">{occ.name}</span>
+                            <span className="ml-2 text-xs text-slate-500 font-mono">
+                              ({occ.userId})
+                            </span>
+                          </div>
                           <button
-                            onClick={() => handleRemove(occId)}
+                            onClick={() => handleRemove(occ.id)}
                             className="text-red-500 hover:text-red-700 text-xs font-medium"
                             disabled={!!assigning}
                           >
@@ -189,11 +194,10 @@ const ManageHostelOccupantsModal: React.FC<ManageHostelOccupantsModalProps> = ({
             <div className="bg-blue-50 p-4 rounded-xl h-fit">
               <h3 className="font-bold text-blue-900 mb-2">Fee Impact Info</h3>
               <p className="text-xs text-blue-800 mb-4">
-                Assigning a student to a room will automatically calculate the
-                hostel fee for the remaining months of the academic session and
-                add it to their pending dues.
+                Assigning a student will automatically add the hostel fee for
+                the remaining months (till March) to their pending dues.
               </p>
-              <div className="text-xs space-y-2">
+              <div className="text-xs space-y-2 text-blue-900">
                 <p>
                   <strong>Session Ends:</strong> March
                 </p>
