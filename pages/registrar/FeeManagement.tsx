@@ -358,88 +358,81 @@ const PayFeeModal: React.FC<{
 useEffect(() => {
   const fetchDetails = async () => {
     try {
-      // Fetch full profile to get services and breakdown
-      // Cast to 'any' to access the new fields without type errors
       const profile: any = await apiService.getStudentProfileDetails(
         student.studentId
       );
 
       if (profile) {
-        // 1. Extract Adjustments (Fines/Discounts)
+        // 1. Extract Adjustments
         const adjustments = profile.feeHistory
-          .filter((h: any) => h.itemType === "adjustment")
-          .map((adj: any) => ({
-            type: adj.type,
-            amount: adj.amount,
-            reason: adj.reason,
-          }));
+          ? profile.feeHistory
+              .filter((h: any) => h.itemType === "adjustment")
+              .map((adj: any) => ({
+                type: adj.type,
+                amount: adj.amount,
+                reason: adj.reason,
+              }))
+          : [];
 
-        // 2. Extract Service Info for the UI Card (Hostel/Transport)
-        const s = profile.student;
-        const hostelInfo = s.room
-          ? {
-              room: s.room.roomNumber,
-              fee: Number(s.room.fee),
-            }
-          : undefined;
-
-        const transportInfo = s.busStop
-          ? {
-              stop: s.busStop.name,
-              fee: Number(s.busStop.charges),
-            }
-          : undefined;
-
-        // Calculate Monthly Tuition Base (Reference only)
-        let tuitionBase = 0;
-        if (s.class?.feeTemplate?.amount) {
-          tuitionBase = Math.ceil(Number(s.class.feeTemplate.amount) / 12);
-        }
-
-        setServices({
-          hostel: hostelInfo,
-          transport: transportInfo,
-          tuition: tuitionBase,
-        });
-
-        // 3. Construct the Real Monthly Breakdown from Backend Data
+        // 2. Get the Breakdown directly from Backend
         const backendBreakdown = profile.feeBreakdown || [];
 
+        // 3. Find "Standard Tuition" for Display Card
+        // We look for the first month that has a "Tuition" component to show as the base rate
+        let baseTuition = 0;
+        const monthWithTuition = backendBreakdown.find(
+          (m: any) =>
+            m.breakdown &&
+            m.breakdown.some((comp: any) => comp.component === "Tuition")
+        );
+
+        if (monthWithTuition) {
+          const t = monthWithTuition.breakdown.find(
+            (c: any) => c.component === "Tuition"
+          );
+          baseTuition = t ? t.amount : 0;
+        } else if (profile.student.class?.feeTemplate?.amount) {
+          // Fallback for display only
+          baseTuition = Math.ceil(
+            Number(profile.student.class.feeTemplate.amount) / 12
+          );
+        }
+
+        // 4. Set Services Info
+        setServices({
+          hostel: profile.student.room
+            ? {
+                room: profile.student.room.roomNumber,
+                fee: Number(profile.student.room.fee),
+              }
+            : undefined,
+          transport: profile.student.busStop
+            ? {
+                stop: profile.student.busStop.name,
+                fee: Number(profile.student.busStop.charges),
+              }
+            : undefined,
+          tuition: baseTuition,
+        });
+
+        // 5. Build UI Breakdown (Strictly from Backend Data)
         const realBreakdown = ACADEMIC_MONTHS.map((monthName) => {
           const monthData = backendBreakdown.find(
             (m: any) => m.month === monthName
           );
 
-          // A. Get the Total Amount for this month
-          let amount = monthData ? Number(monthData.total) : 0;
-
-          // Fallback: If backend says 0 but the student has a total fee (legacy data), distribute it
-          if (amount === 0 && student.totalFee > 0) {
-            amount = Math.ceil(student.totalFee / 12);
+          if (monthData) {
+            return {
+              month: monthName,
+              amount: monthData.total,
+              details: monthData.details || [`Total: ₹${monthData.total}`],
+            };
           }
-
-          // B. Build Tooltip Details (Tuition + Hostel + Transport)
-          const details: string[] = [];
-
-          if (monthData && Array.isArray(monthData.breakdown)) {
-            // If backend provided component details, use them
-            monthData.breakdown.forEach((comp: any) => {
-              if (comp.amount > 0) {
-                details.push(
-                  `${comp.component}: ₹${Number(comp.amount).toLocaleString()}`
-                );
-              }
-            });
-          } else if (amount > 0) {
-            // Fallback tooltip
-            details.push(`Consolidated: ₹${amount.toLocaleString()}`);
-          }
-
-          return { month: monthName, amount, details };
+          return { month: monthName, amount: 0, details: [] };
         });
 
         setFeeStructure({
-          monthlyAmount: tuitionBase, // Just for reference
+          monthlyAmount: baseTuition,
           breakdown: realBreakdown,
           adjustments,
         });
