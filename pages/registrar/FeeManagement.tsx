@@ -335,8 +335,8 @@ const PayFeeModal: React.FC<{
 }> = ({ student, onClose, onSuccess }) => {
   const [loadingDetails, setLoadingDetails] = useState(true);
   const [feeStructure, setFeeStructure] = useState<{
-    monthlyAmount: number; // Kept for reference calculation
-    breakdown: { month: string; amount: number }[];
+    monthlyAmount: number; // This is the BASE tuition per month
+    breakdown: { month: string; amount: number; details: string[] }[]; // Added details for tooltip/info
     adjustments: { type: string; amount: number; reason: string }[];
   } | null>(null);
 
@@ -349,13 +349,11 @@ const PayFeeModal: React.FC<{
   useEffect(() => {
     const fetchDetails = async () => {
       try {
-        // Using apiService (Registrar) because that's where getStudentProfileDetails lives now
         const profile: any = await apiService.getStudentProfileDetails(
           student.studentId
         );
 
         if (profile) {
-          const baseTotal = profile.feeStatus.total;
           const adjustments = profile.feeHistory
             .filter((h: any) => h.itemType === "adjustment")
             .map((adj: any) => ({
@@ -364,33 +362,48 @@ const PayFeeModal: React.FC<{
               reason: adj.reason,
             }));
 
+          // 1. Get Base Tuition Breakdown
           const templateBreakdown = profile.feeBreakdown || [];
 
-          // Map the backend breakdown to the academic months
+          // 2. Get Recurring Extras (Hostel, Transport)
+          // Note: We assume these apply to every month for simplicity in this modal visualization
+          // In a complex system, you'd check start dates.
+          const hostelFee = profile.student?.room?.fee || 0;
+          const transportFee = profile.student?.busStop?.charges || 0;
+
+          // 3. Construct the Real Monthly Breakdown
           const realBreakdown = ACADEMIC_MONTHS.map((monthName) => {
             const monthData = templateBreakdown.find(
               (m: any) => m.month === monthName
             );
-            let amount = 0;
 
+            let tuition = 0;
             if (monthData) {
-              if (monthData.total) amount = Number(monthData.total);
-              else if (
-                monthData.breakdown &&
-                Array.isArray(monthData.breakdown)
-              ) {
-                amount = monthData.breakdown.reduce(
-                  (sum: number, c: any) => sum + (Number(c.amount) || 0),
+              if (monthData.total) tuition = Number(monthData.total);
+              else if (monthData.breakdown)
+                tuition = monthData.breakdown.reduce(
+                  (s: any, c: any) => s + Number(c.amount || 0),
                   0
                 );
-              }
-            }
-            // Fallback if breakdown missing but total exists
-            if (amount === 0 && baseTotal > 0) {
-              amount = Math.ceil(baseTotal / 12);
+            } else if (profile.student.class?.feeTemplate?.amount) {
+              tuition = Math.ceil(
+                profile.student.class.feeTemplate.amount / 12
+              );
             }
 
-            return { month: monthName, amount };
+            // Combine all monthly costs
+            const totalForMonth = tuition + hostelFee + transportFee;
+
+            const details = [];
+            if (tuition > 0) details.push(`Tuition: ₹${tuition}`);
+            if (hostelFee > 0) details.push(`Hostel: ₹${hostelFee}`);
+            if (transportFee > 0) details.push(`Transport: ₹${transportFee}`);
+
+            return {
+              month: monthName,
+              amount: totalForMonth,
+              details,
+            };
           });
 
           setFeeStructure({
@@ -412,6 +425,8 @@ const PayFeeModal: React.FC<{
     if (!feeStructure) return 0;
     let effectivePaid = student.paidAmount;
     let count = 0;
+
+    // Calculate months covered based on their specific individual costs
     for (const monthData of feeStructure.breakdown) {
       if (monthData.amount > 0) {
         if (effectivePaid >= monthData.amount) {
@@ -445,6 +460,7 @@ const PayFeeModal: React.FC<{
   const calculatedAmount = useMemo(() => {
     if (customAmount) return Number(customAmount);
     if (!feeStructure) return 0;
+    // Sum up the specific amounts of the selected months
     return selectedMonths.reduce(
       (sum, index) => sum + (feeStructure.breakdown[index]?.amount || 0),
       0
@@ -494,6 +510,7 @@ const PayFeeModal: React.FC<{
         </div>
 
         <div className="flex-grow overflow-y-auto pr-2 space-y-6">
+          {/* Fiscal Timeline */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
             <div className="flex justify-between items-end mb-3">
               <h3 className="text-sm font-semibold text-text-secondary-dark uppercase tracking-wide">
@@ -511,6 +528,7 @@ const PayFeeModal: React.FC<{
                     key={item.month}
                     disabled={isPaid}
                     onClick={() => handleMonthToggle(index)}
+                    title={item.details.join("\n")} // Tooltip showing breakdown
                     className={`
                         relative p-2 rounded-lg border transition-all flex flex-col items-center justify-center h-14
                         ${
@@ -539,6 +557,8 @@ const PayFeeModal: React.FC<{
                 );
               })}
             </div>
+
+            {/* Legend */}
             <div className="mt-3 flex gap-4 text-xs text-slate-500">
               <span className="flex items-center gap-1">
                 <div className="w-3 h-3 bg-green-100 border border-green-200 rounded"></div>{" "}
@@ -555,6 +575,7 @@ const PayFeeModal: React.FC<{
             </div>
           </div>
 
+          {/* Financial Summary */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-4">
               <div className="p-3 rounded-lg border border-slate-100 bg-white">
@@ -603,6 +624,7 @@ const PayFeeModal: React.FC<{
             </div>
           </div>
 
+          {/* Input Section */}
           <div className="space-y-4 border-t pt-4">
             <div className="flex flex-col md:flex-row justify-between items-end gap-4">
               <div className="w-full md:w-1/2">
