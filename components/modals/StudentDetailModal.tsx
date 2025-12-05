@@ -23,17 +23,200 @@ import FeeAdjustmentModal from "./FeeAdjustmentModal";
 import SkillRadarChart from "../charts/SkillRadarChart";
 import SkillAssessor from "../teacher/SkillAssessor";
 
-// ... (Keep AttendanceCalendar and FeeHistoryTable exactly as they are) ...
-// [I am collapsing them here for brevity, but ensure you keep them in your file]
 const AttendanceCalendar: React.FC<{ records: AttendanceRecord[] }> = ({
   records,
 }) => {
-  /* ... existing code ... */ return <div>Calendar Mock</div>;
+  const [currentDate, setCurrentDate] = useState(new Date(2024, 3, 1)); // Default to April 2024 for mock data
+
+  const recordsByDate = useMemo(() => {
+    const map = new Map<string, AttendanceRecord[]>();
+    records.forEach((rec) => {
+      const dateKey = rec.date;
+      if (!map.has(dateKey)) map.set(dateKey, []);
+      map.get(dateKey)!.push(rec);
+    });
+    return map;
+  }, [records]);
+
+  const getDayStatus = useCallback(
+    (date: Date) => {
+      const dateString = date.toISOString().split("T")[0];
+      const dayRecords = recordsByDate.get(dateString);
+      if (!dayRecords || dayRecords.length === 0) return "NoRecord";
+      if (dayRecords.some((r) => r.status === "Absent")) return "Absent";
+      if (dayRecords.some((r) => r.status === "Tardy")) return "Tardy";
+      return "Present";
+    },
+    [recordsByDate]
+  );
+
+  const generateCalendarDays = () => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const days = [];
+    for (
+      let i = 0;
+      i < (firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1);
+      i++
+    ) {
+      days.push(null);
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(new Date(year, month, i));
+    }
+    return days;
+  };
+
+  const calendarDays = generateCalendarDays();
+  const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  const changeMonth = (delta: number) => {
+    setCurrentDate(
+      (prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1)
+    );
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <Button onClick={() => changeMonth(-1)}>&larr;</Button>
+        <h3 className="text-xl font-bold">
+          {currentDate.toLocaleString("default", {
+            month: "long",
+            year: "numeric",
+          })}
+        </h3>
+        <Button onClick={() => changeMonth(1)}>&rarr;</Button>
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {weekdays.map((day) => (
+          <div
+            key={day}
+            className="text-center font-bold text-text-secondary-dark text-sm"
+          >
+            {day}
+          </div>
+        ))}
+        {calendarDays.map((day, index) => {
+          if (!day)
+            return (
+              <div
+                key={`blank-${index}`}
+                className="border rounded-md border-slate-100 h-16"
+              ></div>
+            );
+          const status = getDayStatus(day);
+          const statusColor = {
+            Present: "bg-green-200",
+            Absent: "bg-red-200",
+            Tardy: "bg-yellow-200",
+            NoRecord: "bg-slate-100",
+          }[status];
+          return (
+            <div
+              key={index}
+              className={`p-2 h-16 text-center border rounded-md ${statusColor}`}
+            >
+              <span className="text-sm">{day.getDate()}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 };
+
 const FeeHistoryTable: React.FC<{ history: FeeHistoryItem[] }> = ({
   history,
 }) => {
-  /* ... existing code ... */ return <div>History Mock</div>;
+  const handleDownloadReceipt = (transactionId: string) => {
+    alert(
+      `Downloading receipt for transaction ${transactionId}... (mock action)`
+    );
+  };
+
+  return (
+    <div className="overflow-auto flex-grow pr-2">
+      {history.length > 0 ? (
+        <table className="w-full text-left">
+          <thead className="sticky top-0 bg-surface-dark/90 backdrop-blur-sm">
+            <tr className="border-b">
+              <th className="p-2">Date</th>
+              <th className="p-2">Description</th>
+              <th className="p-2 text-right">Amount</th>
+              <th className="p-2 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {history.map((item) => {
+              if ("transactionId" in item) {
+                // FeePayment
+                return (
+                  <tr
+                    key={item.id}
+                    className="border-b border-slate-100 hover:bg-slate-50 text-sm"
+                  >
+                    <td className="p-2">
+                      {new Date(item.paidDate).toLocaleDateString()}
+                    </td>
+                    <td className="p-2">Payment Received</td>
+                    <td className="p-2 text-right font-semibold text-green-600">
+                      +{item.amount.toLocaleString()}
+                    </td>
+                    <td className="p-2 text-right">
+                      <Button
+                        variant="secondary"
+                        className="!px-2 !py-1 text-xs"
+                        onClick={() =>
+                          handleDownloadReceipt(item.transactionId)
+                        }
+                      >
+                        Receipt
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              } else {
+                // FeeAdjustment
+                return (
+                  <tr
+                    key={item.id}
+                    className="border-b border-slate-100 hover:bg-slate-50 text-sm"
+                  >
+                    <td className="p-2">
+                      {new Date(item.date).toLocaleDateString()}
+                    </td>
+                    <td className="p-2">
+                      <p className="font-medium capitalize">{item.type}</p>
+                      <p className="text-xs text-text-secondary-dark italic">
+                        "{item.reason}" - {item.adjustedBy}
+                      </p>
+                    </td>
+                    <td
+                      className={`p-2 text-right font-semibold ${
+                        item.amount > 0 ? "text-orange-600" : "text-blue-600"
+                      }`}
+                    >
+                      {item.amount > 0 ? "+" : ""}
+                      {item.amount.toLocaleString()}
+                    </td>
+                    <td className="p-2 text-right"></td>
+                  </tr>
+                );
+              }
+            })}
+          </tbody>
+        </table>
+      ) : (
+        <div className="flex items-center justify-center h-full">
+          <p className="text-text-secondary-dark">No payment history found.</p>
+        </div>
+      )}
+    </div>
+  );
 };
 
 interface StudentDetailModalProps {
