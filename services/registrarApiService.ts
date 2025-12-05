@@ -129,12 +129,12 @@ export class RegistrarApiService {
     }
   }
 
-  async getStudentsByGrade(gradeLevel: number): Promise<Student[]> {
-    const { data } = await baseApi.get<Student[]>(`/registrar/students`, {
-      params: { grade: gradeLevel },
-    });
-    return data;
-  }
+  // async getStudentsByGrade(gradeLevel: number): Promise<Student[]> {
+  //   const { data } = await baseApi.get<Student[]>(`/registrar/students`, {
+  //     params: { grade: gradeLevel },
+  //   });
+  //   return data;
+  // }
   async getStudents(): Promise<Student[]> {
     const { data } = await baseApi.get<Student[]>("/registrar/students");
     return data;
@@ -1006,6 +1006,14 @@ export class RegistrarApiService {
     const { data } = await baseApi.post<{ fileName: string; data: any[] }>(
       "/registrar/reports/generate",
       { type, filters, fields }
+    );
+    return data;
+  }
+
+  async getStudentsByGrade(grade: number): Promise<Student[]> {
+    const { data } = await baseApi.get<Student[]>(
+      `/registrar/students/grade/${grade}`,
+      getCacheBustConfig()
     );
     return data;
   }
