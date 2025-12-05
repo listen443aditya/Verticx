@@ -28,7 +28,6 @@ const ManageMembersModal: React.FC<{
 }> = ({ route, onClose, onSave }) => {
   const { user } = useAuth();
 
-  // State for the detailed route data (which includes the member list)
   const [detailedRoute, setDetailedRoute] = useState<TransportRoute | null>(
     null
   );
@@ -40,38 +39,47 @@ const ManageMembersModal: React.FC<{
   const [selectedStopId, setSelectedStopId] = useState("");
   const [isActionLoading, setIsActionLoading] = useState(false);
 
-const fetchData = useCallback(async () => {
-  if (!user?.branchId) return;
-  setLoading(true);
-  try {
-    const routeDetails = await apiService.getTransportRouteDetails(route.id);
-    setDetailedRoute(routeDetails);
-    const unassignedData: any = await apiService.getUnassignedMembers();
-    const assigned = (routeDetails.assignedMembers as any[]).map((m) => ({
-      id: m.memberId,
-      name: m.name,
-      type: m.type as "Student" | "Teacher",
-      stopId: m.stopId,
-    })) as (Member & { stopId?: string })[];
-    const unassigned = Array.isArray(unassignedData)
-      ? (unassignedData.map((m: any) => ({
-          ...m,
-          role: m.type === "Teacher" ? "Teacher" : undefined,
-        })) as Member[])
-      : []; 
+  const fetchData = useCallback(async () => {
+    if (!user?.branchId) return;
+    setLoading(true);
+    try {
+      // 1. Get Route Details
+      const routeDetails = await apiService.getTransportRouteDetails(route.id);
+      setDetailedRoute(routeDetails);
 
-    setAssignedMembers(assigned);
-    setUnassignedMembers(unassigned);
+      // 2. Get Unassigned
+      const unassignedData: any = await apiService.getUnassignedMembers();
 
-    if (routeDetails.busStops.length > 0) {
-      setSelectedStopId(routeDetails.busStops[0].id);
+      // 3. MAP ASSIGNED MEMBERS (The Fix is Here)
+      const assigned = (routeDetails.assignedMembers as any[]).map((m) => ({
+        id: m.memberId,
+        name: m.name,
+        // FIX: Explicitly map the VRTX userId from the backend response
+        userId: m.userId || "N/A",
+        type: m.type as "Student" | "Teacher",
+        stopId: m.stopId,
+      })) as (Member & { stopId?: string })[];
+
+      // 4. Map Unassigned
+      const unassigned = Array.isArray(unassignedData)
+        ? (unassignedData.map((m: any) => ({
+            ...m,
+            role: m.type === "Teacher" ? "Teacher" : undefined,
+          })) as Member[])
+        : [];
+
+      setAssignedMembers(assigned);
+      setUnassignedMembers(unassigned);
+
+      if (routeDetails.busStops.length > 0) {
+        setSelectedStopId(routeDetails.busStops[0].id);
+      }
+    } catch (error) {
+      console.error("Failed to fetch details:", error);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error("Failed to fetch route details:", error);
-  } finally {
-    setLoading(false);
-  }
-}, [route.id, user]);
+  }, [route.id, user]);
 
   useEffect(() => {
     fetchData();
@@ -84,7 +92,10 @@ const fetchData = useCallback(async () => {
       .filter(
         (member: Member) =>
           member.name.toLowerCase().includes(lowercasedQuery) ||
-          member.id.toLowerCase().includes(lowercasedQuery)
+          member.id.toLowerCase().includes(lowercasedQuery) ||
+          // Also search by readable UserID if available
+          ((member as any).userId &&
+            (member as any).userId.toLowerCase().includes(lowercasedQuery))
       )
       .slice(0, 10);
   }, [searchQuery, unassignedMembers, selectedMember]);
@@ -100,21 +111,21 @@ const fetchData = useCallback(async () => {
     );
     setSelectedMember(null);
     setSearchQuery("");
-    await fetchData(); // Refresh list
+    await fetchData();
     setIsActionLoading(false);
   };
 
- const handleRemoveMember = async (member: Member) => {
-   setIsActionLoading(true);
-   // FIX: Pass both member.id AND member.type
-   await apiService.removeMemberFromRoute(member.id, member.type);
-   await fetchData(); // Refresh list
-   setIsActionLoading(false);
- };
+  const handleRemoveMember = async (member: Member) => {
+    setIsActionLoading(true);
+    await apiService.removeMemberFromRoute(member.id, member.type);
+    await fetchData();
+    setIsActionLoading(false);
+  };
 
   const handleSelectMember = (member: Member) => {
     setSelectedMember(member);
-    setSearchQuery(`${member.name} (${member.userId})`);
+    const displayId = (member as any).userId || member.id;
+    setSearchQuery(`${member.name} (${displayId})`);
   };
 
   return (
@@ -127,7 +138,7 @@ const fetchData = useCallback(async () => {
           <p>Loading members...</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-grow overflow-hidden">
-            {/* LEFT: Assign New Member */}
+            {/* LEFT: Assign Panel */}
             <div className="bg-slate-50 p-4 rounded-lg flex flex-col">
               <h3 className="font-semibold mb-2">Assign New Member</h3>
               <div className="space-y-4">
@@ -139,18 +150,22 @@ const fetchData = useCallback(async () => {
                       setSearchQuery(e.target.value);
                       setSelectedMember(null);
                     }}
-                    placeholder="Start typing name or ID..."
+                    placeholder="Name or VRTX ID..."
                     autoComplete="off"
                   />
                   {searchResults.length > 0 && (
                     <ul className="absolute z-10 w-full bg-white border border-slate-300 rounded-md mt-1 shadow-lg max-h-40 overflow-y-auto">
                       {searchResults.map((member) => (
                         <li
-                          key={member.userId}
+                          key={member.id}
                           onClick={() => handleSelectMember(member)}
                           className="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm"
                         >
-                          {member.name} ({member.userId} - {member.type})
+                          {/* Show VRTX ID in search results */}
+                          {member.name}{" "}
+                          <span className="text-xs text-slate-500">
+                            ({(member as any).userId || member.id})
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -183,32 +198,32 @@ const fetchData = useCallback(async () => {
               </div>
             </div>
 
-            {/* RIGHT: Assigned Members List */}
+            {/* RIGHT: Assigned List */}
             <div className="bg-slate-50 p-4 rounded-lg flex flex-col">
               <h3 className="font-semibold mb-2">
                 Assigned Members ({assignedMembers.length}/{route.capacity})
               </h3>
               <div className="overflow-y-auto flex-grow space-y-2 pr-2">
                 {assignedMembers.map((member: any) => {
-                  // Find the stop name using the stopId attached to the member
                   const stopName =
                     detailedRoute?.busStops.find((s) => s.id === member.stopId)
                       ?.name || "Unknown Stop";
 
                   return (
                     <div
-                      key={member.userId}
+                      key={member.id} // Use member.id (unique UUID) for key
                       className="flex justify-between items-center bg-white p-2 rounded shadow-sm"
                     >
                       <div>
-                        <p className="font-medium">
-                          {member.name}{" "}
-                          <span className="text-xs text-slate-500">
-                            ({member.type})
+                        <p className="font-medium text-sm">
+                          {member.name}
+                          {/* FIX: Show VRTX ID here */}
+                          <span className="text-xs text-slate-500 ml-1">
+                            ({member.userId})
                           </span>
                         </p>
                         <p className="text-xs text-slate-600">
-                          Stop: {stopName}
+                          Stop: {stopName} • {member.type}
                         </p>
                       </div>
                       <Button
@@ -241,6 +256,8 @@ const fetchData = useCallback(async () => {
     </div>
   );
 };
+
+
 const RouteFormModal: React.FC<{
   routeToEdit: Partial<TransportRoute> | null;
   onClose: () => void;
