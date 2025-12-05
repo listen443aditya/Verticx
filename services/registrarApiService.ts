@@ -999,11 +999,13 @@ export class RegistrarApiService {
   }
 
   async generateReport(
-    type: string
+    type: string,
+    filters: { classId?: string },
+    fields: string[]
   ): Promise<{ fileName: string; data: any[] }> {
-    const { data } = await baseApi.get<{ fileName: string; data: any[] }>(
-      `/registrar/reports/generate?type=${type}`,
-      getCacheBustConfig()
+    const { data } = await baseApi.post<{ fileName: string; data: any[] }>(
+      "/registrar/reports/generate",
+      { type, filters, fields }
     );
     return data;
   }
