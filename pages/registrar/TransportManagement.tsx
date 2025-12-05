@@ -146,7 +146,7 @@ const fetchData = useCallback(async () => {
                     <ul className="absolute z-10 w-full bg-white border border-slate-300 rounded-md mt-1 shadow-lg max-h-40 overflow-y-auto">
                       {searchResults.map((member) => (
                         <li
-                          key={member.id}
+                          key={member.userId}
                           onClick={() => handleSelectMember(member)}
                           className="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm"
                         >
