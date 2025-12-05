@@ -114,7 +114,7 @@ const fetchData = useCallback(async () => {
 
   const handleSelectMember = (member: Member) => {
     setSelectedMember(member);
-    setSearchQuery(`${member.name} (${member.id})`);
+    setSearchQuery(`${member.name} (${member.userId})`);
   };
 
   return (
