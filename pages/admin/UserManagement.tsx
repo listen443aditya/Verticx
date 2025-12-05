@@ -174,7 +174,7 @@ const UserManagement: React.FC = () => {
                     usr // changed variable to avoid conflict with `user` from useAuth
                   ) => (
                     <tr
-                      key={usr.id}
+                      key={usr.userId}
                       className="border-b border-slate-100 hover:bg-slate-50"
                     >
                       <td className="p-4 font-medium">{usr.name}</td>
@@ -193,9 +193,9 @@ const UserManagement: React.FC = () => {
                           variant="danger"
                           className="!px-3 !py-1 text-xs"
                           onClick={() => handleResetPassword(usr)}
-                          disabled={resettingUser?.id === usr.id}
+                          disabled={resettingUser?.userId === usr.userId}
                         >
-                          {resettingUser?.id === usr.id
+                          {resettingUser?.userId === usr.userId
                             ? "Resetting..."
                             : "Reset Password"}
                         </Button>
