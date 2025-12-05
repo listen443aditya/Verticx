@@ -74,13 +74,13 @@ export interface Student {
   classId?: string;
   roomId?: string; // for hostel
   transportInfo?: {
-      routeId: string;
-      stopId: string;
+    routeId: string;
+    stopId: string;
   };
-  status: 'active' | 'suspended' | 'inactive';
+  status: "active" | "suspended" | "inactive";
   dob: string; // Date of birth
   address: string;
-  gender?: 'Male' | 'Female' | 'Other';
+  gender?: "Male" | "Female" | "Other";
   guardianInfo: {
     name: string;
     email: string;
@@ -94,6 +94,17 @@ export interface Student {
     sick: number;
     planned: number;
   };
+  admissionNumber?: string;
+  dateOfAdmission?: string | Date; // Allow both string (JSON) and Date object
+  classRollNumber?: string;
+  bloodGroup?: string;
+  guardianRelation?: string;
+  isDisabled?: boolean;
+  religion?: string;
+  category?: string; // Or a union type like 'General' | 'OBC' | 'SC' | 'ST'
+  fatherName?: string;
+  motherName?: string;
+  governmentDocNumber?: string;
 }
 
 export interface Branch {
