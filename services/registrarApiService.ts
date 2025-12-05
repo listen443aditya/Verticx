@@ -997,6 +997,16 @@ export class RegistrarApiService {
       throw new Error("Could not retrieve class details from the server.");
     }
   }
+
+  async generateReport(
+    type: string
+  ): Promise<{ fileName: string; data: any[] }> {
+    const { data } = await baseApi.get<{ fileName: string; data: any[] }>(
+      `/registrar/reports/generate?type=${type}`,
+      getCacheBustConfig()
+    );
+    return data;
+  }
 }
 
 
