@@ -790,7 +790,6 @@ export class RegistrarApiService {
     return newDocument;
   }
 
-  // FIX: Added missing getSchoolEvents method
   async getSchoolEvents(): Promise<SchoolEvent[]> {
     const { data } = await baseApi.get<SchoolEvent[]>("/registrar/events");
     return data;
@@ -902,6 +901,14 @@ export class RegistrarApiService {
   async getTransportRoutes(): Promise<TransportRoute[]> {
     const { data } = await baseApi.get<TransportRoute[]>(
       "/registrar/transport/routes"
+    );
+    return data;
+  }
+
+  async getTransportRouteDetails(routeId: string): Promise<TransportRoute> {
+    const { data } = await baseApi.get<TransportRoute>(
+      `/registrar/transport/routes/${encodeURIComponent(routeId)}`,
+      getCacheBustConfig()
     );
     return data;
   }

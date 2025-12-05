@@ -26,8 +26,12 @@ const ManageMembersModal: React.FC<{
   onClose: () => void;
   onSave: () => void;
 }> = ({ route, onClose, onSave }) => {
-  // FIX: Added useAuth() hook to get the user object within the modal.
   const { user } = useAuth();
+
+  // State for the detailed route data (which includes the member list)
+  const [detailedRoute, setDetailedRoute] = useState<TransportRoute | null>(
+    null
+  );
   const [assignedMembers, setAssignedMembers] = useState<Member[]>([]);
   const [unassignedMembers, setUnassignedMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,46 +41,53 @@ const ManageMembersModal: React.FC<{
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
-    // FIX: Check for user and branchId before making calls.
     if (!user?.branchId) return;
     setLoading(true);
-    const [allStudents, allStaff, unassignedData] = await Promise.all([
-      (apiService as any).getStudentsByBranch(user.branchId),
-      apiService.getAllStaff(),
-      apiService.getUnassignedMembers(),
-    ]);
+    try {
+      // 1. Fetch DETAILED Route Data (This endpoint returns the 'assignedMembers' array)
+      const routeDetails = await apiService.getTransportRouteDetails(route.id);
+      setDetailedRoute(routeDetails);
 
-    const allTeachers = allStaff.filter((s: User) => s.role === "Teacher");
+      // 2. Fetch Unassigned Members
+      const unassignedData = await apiService.getUnassignedMembers();
 
-    const assigned: Member[] = route.assignedMembers
-      .map((m) => {
-        const member =
-          m.memberType === "Student"
-            ? allStudents.find((s: Student) => s.id === m.memberId)
-            : allTeachers.find((t: User) => t.id === m.memberId);
-        return member ? { ...member, type: m.memberType } : null;
-      })
-      .filter((m): m is Member => m !== null);
+      // 3. Map the backend's 'assignedMembers' array to our 'Member' type
+      // The backend endpoint 'getTransportRouteDetails' we created returns:
+      // assignedMembers: [{ memberId, name, type, stopId }, ...]
+      const assigned = (routeDetails.assignedMembers as any[]).map((m) => ({
+        id: m.memberId,
+        name: m.name,
+        type: m.type as "Student" | "Teacher",
+        // We attach stopId so we can display it in the list
+        stopId: m.stopId,
+      })) as (Member & { stopId?: string })[];
 
-    const unassigned: Member[] = [
-      ...unassignedData.students.map((s: Student) => ({
-        ...s,
-        type: "Student" as const,
-      })),
-      ...unassignedData.teachers.map((t: Teacher) => ({
-        ...t,
-        role: "Teacher" as const,
-        type: "Teacher" as const,
-      })),
-    ];
+      // 4. Map Unassigned Data
+      const unassigned: Member[] = [
+        ...unassignedData.students.map((s: Student) => ({
+          ...s,
+          type: "Student" as const,
+        })),
+        ...unassignedData.teachers.map((t: Teacher) => ({
+          ...t,
+          role: "Teacher" as const,
+          type: "Teacher" as const,
+        })),
+      ];
 
-    setAssignedMembers(assigned);
-    setUnassignedMembers(unassigned);
-    if (route.busStops.length > 0) {
-      setSelectedStopId(route.busStops[0].id);
+      setAssignedMembers(assigned);
+      setUnassignedMembers(unassigned);
+
+      // Set default stop selection
+      if (routeDetails.busStops.length > 0) {
+        setSelectedStopId(routeDetails.busStops[0].id);
+      }
+    } catch (error) {
+      console.error("Failed to fetch route details:", error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [route, user]); // FIX: Added 'user' to the dependency array.
+  }, [route.id, user]);
 
   useEffect(() => {
     fetchData();
@@ -105,16 +116,17 @@ const ManageMembersModal: React.FC<{
     );
     setSelectedMember(null);
     setSearchQuery("");
-    await fetchData();
+    await fetchData(); // Refresh list
     setIsActionLoading(false);
   };
 
-  const handleRemoveMember = async (member: Member) => {
-    setIsActionLoading(true);
-    await apiService.removeMemberFromRoute(route.id, member.id);
-    await fetchData();
-    setIsActionLoading(false);
-  };
+ const handleRemoveMember = async (member: Member) => {
+   setIsActionLoading(true);
+   // FIX: Pass both member.id AND member.type
+   await apiService.removeMemberFromRoute(member.id, member.type);
+   await fetchData(); // Refresh list
+   setIsActionLoading(false);
+ };
 
   const handleSelectMember = (member: Member) => {
     setSelectedMember(member);
@@ -131,18 +143,19 @@ const ManageMembersModal: React.FC<{
           <p>Loading members...</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-grow overflow-hidden">
+            {/* LEFT: Assign New Member */}
             <div className="bg-slate-50 p-4 rounded-lg flex flex-col">
               <h3 className="font-semibold mb-2">Assign New Member</h3>
               <div className="space-y-4">
                 <div className="relative">
                   <Input
-                    label="Search Unassigned Member (by Name or ID)"
+                    label="Search Unassigned Member"
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
                       setSelectedMember(null);
                     }}
-                    placeholder="Start typing to search..."
+                    placeholder="Start typing name or ID..."
                     autoComplete="off"
                   />
                   {searchResults.length > 0 && (
@@ -168,7 +181,7 @@ const ManageMembersModal: React.FC<{
                     onChange={(e) => setSelectedStopId(e.target.value)}
                     className="w-full bg-white border border-slate-300 rounded-md py-2 px-3"
                   >
-                    {route.busStops.map((s) => (
+                    {detailedRoute?.busStops.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.name}
                       </option>
@@ -185,19 +198,19 @@ const ManageMembersModal: React.FC<{
                 </Button>
               </div>
             </div>
+
+            {/* RIGHT: Assigned Members List */}
             <div className="bg-slate-50 p-4 rounded-lg flex flex-col">
               <h3 className="font-semibold mb-2">
                 Assigned Members ({assignedMembers.length}/{route.capacity})
               </h3>
               <div className="overflow-y-auto flex-grow space-y-2 pr-2">
-                {assignedMembers.map((member) => {
-                  const stop = route.busStops.find(
-                    (s) =>
-                      s.id ===
-                      route.assignedMembers.find(
-                        (am) => am.memberId === member.id
-                      )?.stopId
-                  );
+                {assignedMembers.map((member: any) => {
+                  // Find the stop name using the stopId attached to the member
+                  const stopName =
+                    detailedRoute?.busStops.find((s) => s.id === member.stopId)
+                      ?.name || "Unknown Stop";
+
                   return (
                     <div
                       key={member.id}
@@ -211,7 +224,7 @@ const ManageMembersModal: React.FC<{
                           </span>
                         </p>
                         <p className="text-xs text-slate-600">
-                          Stop: {stop?.name || "N/A"}
+                          Stop: {stopName}
                         </p>
                       </div>
                       <Button
@@ -244,7 +257,6 @@ const ManageMembersModal: React.FC<{
     </div>
   );
 };
-
 const RouteFormModal: React.FC<{
   routeToEdit: Partial<TransportRoute> | null;
   onClose: () => void;
