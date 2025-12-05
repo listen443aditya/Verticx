@@ -89,15 +89,15 @@ const BulkStudentMovement: React.FC = () => {
     }
   };
 
-  const handleSelectOne = (studentId: string) => {
-    const newSet = new Set(selectedStudentIds);
-    if (newSet.has(studentId)) {
-      newSet.delete(studentId);
-    } else {
-      newSet.add(studentId);
-    }
-    setSelectedStudentIds(newSet);
-  };
+ const handleSelectOne = (studentId: string) => {
+   const newSet = new Set(selectedStudentIds);
+   if (newSet.has(studentId)) {
+     newSet.delete(studentId);
+   } else {
+     newSet.add(studentId);
+   }
+   setSelectedStudentIds(newSet);
+ };
 
   const handleSubmit = async () => {
     if (selectedStudentIds.size === 0 || !targetClassId) {
@@ -173,8 +173,8 @@ const BulkStudentMovement: React.FC = () => {
                   <td className="p-2">
                     <input
                       type="checkbox"
-                      checked={selectedStudentIds.has(student.userId)}
-                      onChange={() => handleSelectOne(student.userId)}
+                      checked={selectedStudentIds.has(student.id)}
+                      onChange={() => handleSelectOne(student.id)}
                     />
                   </td>
                   <td className="p-2">{student.name}</td>
