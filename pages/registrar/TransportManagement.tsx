@@ -150,7 +150,7 @@ const fetchData = useCallback(async () => {
                           onClick={() => handleSelectMember(member)}
                           className="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm"
                         >
-                          {member.name} ({member.id} - {member.type})
+                          {member.name} ({member.userId} - {member.type})
                         </li>
                       ))}
                     </ul>
