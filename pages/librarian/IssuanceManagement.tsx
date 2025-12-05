@@ -133,7 +133,7 @@ const IssuanceManagement: React.FC = () => {
       const filtered = allMembers.filter(
         (member) =>
           member.name.toLowerCase().includes(lowerQuery) ||
-          member.id.toLowerCase().includes(lowerQuery)
+          member.userId.toLowerCase().includes(lowerQuery)
       );
       setMemberSuggestions(filtered.slice(0, 5));
     } else {
@@ -147,7 +147,7 @@ const IssuanceManagement: React.FC = () => {
   };
 
   const selectMember = (member: Student | Teacher) => {
-    setMemberId(member.id);
+    setMemberId(member.userId);
     setMemberSuggestions([]);
   };
 
@@ -228,13 +228,13 @@ const IssuanceManagement: React.FC = () => {
                 <ul className="absolute z-10 w-full bg-white border border-slate-300 rounded-md mt-1 shadow-lg max-h-40 overflow-y-auto">
                   {memberSuggestions.map((member) => (
                     <li
-                      key={member.id}
+                      key={member.userId}
                       onClick={() => selectMember(member)}
                       className="px-4 py-2 hover:bg-slate-100 cursor-pointer text-sm"
                     >
                       <p className="font-semibold">{member.name}</p>
                       <p className="text-xs text-slate-500">
-                        {member.id} -{" "}
+                        {member.userId} -{" "}
                         {(member as Student).gradeLevel ? "Student" : "Teacher"}
                       </p>
                     </li>
