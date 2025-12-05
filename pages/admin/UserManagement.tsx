@@ -193,9 +193,9 @@ const UserManagement: React.FC = () => {
                           variant="danger"
                           className="!px-3 !py-1 text-xs"
                           onClick={() => handleResetPassword(usr)}
-                          disabled={resettingUser?.userId === usr.userId}
+                          disabled={resettingUser?.id === usr.id}
                         >
-                          {resettingUser?.userId === usr.userId
+                          {resettingUser?.id === usr.id
                             ? "Resetting..."
                             : "Reset Password"}
                         </Button>
