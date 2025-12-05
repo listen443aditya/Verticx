@@ -197,7 +197,7 @@ const fetchData = useCallback(async () => {
 
                   return (
                     <div
-                      key={member.id}
+                      key={member.userId}
                       className="flex justify-between items-center bg-white p-2 rounded shadow-sm"
                     >
                       <div>
@@ -287,7 +287,7 @@ const RouteFormModal: React.FC<{
         name: "",
         pickupTime: "07:00",
         dropTime: "16:00",
-        charges: 50,
+        charges: 500,
       });
     }
   };
