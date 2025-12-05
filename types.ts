@@ -1347,22 +1347,36 @@ export interface AcademicRequestSummary {
 }
 
 export interface RegistrarDashboardData {
-    summary: {
-        pendingAdmissions: number;
-        pendingAcademicRequests: number;
-        feesPending: number;
-        feesCollected: number;
-        unassignedFaculty: number;
-    };
-    admissionRequests: Application[];
-    feeOverview: { month: string, paid: number, pending: number }[];
-    teacherAttendanceStatus: { teacherId: string; teacherName: string; status: 'Absent' | 'Not Marked' }[];
-    classFeeSummaries: ClassFeeSummary[];
-    pendingEvents: SchoolEvent[];
-    academicRequests: {
-        count: number;
-        requests: AcademicRequestSummary[];
-    };
+  summary: {
+    pendingAdmissions: number;
+    pendingAcademicRequests: number;
+    feesPending: number;
+    unassignedFaculty: number;
+  };
+  admissionRequests: {
+    id: string;
+    applicantName: string;
+    grade: number;
+    type: string;
+    subject: string;
+  }[];
+  feeOverview: {
+    month: string;
+    paid: number;
+    pending: number;
+  }[];
+  pendingEvents: any[];
+  classFeeSummaries: ClassFeeSummary[];
+  teacherAttendanceStatus: {
+    teacherId: string;
+    teacherName: string;
+    status: string;
+  }[];
+  academicRequests: {
+    count: number;
+    requests: any[];
+  };
+  branch: Branch;
 }
 
 export interface TeacherDashboardData {

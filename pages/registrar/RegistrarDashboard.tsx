@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
-// FIX: Corrected imports to use the service classes directly from their files and created instances.
 import { RegistrarApiService } from "../../services/registrarApiService";
 import { SharedApiService } from "../../services/sharedApiService";
 import type { RegistrarDashboardData, Branch, User } from "../../types";
@@ -50,7 +49,6 @@ const RegistrarDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState<RegistrarDashboardData | null>(null);
-  const [branch, setBranch] = useState<Branch | null>(null);
   const [principal, setPrincipal] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const { triggerRefresh, refreshKey } = useDataRefresh();
@@ -62,20 +60,26 @@ const RegistrarDashboard: React.FC = () => {
     const fetchData = async () => {
       if (!user || !user.branchId) return;
       setLoading(true);
-      // FIX: Re-added the mandatory branchId to the API calls that require it.
-      const [result, branchData] = await Promise.all([
-        apiService.getRegistrarDashboardData(), // This specific call may not need it if the backend uses JWT
-        sharedApiService.getBranchById(user.branchId),
-      ]);
-      setData(result);
-      setBranch(branchData);
-      if (branchData?.principalId) {
-        const principalData = await apiService.getUserById(
-          branchData.principalId
-        );
-        setPrincipal(principalData || null);
+      try {
+        const result = await apiService.getRegistrarDashboardData();
+        setData(result);
+
+        // Use the branch data returned from the dashboard API
+        if (result.branch && result.branch.principalId) {
+          try {
+            const principalData = await apiService.getUserById(
+              result.branch.principalId
+            );
+            setPrincipal(principalData || null);
+          } catch (e) {
+            console.warn("Could not fetch principal details", e);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load dashboard:", e);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchData();
   }, [user, refreshKey]);
@@ -86,15 +90,24 @@ const RegistrarDashboard: React.FC = () => {
   ) => {
     setActionLoading((prev) => ({ ...prev, [appId]: true }));
     try {
-      await apiService.updateApplicationStatus(appId, status);
+      await apiService.updateApplicationStatus(
+        appId,
+        (status === "approved" ? "Approved" : "Rejected") as any
+      );
       triggerRefresh();
     } catch (error) {
       console.error(`Failed to ${status} application:`, error);
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [appId]: false }));
     }
   };
 
-  if (loading) return <div>Loading dashboard...</div>;
-  if (!data) return <div>Could not load dashboard data.</div>;
+  if (loading)
+    return <div className="p-8 text-center">Loading dashboard...</div>;
+  if (!data)
+    return (
+      <div className="p-8 text-center">Could not load dashboard data.</div>
+    );
 
   const {
     summary,
@@ -104,6 +117,7 @@ const RegistrarDashboard: React.FC = () => {
     classFeeSummaries,
     teacherAttendanceStatus,
     academicRequests,
+    branch, // This is now valid because we updated types.ts
   } = data;
 
   const feeChartData = feeOverview.map((item) => ({
@@ -147,7 +161,7 @@ const RegistrarDashboard: React.FC = () => {
               xmlns="http://www.w3.org/2000/svg"
               width="24"
               height="24"
-              viewBox="0 0 24"
+              viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
