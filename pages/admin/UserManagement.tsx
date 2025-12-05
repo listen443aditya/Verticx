@@ -181,7 +181,7 @@ const UserManagement: React.FC = () => {
                       <td className="p-4">
                         <div>{usr.email}</div>
                         <div className="font-mono text-xs text-text-secondary-dark">
-                          {usr.id}
+                          {usr.userId}
                         </div>
                       </td>
                       <td className="p-4">{usr.role}</td>
