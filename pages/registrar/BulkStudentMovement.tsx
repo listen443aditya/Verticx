@@ -173,12 +173,12 @@ const BulkStudentMovement: React.FC = () => {
                   <td className="p-2">
                     <input
                       type="checkbox"
-                      checked={selectedStudentIds.has(student.id)}
-                      onChange={() => handleSelectOne(student.id)}
+                      checked={selectedStudentIds.has(student.userId)}
+                      onChange={() => handleSelectOne(student.userId)}
                     />
                   </td>
                   <td className="p-2">{student.name}</td>
-                  <td className="p-2 font-mono text-xs">{student.id}</td>
+                  <td className="p-2 font-mono text-xs">{student.userId}</td>
                   <td className="p-2 text-sm">
                     {studentClass
                       ? `Grade ${studentClass.gradeLevel} - ${studentClass.section}`
