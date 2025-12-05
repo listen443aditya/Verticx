@@ -40,54 +40,38 @@ const ManageMembersModal: React.FC<{
   const [selectedStopId, setSelectedStopId] = useState("");
   const [isActionLoading, setIsActionLoading] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    if (!user?.branchId) return;
-    setLoading(true);
-    try {
-      // 1. Fetch DETAILED Route Data (This endpoint returns the 'assignedMembers' array)
-      const routeDetails = await apiService.getTransportRouteDetails(route.id);
-      setDetailedRoute(routeDetails);
+const fetchData = useCallback(async () => {
+  if (!user?.branchId) return;
+  setLoading(true);
+  try {
+    const routeDetails = await apiService.getTransportRouteDetails(route.id);
+    setDetailedRoute(routeDetails);
+    const unassignedData: any = await apiService.getUnassignedMembers();
+    const assigned = (routeDetails.assignedMembers as any[]).map((m) => ({
+      id: m.memberId,
+      name: m.name,
+      type: m.type as "Student" | "Teacher",
+      stopId: m.stopId,
+    })) as (Member & { stopId?: string })[];
+    const unassigned = Array.isArray(unassignedData)
+      ? (unassignedData.map((m: any) => ({
+          ...m,
+          role: m.type === "Teacher" ? "Teacher" : undefined,
+        })) as Member[])
+      : []; 
 
-      // 2. Fetch Unassigned Members
-      const unassignedData = await apiService.getUnassignedMembers();
+    setAssignedMembers(assigned);
+    setUnassignedMembers(unassigned);
 
-      // 3. Map the backend's 'assignedMembers' array to our 'Member' type
-      // The backend endpoint 'getTransportRouteDetails' we created returns:
-      // assignedMembers: [{ memberId, name, type, stopId }, ...]
-      const assigned = (routeDetails.assignedMembers as any[]).map((m) => ({
-        id: m.memberId,
-        name: m.name,
-        type: m.type as "Student" | "Teacher",
-        // We attach stopId so we can display it in the list
-        stopId: m.stopId,
-      })) as (Member & { stopId?: string })[];
-
-      // 4. Map Unassigned Data
-      const unassigned: Member[] = [
-        ...unassignedData.students.map((s: Student) => ({
-          ...s,
-          type: "Student" as const,
-        })),
-        ...unassignedData.teachers.map((t: Teacher) => ({
-          ...t,
-          role: "Teacher" as const,
-          type: "Teacher" as const,
-        })),
-      ];
-
-      setAssignedMembers(assigned);
-      setUnassignedMembers(unassigned);
-
-      // Set default stop selection
-      if (routeDetails.busStops.length > 0) {
-        setSelectedStopId(routeDetails.busStops[0].id);
-      }
-    } catch (error) {
-      console.error("Failed to fetch route details:", error);
-    } finally {
-      setLoading(false);
+    if (routeDetails.busStops.length > 0) {
+      setSelectedStopId(routeDetails.busStops[0].id);
     }
-  }, [route.id, user]);
+  } catch (error) {
+    console.error("Failed to fetch route details:", error);
+  } finally {
+    setLoading(false);
+  }
+}, [route.id, user]);
 
   useEffect(() => {
     fetchData();
