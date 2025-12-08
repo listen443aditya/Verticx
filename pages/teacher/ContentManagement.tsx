@@ -8,42 +8,37 @@ import Input from "../../components/ui/Input";
 
 const apiService = new TeacherApiService();
 
-// Interface for the data returned by getTeacherCourses
 interface TeacherCourseOption {
-  id: string; // Composite ID (classId|subjectId)
-  realCourseId: string | null; // Actual DB ID
+  id: string;
+  realCourseId: string | null;
   name: string;
 }
 
 const ContentManagement: React.FC = () => {
   const { user } = useAuth();
 
-  // State
   const [courses, setCourses] = useState<TeacherCourseOption[]>([]);
   const [contentList, setContentList] = useState<CourseContent[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Form state
-  // We store the 'realCourseId' here because the backend needs it for foreign keys
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
-      // FIX: Use getTeacherCourses (Source of Truth from Timetable)
       const [teacherCoursesData, uploadedContent] = await Promise.all([
         apiService.getTeacherCourses(user.id),
         apiService.getCourseContentForTeacher(user.id),
       ]);
 
-      // Filter: We can only upload content to courses that have been "Initialized"
-      // (i.e., have a real DB record).
       const validCourses = (teacherCoursesData as any[]).filter(
         (c) => c.realCourseId
       );
@@ -51,7 +46,7 @@ const ContentManagement: React.FC = () => {
       setCourses(validCourses);
       setContentList(uploadedContent);
 
-      if (validCourses.length > 0) {
+      if (validCourses.length > 0 && !selectedCourseId) {
         setSelectedCourseId(validCourses[0].realCourseId);
       }
     } catch (error) {
@@ -59,7 +54,7 @@ const ContentManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, selectedCourseId]);
 
   useEffect(() => {
     fetchData();
@@ -69,7 +64,6 @@ const ContentManagement: React.FC = () => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
 
-      // Validation
       if (selectedFile.type.startsWith("video/")) {
         setUploadStatus("Error: Video files are not permitted for upload.");
         setFile(null);
@@ -104,7 +98,7 @@ const ContentManagement: React.FC = () => {
 
     try {
       const contentData = {
-        courseId: selectedCourseId, // Must be the real DB UUID
+        courseId: selectedCourseId,
         teacherId: user.id,
         branchId: user.branchId,
         title,
@@ -118,13 +112,12 @@ const ContentManagement: React.FC = () => {
       setDescription("");
       setFile(null);
 
-      // Reset file input visually
       const fileInput = document.getElementById(
         "file-input"
       ) as HTMLInputElement;
       if (fileInput) fileInput.value = "";
 
-      fetchData(); // Refresh list
+      fetchData();
     } catch (error) {
       console.error(error);
       setUploadStatus("Error: Upload failed. Please try again.");
@@ -134,9 +127,29 @@ const ContentManagement: React.FC = () => {
     }
   };
 
-  // Helper to display course name in the list
+  // NEW: Handle Delete Logic
+  const handleDelete = async (contentId: string) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this content? This cannot be undone."
+      )
+    ) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await apiService.deleteCourseContent(contentId);
+      setContentList((prev) => prev.filter((c) => c.id !== contentId));
+    } catch (error) {
+      console.error(error);
+      alert("Failed to delete content.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const getCourseName = (courseId: string) => {
-    // We look for a match in our valid courses list
     const course = courses.find((c) => c.realCourseId === courseId);
     return course ? course.name : "Unknown Course";
   };
@@ -279,18 +292,30 @@ const ContentManagement: React.FC = () => {
                         <span>{content.fileName}</span>
                       </div>
                     </div>
-                    <a
-                      href={content.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button
-                        variant="secondary"
-                        className="!px-3 !py-1 text-xs"
+
+                    {/* ACTION BUTTONS */}
+                    <div className="flex gap-2">
+                      <a
+                        href={content.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
                       >
-                        View File
+                        <Button
+                          variant="secondary"
+                          className="!px-3 !py-1 text-xs"
+                        >
+                          View File
+                        </Button>
+                      </a>
+                      <Button
+                        variant="danger"
+                        className="!px-3 !py-1 text-xs"
+                        onClick={() => handleDelete(content.id)}
+                        disabled={isDeleting}
+                      >
+                        Delete
                       </Button>
-                    </a>
+                    </div>
                   </div>
                 ))
               ) : (

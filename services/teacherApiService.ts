@@ -278,7 +278,9 @@ export class TeacherApiService {
     );
     return data;
   }
-
+  async deleteCourseContent(contentId: string): Promise<void> {
+    await baseApi.delete(`/teacher/course-content/${contentId}`);
+  }
   async saveLectures(
     classId: string,
     subjectId: string,
