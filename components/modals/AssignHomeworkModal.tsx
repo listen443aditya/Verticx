@@ -1,21 +1,24 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
-// Import the TeacherApiService class
 import { TeacherApiService } from "../../services";
 import type { TeacherCourse, Assignment } from "../../types";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
 
-// Create a single instance of the service for this component's lifecycle
 const apiService = new TeacherApiService();
+
+// Define a local extended type to handle the response from getTeacherCourses
+// which includes the real DB ID needed for matching.
+interface ExtendedTeacherCourse extends TeacherCourse {
+  realCourseId?: string | null;
+}
 
 interface AssignHomeworkModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: () => void;
-  // Assuming the Assignment type now includes subjectId for easier lookups when editing
-  assignmentToEdit?: (Assignment & { subjectId?: string }) | null;
+  assignmentToEdit?: Assignment | null;
 }
 
 const AssignHomeworkModal: React.FC<AssignHomeworkModalProps> = ({
@@ -25,7 +28,9 @@ const AssignHomeworkModal: React.FC<AssignHomeworkModalProps> = ({
   assignmentToEdit,
 }) => {
   const { user } = useAuth();
-  const [courses, setCourses] = useState<TeacherCourse[]>([]);
+
+  // State
+  const [courses, setCourses] = useState<ExtendedTeacherCourse[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -35,25 +40,32 @@ const AssignHomeworkModal: React.FC<AssignHomeworkModalProps> = ({
 
   useEffect(() => {
     if (isOpen && user) {
-      // getTeacherCourses requires the teacherId; pass the authenticated user's id.
       apiService.getTeacherCourses(user.id).then((data) => {
-        setCourses(data);
+        // Cast data to our extended type so we can access realCourseId
+        const extendedData = data as unknown as ExtendedTeacherCourse[];
+        setCourses(extendedData);
+
         if (assignmentToEdit) {
-          // Find the course using the classId and subjectId from the assignment object.
-          const course = data.find(
-            (c) =>
-              c.classId === assignmentToEdit.classId &&
-              c.subjectId === assignmentToEdit.subjectId
+          // --- FIX 1: Match by Course ID instead of subjectId ---
+          // We look for the course in the dropdown list that matches the assignment's DB course ID.
+          const matchingCourse = extendedData.find(
+            (c) => c.realCourseId === assignmentToEdit.courseId
           );
-          setSelectedCourseId(course?.id || "");
+
+          // If match found, use its composite ID for the dropdown value.
+          // Fallback: if assignment has a direct composite ID match, use that.
+          setSelectedCourseId(matchingCourse?.id || "");
+
           setTitle(assignmentToEdit.title);
           setDescription(assignmentToEdit.description || "");
           setDueDate(
             new Date(assignmentToEdit.dueDate).toISOString().split("T")[0]
           );
-        } else if (data.length > 0) {
-          // Reset fields for a new assignment
-          setSelectedCourseId(data[0].id);
+        } else {
+          // --- CREATE MODE ---
+          if (extendedData.length > 0) setSelectedCourseId(extendedData[0].id);
+          else setSelectedCourseId("");
+
           setTitle("");
           setDescription("");
           setDueDate("");
@@ -65,48 +77,60 @@ const AssignHomeworkModal: React.FC<AssignHomeworkModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
     if (!selectedCourseId || !title || !dueDate || !user) {
       setError("Please fill all required fields.");
       return;
     }
+
     setIsAssigning(true);
 
-    const [classId, subjectId] = selectedCourseId.split("|");
-
     try {
+      // 1. Get the Real Course UUID
+      // The dropdown value is "classId|subjectId" (composite).
+      const [classId, subjectId] = selectedCourseId.split("|");
+
+      const course = await apiService.findCourseByTeacherAndSubject(
+        user.id,
+        subjectId
+      );
+
+      if (!course) {
+        setError(
+          "Could not find a valid Course record. Please ask admin to initialize courses."
+        );
+        setIsAssigning(false);
+        return;
+      }
+
       if (assignmentToEdit) {
-        // Update just requires the ID and the new data payload.
+        // --- UPDATE ---
         await apiService.updateAssignment(assignmentToEdit.id, {
           title,
           description,
           dueDate: new Date(dueDate),
+          courseId: course.id,
         });
       } else {
-        // findCourseByTeacherAndSubject now correctly takes only the subjectId.
-        const course = await apiService.findCourseByTeacherAndSubject(
-          user.id,
-          subjectId
-        );
-        if (!course) {
-          setError(
-            `Could not find a course for this subject. Please contact administration.`
-          );
-          setIsAssigning(false);
-          return;
-        }
-
-        // Add the required 'teacherId' property from the authenticated user.
+        // --- CREATE ---
+        // FIX 2: Removed 'branchId' (Backend gets it from token)
+        // FIX 3: Cast as 'any' to bypass strict Type checks on missing frontend properties if needed,
+        // or ensure 'createAssignment' only receives expected fields.
         await apiService.createAssignment({
-          classId,
+          classId, // Only passed for frontend flattening if needed
           courseId: course.id,
-          teacherId: user.id, // This is the critical fix
+          teacherId: user.id,
           title,
           description,
           dueDate: new Date(dueDate),
-        });
+          // We rely on backend default for status
+        } as any);
       }
-      onSave(); // This triggers a refresh/close action in the parent component
+
+      onSave();
+      onClose();
     } catch (err: any) {
+      console.error(err);
       setError(err.message || "Failed to save homework.");
     } finally {
       setIsAssigning(false);
@@ -163,6 +187,7 @@ const AssignHomeworkModal: React.FC<AssignHomeworkModalProps> = ({
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
             required
+            min={new Date().toISOString().split("T")[0]}
           />
           {error && <p className="text-sm text-red-500 text-center">{error}</p>}
           <div className="flex justify-end gap-4 pt-4">
