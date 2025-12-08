@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
-import { TeacherApiService } from "../../services"; // Ensure this path is correct
+import { TeacherApiService } from "../../services";
 import type { Student, StudentProfile } from "../../types";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
@@ -12,9 +12,11 @@ const apiService = new TeacherApiService();
 
 const StudentInformation: React.FC = () => {
   const { user } = useAuth();
-  const [students, setStudents] = useState<Student[]>([]);
+  // Use 'any' cast temporarily if your Student type definition is strict and missing 'class'/'user' relations
+  // Ideally, update your src/types.ts to include optional class and user properties on Student.
+  const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null); // New error state
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   // Modals
@@ -41,7 +43,7 @@ const StudentInformation: React.FC = () => {
       console.error("Failed to fetch students:", err);
       setError("Failed to load student list. Please try again.");
     } finally {
-      setLoading(false); // Ensure this always runs
+      setLoading(false);
     }
   }, [user]);
 
@@ -73,8 +75,9 @@ const StudentInformation: React.FC = () => {
   const filteredStudents = students.filter(
     (s) =>
       s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (s.userId && s.userId.toLowerCase().includes(searchTerm.toLowerCase()))
+      // Search by VRTX ID (nested in user) or direct ID
+      (s.user?.userId || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -135,19 +138,31 @@ const StudentInformation: React.FC = () => {
               <tbody className="divide-y divide-slate-100">
                 {filteredStudents.map((student) => (
                   <tr
-                    key={student.userId}
+                    key={student.id}
                     className="hover:bg-slate-50 transition-colors"
                   >
                     <td className="p-4 font-medium text-slate-900">
                       {student.name}
                     </td>
-                    <td className="p-4 font-mono text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded w-fit inline-block">
-                      {student.userId}
+
+                    {/* FIX 1: Display Readable VRTX ID */}
+                    <td className="p-4 font-mono text-xs text-slate-500">
+                      <span className="bg-slate-100 px-2 py-1 rounded inline-block">
+                        {student.user?.userId || "N/A"}
+                      </span>
                     </td>
-                    {/* Note: Ideally 'student' object should already contain class details to avoid N+1 API calls inside map */}
+
+                    {/* FIX 2: Display Grade & Section */}
                     <td className="p-4 text-slate-600">
-                      {student.classId ? `Class ID: ${student.classId}` : "N/A"}
+                      {student.class ? (
+                        `Grade ${student.class.gradeLevel} - ${student.class.section}`
+                      ) : (
+                        <span className="text-slate-400 italic">
+                          Unassigned
+                        </span>
+                      )}
                     </td>
+
                     <td className="p-4 text-center font-semibold text-slate-700">
                       {student.schoolRank || "-"}
                     </td>
