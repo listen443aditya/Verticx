@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useAuth } from "../../hooks/useAuth.ts";
-import { LibrarianApiService } from "../../services";
-import type { LibraryBook } from "../../types.ts";
-import Card from "../../components/ui/Card.tsx";
-import Button from "../../components/ui/Button.tsx";
-import Input from "../../components/ui/Input.tsx";
-import ConfirmationModal from "../../components/ui/ConfirmationModal.tsx";
-import { BarcodeIcon } from "../../components/icons/Icons.tsx";
+import { useAuth } from "../../hooks/useAuth";
+import { LibrarianApiService } from "../../services/librarianApiService";
+import type { LibraryBook } from "../../types";
+import Card from "../../components/ui/Card";
+import Button from "../../components/ui/Button";
+import Input from "../../components/ui/Input";
+import ConfirmationModal from "../../components/ui/ConfirmationModal";
+import { BarcodeIcon } from "../../components/icons/Icons";
 
 const apiService = new LibrarianApiService();
 
@@ -25,6 +25,43 @@ const BookFormModal: React.FC<{
   });
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // --- BARCODE SCANNER LISTENER ---
+  useEffect(() => {
+    let barcodeBuffer = "";
+    let lastKeyTime = 0;
+    const SCAN_THRESHOLD = 60; // ms
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // If user is focused on an input other than ISBN, let them type normally.
+      // However, if they are just staring at the screen, capture the scan.
+      const target = e.target as HTMLElement;
+
+      // Calculate typing speed
+      const now = Date.now();
+      if (now - lastKeyTime > SCAN_THRESHOLD) {
+        barcodeBuffer = ""; // Reset if too slow (manual typing)
+      }
+      lastKeyTime = now;
+
+      if (e.key === "Enter") {
+        // If it looks like a barcode (fast entry, sufficient length)
+        if (barcodeBuffer.length >= 3) {
+          e.preventDefault(); // Stop form submission
+          e.stopPropagation();
+
+          // AUTO-FILL ISBN
+          setFormData((prev) => ({ ...prev, isbn: barcodeBuffer }));
+        }
+        barcodeBuffer = "";
+      } else if (e.key.length === 1) {
+        barcodeBuffer += e.key;
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -61,6 +98,7 @@ const BookFormModal: React.FC<{
             value={formData.title}
             onChange={handleChange}
             required
+            autoFocus // Focus title first so they can type name, then scan ISBN easily
           />
           <Input
             label="Author"
@@ -75,27 +113,31 @@ const BookFormModal: React.FC<{
             value={formData.isbn}
             onChange={handleChange}
             required
-            placeholder="Scan or enter ISBN"
+            placeholder="Scan barcode or enter manually"
+            // Tooltip to inform user
+            title="Scan a barcode anywhere on this screen to auto-fill this field."
             icon={<BarcodeIcon className="h-5 w-5 text-slate-400" />}
           />
-          <Input
-            label="Total Copies"
-            name="totalCopies"
-            type="number"
-            min="1"
-            value={formData.totalCopies}
-            onChange={handleChange}
-            required
-          />
-          <Input
-            label="Price"
-            name="price"
-            type="number"
-            min="0"
-            step="0.01"
-            value={formData.price || ""}
-            onChange={handleChange}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Total Copies"
+              name="totalCopies"
+              type="number"
+              min="1"
+              value={formData.totalCopies}
+              onChange={handleChange}
+              required
+            />
+            <Input
+              label="Price"
+              name="price"
+              type="number"
+              min="0"
+              step="0.01"
+              value={formData.price || ""}
+              onChange={handleChange}
+            />
+          </div>
           <Input
             label="Upload PDF (Optional)"
             type="file"
@@ -135,10 +177,14 @@ const BookManagement: React.FC = () => {
   const fetchData = useCallback(async () => {
     if (!user?.branchId) return;
     setLoading(true);
-    // FIX: Provided the mandatory branchId argument.
-    const data = await apiService.getLibraryBooks(user.branchId);
-    setBooks(data);
-    setLoading(false);
+    try {
+      const data = await apiService.getLibraryBooks(user.branchId);
+      setBooks(data);
+    } catch (error) {
+      console.error("Failed to fetch books", error);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => {
@@ -151,16 +197,21 @@ const BookManagement: React.FC = () => {
   ) => {
     if (!user?.branchId) return;
     setIsActionLoading(true);
-    if (bookData.id) {
-      await apiService.updateBook(bookData.id, bookData, pdfFile);
-    } else {
-      // FIX: Provided the mandatory branchId argument.
-      await apiService.createBook(user.branchId, bookData, pdfFile);
+    try {
+      if (bookData.id) {
+        await apiService.updateBook(bookData.id, bookData, pdfFile);
+      } else {
+        await apiService.createBook(user.branchId, bookData, pdfFile);
+      }
+      setModal(null);
+      setSelectedBook(null);
+      await fetchData();
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || "Failed to save book");
+    } finally {
+      setIsActionLoading(false);
     }
-    setIsActionLoading(false);
-    setModal(null);
-    setSelectedBook(null);
-    await fetchData();
   };
 
   const handleDelete = async () => {
@@ -168,12 +219,13 @@ const BookManagement: React.FC = () => {
     setIsActionLoading(true);
     try {
       await apiService.deleteBook(deletingBook.id);
+      await fetchData();
     } catch (error: any) {
-      alert(error.message); // Show error to user
+      alert(error.message);
+    } finally {
+      setIsActionLoading(false);
+      setDeletingBook(null);
     }
-    setIsActionLoading(false);
-    setDeletingBook(null);
-    await fetchData();
   };
 
   const filteredBooks = useMemo(() => {
@@ -189,7 +241,9 @@ const BookManagement: React.FC = () => {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-6">Book Catalog Management</h1>
+      <h1 className="text-3xl font-bold mb-6 text-text-primary-dark">
+        Book Catalog
+      </h1>
       <Card>
         <div className="flex justify-between items-center mb-4">
           <Input
@@ -197,41 +251,70 @@ const BookManagement: React.FC = () => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-1/2"
+            icon={<BarcodeIcon className="h-5 w-5 text-slate-400" />}
           />
-          <Button onClick={() => setModal("add")}>Add New Book</Button>
+          <Button
+            onClick={() => {
+              setSelectedBook(null);
+              setModal("add");
+            }}
+          >
+            Add New Book
+          </Button>
         </div>
         {loading ? (
           <p>Loading books...</p>
         ) : (
           <div className="overflow-x-auto max-h-[70vh]">
             <table className="w-full text-left">
-              <thead className="border-b sticky top-0 bg-surface-dark">
-                <tr>
-                  <th className="p-4">Title</th>
-                  <th className="p-4">Author</th>
-                  <th className="p-4">ISBN</th>
-                  <th className="p-4 text-center">Available / Total</th>
-                  <th className="p-4 text-right">Price</th>
+              <thead className="border-b sticky top-0 bg-white shadow-sm z-10">
+                <tr className="bg-slate-50">
+                  <th className="p-4 font-semibold text-slate-700">Title</th>
+                  <th className="p-4 font-semibold text-slate-700">Author</th>
+                  <th className="p-4 font-semibold text-slate-700">ISBN</th>
+                  <th className="p-4 text-center font-semibold text-slate-700">
+                    Available / Total
+                  </th>
+                  <th className="p-4 text-right font-semibold text-slate-700">
+                    Price
+                  </th>
                   <th className="p-4"></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100">
                 {filteredBooks.map((book) => (
-                  <tr key={book.id} className="border-b hover:bg-slate-50">
-                    <td className="p-4 font-medium">{book.title}</td>
-                    <td className="p-4">{book.author}</td>
-                    <td className="p-4 font-mono text-xs">{book.isbn}</td>
-                    <td className="p-4 text-center font-semibold">
-                      {book.availableCopies} / {book.totalCopies}
+                  <tr
+                    key={book.id}
+                    className="hover:bg-slate-50 transition-colors"
+                  >
+                    <td className="p-4 font-medium text-slate-900">
+                      {book.title}
                     </td>
-                    <td className="p-4 text-right font-semibold">
-                      {book.price?.toFixed(2) || "N/A"}
+                    <td className="p-4 text-slate-600">{book.author}</td>
+                    <td className="p-4 font-mono text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded w-fit">
+                      {book.isbn}
+                    </td>
+                    <td className="p-4 text-center">
+                      <span
+                        className={`font-bold ${
+                          book.availableCopies > 0
+                            ? "text-green-600"
+                            : "text-red-500"
+                        }`}
+                      >
+                        {book.availableCopies}
+                      </span>
+                      <span className="text-slate-400 mx-1">/</span>
+                      <span className="text-slate-700">{book.totalCopies}</span>
+                    </td>
+                    <td className="p-4 text-right font-medium text-slate-700">
+                      {book.price ? book.price.toFixed(2) : "-"}
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex gap-2 justify-end">
                         <Button
                           variant="secondary"
-                          className="!px-2 !py-1 text-xs"
+                          className="!px-3 !py-1 text-xs border-slate-200"
                           onClick={() => {
                             setSelectedBook(book);
                             setModal("edit");
@@ -241,7 +324,7 @@ const BookManagement: React.FC = () => {
                         </Button>
                         <Button
                           variant="danger"
-                          className="!px-2 !py-1 text-xs"
+                          className="!px-3 !py-1 text-xs"
                           onClick={() => setDeletingBook(book)}
                         >
                           Delete
@@ -250,6 +333,13 @@ const BookManagement: React.FC = () => {
                     </td>
                   </tr>
                 ))}
+                {filteredBooks.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-slate-400">
+                      No books found matching your search.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -258,7 +348,7 @@ const BookManagement: React.FC = () => {
 
       {(modal === "add" || (modal === "edit" && selectedBook)) && (
         <BookFormModal
-          book={selectedBook}
+          book={selectedBook || null}
           onClose={() => {
             setModal(null);
             setSelectedBook(null);
