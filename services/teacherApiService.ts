@@ -155,7 +155,9 @@ export class TeacherApiService {
       return null;
     }
   }
-
+  async initializeCourse(classId: string, subjectId: string): Promise<void> {
+    await baseApi.post("/teacher/courses/initialize", { classId, subjectId });
+  }
   async getDailyAttendance(
     classId: string,
     date: string

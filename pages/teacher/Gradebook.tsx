@@ -9,13 +9,16 @@ import ConfirmationModal from "../../components/ui/ConfirmationModal";
 
 const apiService = new TeacherApiService();
 
-// Extended type to include the new field
+// Extended type to match the backend response
 interface ExtendedTeacherCourse {
   id: string; // Composite "classId|subjectId"
   name: string;
-  realCourseId: string | null; // The actual UUID from the database
+  realCourseId: string | null; // The actual UUID from the database (or null if not initialized)
+  classId: string;
+  subjectId: string;
 }
 
+// --- 1. Define Modal Component Outside Main Component ---
 const TemplateFormModal: React.FC<{
   courseId: string;
   onClose: () => void;
@@ -110,12 +113,14 @@ const Gradebook: React.FC = () => {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [deletingTemplate, setDeletingTemplate] =
     useState<MarkingTemplate | null>(null);
+  const [initializing, setInitializing] = useState(false);
 
   // Derived state for the REAL DB ID
-  const realCourseId = useMemo(() => {
-    const c = courses.find((c) => c.id === selectedCourseId);
-    return c ? c.realCourseId : null;
-  }, [courses, selectedCourseId]);
+  const selectedCourseObj = useMemo(
+    () => courses.find((c) => c.id === selectedCourseId),
+    [courses, selectedCourseId]
+  );
+  const realCourseId = selectedCourseObj?.realCourseId;
 
   // Marks Entry state
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
@@ -124,21 +129,21 @@ const Gradebook: React.FC = () => {
   const [loadingMarks, setLoadingMarks] = useState(false);
   const [isSavingMarks, setIsSavingMarks] = useState(false);
 
+  // --- 2. Define Fetch Functions ---
+
   const fetchCourses = useCallback(async () => {
     if (!user) return;
-    // The backend now returns { id, name, realCourseId }
     const data = await apiService.getTeacherCourses(user.id);
+    // Cast response to our Extended interface
     setCourses(data as unknown as ExtendedTeacherCourse[]);
+
+    // If we have courses but none selected, select the first one
     if (data.length > 0) {
-      setSelectedCourseId(data[0].id);
+      // We use a functional update to avoid resetting if user already selected something valid
+      setSelectedCourseId((prev) => prev || data[0].id);
     }
   }, [user]);
 
-  useEffect(() => {
-    fetchCourses();
-  }, [fetchCourses]);
-
-  // Updated Logic: Use realCourseId directly
   const fetchTemplates = useCallback(async () => {
     if (!realCourseId || !user) {
       setTemplates([]);
@@ -148,18 +153,20 @@ const Gradebook: React.FC = () => {
     try {
       const data = await apiService.getMarkingTemplatesForCourse(realCourseId);
       setTemplates(data);
-      if (data.length > 0) setSelectedTemplateId(data[0].id);
-      else setSelectedTemplateId("");
+      // Auto-select first template if none selected or current one is gone
+      if (data.length > 0) {
+        setSelectedTemplateId((prev) =>
+          data.find((t) => t.id === prev) ? prev : data[0].id
+        );
+      } else {
+        setSelectedTemplateId("");
+      }
     } catch (e) {
       console.error("Failed to load templates", e);
     } finally {
       setLoadingTemplates(false);
     }
   }, [realCourseId, user]);
-
-  useEffect(() => {
-    fetchTemplates();
-  }, [fetchTemplates]);
 
   const fetchStudentsAndMarks = useCallback(async () => {
     if (!selectedTemplateId || !selectedCourseId) {
@@ -169,25 +176,44 @@ const Gradebook: React.FC = () => {
     }
     setLoadingMarks(true);
 
-    const [classId] = selectedCourseId.split("|");
-    const studentData = await apiService.getStudentsForClass(classId);
-    setStudents(studentData);
+    try {
+      const [classId] = selectedCourseId.split("|");
+      const studentData = await apiService.getStudentsForClass(classId);
+      setStudents(studentData);
 
-    const marksData = await apiService.getStudentMarksForTemplate(
-      selectedTemplateId
-    );
-    const marksMap = marksData.reduce((acc, mark) => {
-      acc[mark.studentId] = mark.marksObtained;
-      return acc;
-    }, {} as Record<string, number>);
-    setMarks(marksMap);
-
-    setLoadingMarks(false);
+      const marksData = await apiService.getStudentMarksForTemplate(
+        selectedTemplateId
+      );
+      const marksMap = marksData.reduce((acc, mark) => {
+        acc[mark.studentId] = mark.marksObtained;
+        return acc;
+      }, {} as Record<string, number>);
+      setMarks(marksMap);
+    } catch (error) {
+      console.error("Failed to load marks", error);
+    } finally {
+      setLoadingMarks(false);
+    }
   }, [selectedTemplateId, selectedCourseId]);
 
+  // --- 3. Effects ---
+
   useEffect(() => {
-    fetchStudentsAndMarks();
-  }, [fetchStudentsAndMarks]);
+    fetchCourses();
+  }, [fetchCourses]);
+
+  useEffect(() => {
+    fetchTemplates();
+  }, [fetchTemplates]);
+
+  useEffect(() => {
+    // Only fetch students when in Marks tab
+    if (activeTab === "marks") {
+      fetchStudentsAndMarks();
+    }
+  }, [fetchStudentsAndMarks, activeTab]);
+
+  // --- 4. Define Helper Functions ---
 
   const handleMarkChange = (studentId: string, value: string) => {
     const numValue = value === "" ? undefined : Number(value);
@@ -197,29 +223,58 @@ const Gradebook: React.FC = () => {
   const handleSaveMarks = async () => {
     if (!selectedTemplateId) return;
     setIsSavingMarks(true);
-    const marksToSave = Object.entries(marks)
-      .filter(([, value]) => value !== undefined)
-      .map(([studentId, marksObtained]) => ({
-        studentId,
-        marksObtained: marksObtained as number,
-      }));
+    try {
+      const marksToSave = Object.entries(marks)
+        .filter(([, value]) => value !== undefined)
+        .map(([studentId, marksObtained]) => ({
+          studentId,
+          marksObtained: marksObtained as number,
+        }));
 
-    await apiService.saveStudentMarks(selectedTemplateId, marksToSave);
-    setIsSavingMarks(false);
-    fetchStudentsAndMarks();
+      await apiService.saveStudentMarks(selectedTemplateId, marksToSave);
+      await fetchStudentsAndMarks(); // Refresh data
+      alert("Marks saved successfully.");
+    } catch (error) {
+      alert("Failed to save marks.");
+    } finally {
+      setIsSavingMarks(false);
+    }
   };
 
   const handleDeleteTemplate = async () => {
     if (!deletingTemplate) return;
-    await apiService.deleteMarkingTemplate(deletingTemplate.id);
-    setDeletingTemplate(null);
-    fetchTemplates();
+    try {
+      await apiService.deleteMarkingTemplate(deletingTemplate.id);
+      setDeletingTemplate(null);
+      fetchTemplates();
+    } catch (error) {
+      alert("Failed to delete template.");
+    }
+  };
+
+  const handleInitialize = async () => {
+    if (!selectedCourseObj) return;
+    setInitializing(true);
+    try {
+      await apiService.initializeCourse(
+        selectedCourseObj.classId,
+        selectedCourseObj.subjectId
+      );
+      await fetchCourses(); // Refresh list to get the new realCourseId
+      alert("Gradebook initialized! You can now create templates.");
+    } catch (e) {
+      alert("Failed to initialize gradebook.");
+    } finally {
+      setInitializing(false);
+    }
   };
 
   const selectedTemplate = useMemo(
     () => templates.find((t) => t.id === selectedTemplateId),
     [templates, selectedTemplateId]
   );
+
+  // --- 5. Render ---
 
   return (
     <div>
@@ -230,7 +285,7 @@ const Gradebook: React.FC = () => {
         <div className="flex justify-between items-center mb-6 pb-4 border-b">
           <div>
             <label className="block text-sm font-medium text-text-secondary-dark mb-1">
-              Course
+              Select Subject
             </label>
             <select
               value={selectedCourseId}
@@ -243,155 +298,195 @@ const Gradebook: React.FC = () => {
                 </option>
               ))}
             </select>
-            {/* Visual Feedback if Course record is missing */}
-            {!realCourseId && courses.length > 0 && (
-              <p className="text-xs text-red-500 mt-1">
-                ⚠ No gradebook initialized for this subject. Ask Admin to
-                generate Course records.
-              </p>
-            )}
           </div>
         </div>
 
-        <div className="flex border-b mb-4">
-          <button
-            onClick={() => setActiveTab("templates")}
-            className={`px-4 py-2 ${
-              activeTab === "templates" ? "border-b-2 border-brand-primary" : ""
-            }`}
-          >
-            Manage Templates
-          </button>
-          <button
-            onClick={() => setActiveTab("marks")}
-            className={`px-4 py-2 ${
-              activeTab === "marks" ? "border-b-2 border-brand-primary" : ""
-            }`}
-          >
-            Enter Marks
-          </button>
-        </div>
-
-        {activeTab === "templates" && (
-          <div>
-            <Button
-              onClick={() => setShowTemplateModal(true)}
-              disabled={!realCourseId}
-            >
-              Create New Template
+        {/* CHECK IF INITIALIZED */}
+        {!realCourseId ? (
+          <div className="text-center py-12 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+            <p className="text-lg font-semibold text-slate-700 mb-2">
+              Gradebook Not Initialized
+            </p>
+            <p className="text-slate-500 mb-6">
+              You need to initialize the gradebook for{" "}
+              <strong>{selectedCourseObj?.name}</strong> before creating
+              templates.
+            </p>
+            <Button onClick={handleInitialize} disabled={initializing}>
+              {initializing ? "Initializing..." : "Initialize Gradebook Now"}
             </Button>
-            <div className="mt-4 space-y-2">
-              {loadingTemplates ? (
-                <p>Loading...</p>
-              ) : (
-                templates.map((t) => (
-                  <div
-                    key={t.id}
-                    className="bg-slate-50 p-3 rounded flex justify-between items-center"
-                  >
-                    <div>
-                      <p className="font-semibold">{t.name}</p>
-                      <p className="text-sm text-slate-600">
-                        Total Marks: {t.totalMarks}, Weightage: {t.weightage}%
-                      </p>
-                    </div>
-                    <Button
-                      variant="danger"
-                      onClick={() => setDeletingTemplate(t)}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                ))
-              )}
-              {!loadingTemplates && templates.length === 0 && (
-                <p className="text-slate-500 italic">No templates found.</p>
-              )}
-            </div>
           </div>
-        )}
-
-        {/* ... (Keep "Marks" Tab content as is) ... */}
-        {activeTab === "marks" && (
-          <div>
-            <div className="flex justify-between items-end mb-4">
-              <div>
-                <label className="block text-sm font-medium text-text-secondary-dark mb-1">
-                  Select Template
-                </label>
-                <select
-                  value={selectedTemplateId}
-                  onChange={(e) => setSelectedTemplateId(e.target.value)}
-                  className="bg-surface-dark border border-slate-300 rounded-md py-2 px-3 w-72"
-                >
-                  <option value="">-- Select a template --</option>
-                  {templates.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <Button
-                onClick={handleSaveMarks}
-                disabled={isSavingMarks || !selectedTemplateId}
+        ) : (
+          <>
+            <div className="flex border-b mb-4">
+              <button
+                onClick={() => setActiveTab("templates")}
+                className={`px-4 py-2 ${
+                  activeTab === "templates"
+                    ? "border-b-2 border-brand-primary font-medium"
+                    : "text-slate-600"
+                }`}
               >
-                {isSavingMarks ? "Saving..." : "Save Marks"}
-              </Button>
+                Manage Templates
+              </button>
+              <button
+                onClick={() => setActiveTab("marks")}
+                className={`px-4 py-2 ${
+                  activeTab === "marks"
+                    ? "border-b-2 border-brand-primary font-medium"
+                    : "text-slate-600"
+                }`}
+              >
+                Enter Marks
+              </button>
             </div>
 
-            {loadingMarks ? (
-              <p>Loading students...</p>
-            ) : (
-              selectedTemplate && (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="border-b">
-                      <tr>
-                        <th className="p-2">Student Name</th>
-                        <th className="p-2">Marks Obtained</th>
-                        <th className="p-2">Weighted Score</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {students.map((s) => {
-                        const marksObtained = marks[s.id];
-                        const weightedScore =
-                          marksObtained !== undefined && selectedTemplate
-                            ? (marksObtained / selectedTemplate.totalMarks) *
-                              selectedTemplate.weightage
-                            : null;
-
-                        return (
-                          <tr key={s.id} className="border-b hover:bg-slate-50">
-                            <td className="p-2">{s.name}</td>
-                            <td className="p-2">
-                              <Input
-                                type="number"
-                                value={marksObtained ?? ""}
-                                onChange={(e) =>
-                                  handleMarkChange(s.id, e.target.value)
-                                }
-                                className="w-32"
-                                placeholder={`/ ${selectedTemplate.totalMarks}`}
-                              />
-                            </td>
-                            <td className="p-2 font-semibold">
-                              {weightedScore !== null
-                                ? `${weightedScore.toFixed(2)} / ${
-                                    selectedTemplate.weightage
-                                  }`
-                                : "N/A"}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+            {activeTab === "templates" && (
+              <div>
+                <Button onClick={() => setShowTemplateModal(true)}>
+                  Create New Template
+                </Button>
+                <div className="mt-4 space-y-2">
+                  {loadingTemplates ? (
+                    <p className="text-center py-4 text-slate-500">
+                      Loading templates...
+                    </p>
+                  ) : (
+                    templates.map((t) => (
+                      <div
+                        key={t.id}
+                        className="bg-slate-50 p-3 rounded flex justify-between items-center border border-slate-100"
+                      >
+                        <div>
+                          <p className="font-semibold text-slate-800">
+                            {t.name}
+                          </p>
+                          <p className="text-sm text-slate-600">
+                            Total Marks: {t.totalMarks} | Weightage:{" "}
+                            {t.weightage}%
+                          </p>
+                        </div>
+                        <Button
+                          variant="danger"
+                          className="!px-3 !py-1 text-xs"
+                          onClick={() => setDeletingTemplate(t)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                  {!loadingTemplates && templates.length === 0 && (
+                    <p className="text-slate-500 italic text-center py-8">
+                      No templates created yet. Click "Create New Template" to
+                      start.
+                    </p>
+                  )}
                 </div>
-              )
+              </div>
             )}
-          </div>
+
+            {activeTab === "marks" && (
+              <div>
+                <div className="flex justify-between items-end mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary-dark mb-1">
+                      Select Template
+                    </label>
+                    <select
+                      value={selectedTemplateId}
+                      onChange={(e) => setSelectedTemplateId(e.target.value)}
+                      className="bg-surface-dark border border-slate-300 rounded-md py-2 px-3 w-72"
+                    >
+                      <option value="">-- Select a template --</option>
+                      {templates.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button
+                    onClick={handleSaveMarks}
+                    disabled={isSavingMarks || !selectedTemplateId}
+                  >
+                    {isSavingMarks ? "Saving..." : "Save Marks"}
+                  </Button>
+                </div>
+
+                {loadingMarks ? (
+                  <p className="text-center py-8 text-slate-500">
+                    Loading students...
+                  </p>
+                ) : (
+                  selectedTemplate && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead className="border-b bg-slate-50">
+                          <tr>
+                            <th className="p-3 font-semibold text-slate-700">
+                              Student Name
+                            </th>
+                            <th className="p-3 font-semibold text-slate-700 w-40">
+                              Marks Obtained
+                            </th>
+                            <th className="p-3 font-semibold text-slate-700">
+                              Weighted Score
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {students.map((s) => {
+                            const marksObtained = marks[s.id];
+                            const weightedScore =
+                              marksObtained !== undefined && selectedTemplate
+                                ? (marksObtained /
+                                    selectedTemplate.totalMarks) *
+                                  selectedTemplate.weightage
+                                : null;
+
+                            return (
+                              <tr
+                                key={s.id}
+                                className="hover:bg-slate-50 transition-colors"
+                              >
+                                <td className="p-3 font-medium text-slate-900">
+                                  {s.name}
+                                </td>
+                                <td className="p-3">
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      type="number"
+                                      value={marksObtained ?? ""}
+                                      onChange={(e) =>
+                                        handleMarkChange(s.id, e.target.value)
+                                      }
+                                      className="w-24 text-right"
+                                    />
+                                    <span className="text-slate-400 text-sm">
+                                      / {selectedTemplate.totalMarks}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="p-3 font-mono text-slate-600">
+                                  {weightedScore !== null
+                                    ? `${weightedScore.toFixed(2)}`
+                                    : "-"}
+                                  <span className="text-xs text-slate-400 ml-1">
+                                    / {selectedTemplate.weightage}%
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+          </>
         )}
       </Card>
 
@@ -412,7 +507,7 @@ const Gradebook: React.FC = () => {
           onClose={() => setDeletingTemplate(null)}
           onConfirm={handleDeleteTemplate}
           title="Delete Template"
-          message={`Are you sure you want to delete the template "${deletingTemplate.name}"? All associated marks will also be deleted.`}
+          message={`Are you sure you want to delete "${deletingTemplate.name}"?`}
         />
       )}
     </div>
