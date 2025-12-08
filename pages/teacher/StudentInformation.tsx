@@ -135,7 +135,7 @@ const StudentInformation: React.FC = () => {
               <tbody className="divide-y divide-slate-100">
                 {filteredStudents.map((student) => (
                   <tr
-                    key={student.id}
+                    key={student.userId}
                     className="hover:bg-slate-50 transition-colors"
                   >
                     <td className="p-4 font-medium text-slate-900">
