@@ -143,6 +143,42 @@ export class TeacherApiService {
     return data;
   }
 
+  async getMentoredClass(
+    teacherId: string
+  ): Promise<{ id: string; gradeLevel: number; section: string } | null> {
+    try {
+      const { data } = await baseApi.get("/teacher/my-mentored-class", {
+        params: { teacherId },
+      });
+      return data;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async getDailyAttendance(
+    classId: string,
+    date: string
+  ): Promise<{ isSaved: boolean; attendance: any[] }> {
+    const { data } = await baseApi.get(
+      `/teacher/classes/${classId}/daily-attendance`,
+      { params: { date } }
+    );
+    return data;
+  }
+
+  async saveDailyAttendance(
+    classId: string,
+    date: string,
+    records: any[]
+  ): Promise<void> {
+    await baseApi.post("/teacher/classes/daily-attendance", {
+      classId,
+      date,
+      records,
+    });
+  }
+
   async saveAttendance(records: AttendanceRecord[]): Promise<void> {
     await baseApi.post("/teacher/courses/attendance", { records });
   }

@@ -1,295 +1,333 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { useAuth } from '../../hooks/useAuth.ts';
-// FIX: Corrected import to use teacherApiService aliased as apiService.
-import { TeacherApiService } from '../../services';
+import React, { useEffect, useState, useCallback } from "react";
+import { useAuth } from "../../hooks/useAuth";
+import { TeacherApiService } from "../../services";
+import type { AttendanceStatus, Student } from "../../types";
+import Card from "../../components/ui/Card";
+import Button from "../../components/ui/Button";
+import Input from "../../components/ui/Input";
+import { useDataRefresh } from "../../contexts/DataRefreshContext";
+
 const apiService = new TeacherApiService();
-// FIX: Added missing 'AttendanceRecord' type to the import.
-import type { TeacherCourse, Student, AttendanceStatus, SchoolEvent, AttendanceRecord } from '../../types.ts';
-import Card from '../../components/ui/Card.tsx';
-import Button from '../../components/ui/Button.tsx';
-import Input from '../../components/ui/Input.tsx';
-import { useDataRefresh } from '../../contexts/DataRefreshContext.tsx';
-
-
 
 const RequestChangeModal: React.FC<{
-    student: { id: string, name: string },
-    course: { id: string, name: string },
-    date: string,
-    currentStatus: AttendanceStatus,
-    onClose: () => void,
-    onSubmit: () => void
-}> = ({ student, course, date, currentStatus, onClose, onSubmit }) => {
-    const { user } = useAuth();
-    const [newStatus, setNewStatus] = useState<AttendanceStatus>(currentStatus);
-    const [reason, setReason] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
+  studentName: string;
+  currentStatus: string;
+  onClose: () => void;
+  onSubmit: (reason: string, newStatus: string) => void;
+}> = ({ studentName, currentStatus, onClose, onSubmit }) => {
+  const [status, setStatus] = useState(currentStatus);
+  const [reason, setReason] = useState("");
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!reason || newStatus === currentStatus || !user) return;
-        setIsSubmitting(true);
-
-        const requestData = {
-            branchId: user.branchId!,
-            teacherId: user.id,
-            type: 'Attendance' as const,
-            details: {
-                studentId: student.id,
-                studentName: student.name,
-                courseId: course.id,
-                courseName: course.name,
-                date: date,
-                from: currentStatus,
-                to: newStatus,
-            },
-            reason: reason + " (Note: This change request is for the student's daily attendance status.)",
-        };
-        await apiService.submitRectificationRequest(requestData as any);
-        setIsSubmitting(false);
-        onSubmit();
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-lg">
-                <h2 className="text-xl font-bold text-text-primary-dark mb-4">Request Daily Attendance Change</h2>
-                <p className="text-sm text-text-secondary-dark mb-4">For: <strong>{student.name}</strong> on {date}</p>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium">From</label>
-                            <p className="mt-1 p-2 bg-slate-200 rounded">{currentStatus}</p>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium">To</label>
-                            <select value={newStatus} onChange={e => setNewStatus(e.target.value as AttendanceStatus)} className="w-full bg-white border border-slate-300 rounded-md py-2 px-3">
-                                <option>Present</option>
-                                <option>Absent</option>
-                                <option>Tardy</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium">Reason for Change</label>
-                        <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} className="w-full bg-white border border-slate-300 rounded-md py-2 px-3" required/>
-                    </div>
-                    <div className="flex justify-end gap-4 pt-4">
-                        <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>Cancel</Button>
-                        <Button type="submit" disabled={isSubmitting || !reason || newStatus === currentStatus}>
-                            {isSubmitting ? 'Submitting...' : 'Submit Request'}
-                        </Button>
-                    </div>
-                </form>
-            </Card>
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <Card className="w-96">
+        <h3 className="font-bold mb-4">Request Change for {studentName}</h3>
+        <select
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+          className="w-full p-2 border rounded mb-4"
+        >
+          <option>Present</option>
+          <option>Absent</option>
+          <option>Tardy</option>
+        </select>
+        <textarea
+          placeholder="Reason..."
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          className="w-full p-2 border rounded mb-4"
+        />
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => onSubmit(reason, status)}>Submit</Button>
         </div>
-    );
+      </Card>
+    </div>
+  );
 };
 
-
 const AttendanceManagement: React.FC = () => {
-    const { user } = useAuth();
-    const { refreshKey, triggerRefresh } = useDataRefresh();
-    const [courses, setCourses] = useState<TeacherCourse[]>([]);
-    const [holidays, setHolidays] = useState<Set<string>>(new Set());
-    const [selectedCourseId, setSelectedCourseId] = useState('');
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-    const [students, setStudents] = useState<Student[]>([]);
-    const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
-    const [isSaved, setIsSaved] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
-    const [statusMessage, setStatusMessage] = useState('');
+  const { user } = useAuth();
+  const { triggerRefresh } = useDataRefresh();
 
-    // Modal states
-    const [requestChangeFor, setRequestChangeFor] = useState<Student | null>(null);
+  const [mentoredClass, setMentoredClass] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
 
-    useEffect(() => {
-        const fetchInitialData = async () => {
-            if (!user?.branchId) return;
-            setLoading(true);
-// FIX: Called the correct 'getTeacherCourses' and 'getSchoolEvents' methods on apiService.
-            const [coursesData, eventsData] = await Promise.all([
-                apiService.getTeacherCourses(user.id),
-                apiService.getSchoolEvents(user.branchId)
-            ]);
-            
-            setCourses(coursesData);
-            if (coursesData.length > 0) {
-                setSelectedCourseId(coursesData[0].id);
-            } else {
-                setLoading(false); 
-            }
-    
-            // FIX: Explicitly type the Set to string to resolve TypeScript error.
-            const holidayDates = new Set<string>(
-                eventsData
-                    .filter(e => e.category === 'Holiday' && e.status === 'Approved')
-                    .map(e => e.date)
-            );
-            setHolidays(holidayDates);
-        };
-        fetchInitialData();
-    }, [user]);
+  const [attendanceData, setAttendanceData] = useState<any[]>([]);
+  const [isSaved, setIsSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-    const fetchAttendanceData = useCallback(async () => {
-        if (!selectedCourseId || !selectedDate || !user) return;
-        setLoading(true);
-        const [classId, subjectId] = selectedCourseId.split('|');
-// FIX: Called the correct 'findCourseByTeacherAndSubject' method on apiService.
-        const course = await apiService.findCourseByTeacherAndSubject(user!.id, subjectId);
-        if (!course) {
-            setLoading(false);
-            return;
-        }
+  // Modal State
+  const [changeRequestTarget, setChangeRequestTarget] = useState<any>(null);
 
-        const studentData = await apiService.getStudentsForClass(classId);
-        setStudents(studentData);
-
-// FIX: Called the correct 'getAttendanceForCourse' method on apiService.
-        const { isSaved: saved, attendance: savedAttendance } = await apiService.getAttendanceForCourse(course.id, selectedDate);
-        setIsSaved(saved);
-        
-        const attendanceMap: Record<string, AttendanceStatus> = {};
-        studentData.forEach(student => {
-            const record = savedAttendance.find(a => a.studentId === student.id);
-            attendanceMap[student.id] = record ? record.status : 'Present';
+  // 1. Fetch Mentored Class
+  useEffect(() => {
+    const loadClass = async () => {
+      if (!user?.id) return;
+      setLoading(true);
+      const cls = await apiService.getMentoredClass(user.id);
+      if (cls) {
+        setMentoredClass({
+          id: cls.id,
+          name: `Grade ${cls.gradeLevel} - ${cls.section}`,
         });
-        setAttendance(attendanceMap);
+      } else {
+        setLoading(false); // No class found
+      }
+    };
+    loadClass();
+  }, [user]);
 
+  // 2. Fetch Attendance when Class or Date changes
+  useEffect(() => {
+    const loadAttendance = async () => {
+      if (!mentoredClass) return;
+      setLoading(true);
+      try {
+        const { isSaved, attendance } = await apiService.getDailyAttendance(
+          mentoredClass.id,
+          selectedDate
+        );
+        setIsSaved(isSaved);
+        setAttendanceData(attendance);
+      } catch (error) {
+        console.error(error);
+      } finally {
         setLoading(false);
-    }, [selectedCourseId, selectedDate, user, refreshKey]);
-
-    useEffect(() => {
-        fetchAttendanceData();
-    }, [fetchAttendanceData]);
-
-    const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
-        setAttendance(prev => ({ ...prev, [studentId]: status }));
+      }
     };
+    loadAttendance();
+  }, [mentoredClass, selectedDate]);
 
-    const handleSave = async () => {
-        if (!selectedCourseId || !selectedDate || !user) return;
-        setIsSaving(true);
-        const [classId, subjectId] = selectedCourseId.split('|');
-// FIX: Called the correct 'findCourseByTeacherAndSubject' method on apiService.
-        const course = await apiService.findCourseByTeacherAndSubject(user.id, subjectId);
-        if (!course) {
-            setIsSaving(false);
-            return;
-        }
-
-        const recordsToSave = students.map(student => ({
-            studentId: student.id,
-            courseId: course.id,
-            date: selectedDate,
-            status: attendance[student.id] || 'Present',
-            classId: classId
-        }));
-
-// FIX: Called the correct 'saveAttendance' method on apiService.
-        await apiService.saveAttendance(recordsToSave as AttendanceRecord[]);
-        setIsSaving(false);
-        setStatusMessage('Attendance saved successfully!');
-        triggerRefresh();
-        setTimeout(() => setStatusMessage(''), 3000);
-    };
-    
-    const handleSubmitRequest = () => {
-        setRequestChangeFor(null);
-        setStatusMessage('Your change request has been submitted for approval.');
-        triggerRefresh();
-        setTimeout(() => setStatusMessage(''), 5000);
-    };
-    
-    const selectedCourse = courses.find(c => c.id === selectedCourseId);
-    const isHoliday = holidays.has(selectedDate);
-
-    return (
-         <div>
-            <h1 className="text-3xl font-bold text-text-primary-dark mb-6">Attendance Management</h1>
-            <Card>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 border-b pb-4">
-                    <div>
-                        <label className="block text-sm font-medium text-text-secondary-dark mb-1">Course</label>
-                        <select value={selectedCourseId} onChange={e => setSelectedCourseId(e.target.value)} className="w-full bg-white border border-slate-300 rounded-md py-2 px-3">
-                            {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                    </div>
-                    <Input label="Date" type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
-                </div>
-
-                {statusMessage && <p className="text-center text-green-600 mb-4">{statusMessage}</p>}
-                
-                {loading ? <p>Loading students...</p> : isHoliday ? (
-                    <div className="text-center p-8">
-                        <p className="font-semibold text-lg text-brand-primary">This is a holiday.</p>
-                        <p className="text-text-secondary-dark">Attendance cannot be marked.</p>
-                    </div>
-                ) : (
-                    <div>
-                        {isSaved && <p className="text-center text-blue-600 bg-blue-50 p-2 rounded mb-4">Attendance for this day has been saved. To make changes, please submit a rectification request.</p>}
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left">
-                                <thead className="border-b">
-                                    <tr>
-                                        <th className="p-2">Student Name</th>
-                                        <th className="p-2 text-center" colSpan={3}>Status</th>
-                                        {isSaved && <th className="p-2"></th>}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {students.map(student => (
-                                        <tr key={student.id} className="border-b">
-                                            <td className="p-2 font-medium">{student.name}</td>
-                                            <td className="p-2 text-center">
-                                                <label className="flex items-center justify-center">
-                                                    <input type="radio" name={`att-${student.id}`} checked={attendance[student.id] === 'Present'} onChange={() => handleStatusChange(student.id, 'Present')} disabled={isSaved}/>
-                                                    <span className="ml-2">Present</span>
-                                                </label>
-                                            </td>
-                                             <td className="p-2 text-center">
-                                                <label className="flex items-center justify-center">
-                                                    <input type="radio" name={`att-${student.id}`} checked={attendance[student.id] === 'Absent'} onChange={() => handleStatusChange(student.id, 'Absent')} disabled={isSaved}/>
-                                                    <span className="ml-2">Absent</span>
-                                                </label>
-                                            </td>
-                                             <td className="p-2 text-center">
-                                                <label className="flex items-center justify-center">
-                                                    <input type="radio" name={`att-${student.id}`} checked={attendance[student.id] === 'Tardy'} onChange={() => handleStatusChange(student.id, 'Tardy')} disabled={isSaved}/>
-                                                    <span className="ml-2">Tardy</span>
-                                                </label>
-                                            </td>
-                                            {isSaved && (
-                                                <td className="p-2 text-right">
-                                                    <Button variant="secondary" className="!px-2 !py-1 text-xs" onClick={() => setRequestChangeFor(student)}>Request Change</Button>
-                                                </td>
-                                            )}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                        {!isSaved && (
-                            <div className="mt-6 text-right">
-                                <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Attendance'}</Button>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </Card>
-            {requestChangeFor && selectedCourse && (
-                <RequestChangeModal
-                    student={{id: requestChangeFor.id, name: requestChangeFor.name}}
-                    course={{id: selectedCourse.id, name: selectedCourse.name}}
-                    date={selectedDate}
-                    currentStatus={attendance[requestChangeFor.id]}
-                    onClose={() => setRequestChangeFor(null)}
-                    onSubmit={handleSubmitRequest}
-                />
-            )}
-        </div>
+  const handleStatusChange = (studentId: string, status: string) => {
+    setAttendanceData((prev) =>
+      prev.map((r) => (r.studentId === studentId ? { ...r, status } : r))
     );
+  };
+
+  const handleSave = async () => {
+    if (!mentoredClass) return;
+    setSaving(true);
+    try {
+      await apiService.saveDailyAttendance(
+        mentoredClass.id,
+        selectedDate,
+        attendanceData
+      );
+      setIsSaved(true);
+      triggerRefresh();
+      alert("Attendance saved successfully!");
+    } catch (e) {
+      alert("Failed to save attendance.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSubmitChangeRequest = async (
+    reason: string,
+    newStatus: string
+  ) => {
+    if (!user || !changeRequestTarget) return;
+
+    const requestData = {
+      branchId: user.branchId!,
+      teacherId: user.id,
+      type: "Attendance",
+      details: {
+        studentId: changeRequestTarget.studentId,
+        studentName: changeRequestTarget.studentName,
+        date: selectedDate,
+        from: changeRequestTarget.status,
+        to: newStatus,
+      },
+      reason: reason,
+    };
+
+    await apiService.submitRectificationRequest(requestData as any);
+    setChangeRequestTarget(null);
+    alert("Request submitted.");
+  };
+
+  if (loading && !mentoredClass)
+    return (
+      <div className="p-8 text-center text-slate-500">
+        Checking mentor status...
+      </div>
+    );
+
+  if (!mentoredClass)
+    return (
+      <div className="p-8 text-center bg-slate-50 rounded-lg border border-slate-200">
+        <h2 className="text-xl font-bold text-slate-700">Access Denied</h2>
+        <p className="text-slate-500 mt-2">
+          You are not assigned as a Class Mentor. Only mentors can mark daily
+          attendance.
+        </p>
+      </div>
+    );
+
+  return (
+    <div>
+      <h1 className="text-3xl font-bold text-text-primary-dark mb-6">
+        Daily Attendance
+      </h1>
+
+      <Card>
+        <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+          <div>
+            <p className="text-sm text-slate-500 uppercase font-bold tracking-wider">
+              Class
+            </p>
+            <p className="text-xl font-bold text-brand-primary">
+              {mentoredClass.name}
+            </p>
+          </div>
+          <div className="w-48">
+            <Input
+              type="date"
+              label="Date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {loading ? (
+          <p className="text-center py-8">Loading attendance sheet...</p>
+        ) : (
+          <>
+            {isSaved && (
+              <div className="bg-blue-50 text-blue-700 p-3 rounded mb-4 text-sm flex justify-between items-center">
+                <span>
+                  ✓ Attendance for this date has explicitly been saved.
+                </span>
+                <span className="text-xs font-bold uppercase tracking-wide bg-white px-2 py-1 rounded border border-blue-200">
+                  Locked
+                </span>
+              </div>
+            )}
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="p-3 font-semibold text-slate-700 w-20">
+                      Roll No
+                    </th>
+                    <th className="p-3 font-semibold text-slate-700">
+                      Student Name
+                    </th>
+                    <th className="p-3 font-semibold text-slate-700 text-center">
+                      Status
+                    </th>
+                    {isSaved && <th className="p-3"></th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {attendanceData.map((record) => (
+                    <tr
+                      key={record.studentId}
+                      className="hover:bg-slate-50 transition-colors"
+                    >
+                      <td className="p-3 font-mono text-sm text-slate-500">
+                        {record.rollNumber || "-"}
+                      </td>
+                      <td className="p-3 font-medium text-slate-900">
+                        {record.studentName}
+                      </td>
+                      <td className="p-3">
+                        <div className="flex justify-center gap-4">
+                          {["Present", "Absent", "Tardy"].map((status) => (
+                            <label
+                              key={status}
+                              className={`
+                                                            flex items-center gap-2 px-3 py-1 rounded cursor-pointer transition-all
+                                                            ${
+                                                              record.status ===
+                                                              status
+                                                                ? status ===
+                                                                  "Absent"
+                                                                  ? "bg-red-100 text-red-700 font-bold"
+                                                                  : status ===
+                                                                    "Tardy"
+                                                                  ? "bg-yellow-100 text-yellow-800"
+                                                                  : "bg-green-100 text-green-700 font-bold"
+                                                                : "hover:bg-slate-100 text-slate-500"
+                                                            }
+                                                            ${
+                                                              isSaved
+                                                                ? "opacity-50 cursor-not-allowed"
+                                                                : ""
+                                                            }
+                                                        `}
+                            >
+                              <input
+                                type="radio"
+                                name={`status-${record.studentId}`}
+                                checked={record.status === status}
+                                onChange={() =>
+                                  !isSaved &&
+                                  handleStatusChange(record.studentId, status)
+                                }
+                                disabled={isSaved}
+                                className="accent-brand-primary"
+                              />
+                              <span className="text-sm">{status}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </td>
+                      {isSaved && (
+                        <td className="p-3 text-right">
+                          <Button
+                            variant="secondary"
+                            className="!px-2 !py-1 text-xs"
+                            onClick={() => setChangeRequestTarget(record)}
+                          >
+                            Correction
+                          </Button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {!isSaved && (
+              <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
+                <Button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="w-full md:w-auto"
+                >
+                  {saving ? "Saving..." : "Save Attendance Sheet"}
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </Card>
+
+      {changeRequestTarget && (
+        <RequestChangeModal
+          studentName={changeRequestTarget.studentName}
+          currentStatus={changeRequestTarget.status}
+          onClose={() => setChangeRequestTarget(null)}
+          onSubmit={handleSubmitChangeRequest}
+        />
+      )}
+    </div>
+  );
 };
 
 export default AttendanceManagement;
