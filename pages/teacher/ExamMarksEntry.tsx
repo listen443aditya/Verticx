@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useAuth } from "../../hooks/useAuth.ts";
+import { useAuth } from "../../hooks/useAuth";
 import { TeacherApiService } from "../../services";
 import type {
   Examination,
@@ -7,14 +7,15 @@ import type {
   ExamMark,
   ExamMarkRectificationRequest,
   HydratedSchedule,
-} from "../../types.ts";
-import Card from "../../components/ui/Card.tsx";
-import Button from "../../components/ui/Button.tsx";
-import Input from "../../components/ui/Input.tsx";
-import { useDataRefresh } from "../../contexts/DataRefreshContext.tsx";
+} from "../../types";
+import Card from "../../components/ui/Card";
+import Button from "../../components/ui/Button";
+import Input from "../../components/ui/Input";
+import { useDataRefresh } from "../../contexts/DataRefreshContext";
 
 const apiService = new TeacherApiService();
 
+// --- Modal for Rectification Requests ---
 const RequestChangeModal: React.FC<{
   student: Student;
   schedule: HydratedSchedule;
@@ -32,29 +33,33 @@ const RequestChangeModal: React.FC<{
     if (!reason || newScore === currentScore || !user) return;
     setIsSubmitting(true);
 
-    // FIX: Added 'await' to get the examination details before accessing the name property.
-    const exam = await apiService.getExaminationById(schedule.examinationId);
+    try {
+      const exam = await apiService.getExaminationById(schedule.examinationId);
 
-    const requestData: Omit<
-      ExamMarkRectificationRequest,
-      "id" | "status" | "requestedAt" | "teacherName" | "branchId"
-    > = {
-      teacherId: user.id,
-      details: {
-        studentId: student.id,
-        studentName: student.name,
-        examScheduleId: schedule.id,
-        examinationName: exam?.name || "Exam",
-        subjectName: schedule.subjectName,
-        fromScore: currentScore || "N/A",
-        toScore: newScore,
-      },
-      reason,
-    };
-    // FIX: Removed the extra branchId argument to match the service method's signature.
-    await apiService.submitExamMarkRectificationRequest(requestData);
-    setIsSubmitting(false);
-    onSubmit();
+      const requestData: Omit<
+        ExamMarkRectificationRequest,
+        "id" | "status" | "requestedAt" | "teacherName" | "branchId"
+      > = {
+        teacherId: user.id,
+        details: {
+          studentId: student.id,
+          studentName: student.name,
+          examScheduleId: schedule.id,
+          examinationName: exam?.name || "Exam",
+          subjectName: schedule.subjectName,
+          fromScore: currentScore || "N/A",
+          toScore: newScore,
+        },
+        reason,
+      };
+
+      await apiService.submitExamMarkRectificationRequest(requestData);
+      onSubmit();
+    } catch (error) {
+      alert("Failed to submit request.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -74,6 +79,7 @@ const RequestChangeModal: React.FC<{
               value={currentScore || "N/A"}
               readOnly
               disabled
+              className="bg-slate-100"
             />
             <Input
               label="New Score"
@@ -106,10 +112,7 @@ const RequestChangeModal: React.FC<{
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={isSubmitting || !reason || newScore === currentScore}
-            >
+            <Button type="submit" disabled={isSubmitting || !reason}>
               {isSubmitting ? "Submitting..." : "Submit Request"}
             </Button>
           </div>
@@ -122,20 +125,27 @@ const RequestChangeModal: React.FC<{
 const ExamMarksEntry: React.FC = () => {
   const { user } = useAuth();
   const { refreshKey, triggerRefresh } = useDataRefresh();
+
   const [examinations, setExaminations] = useState<Examination[]>([]);
   const [selectedExamId, setSelectedExamId] = useState("");
+
   const [schedules, setSchedules] = useState<HydratedSchedule[]>([]);
   const [selectedScheduleId, setSelectedScheduleId] = useState("");
+
   const [students, setStudents] = useState<Student[]>([]);
-  const [marks, setMarks] = useState<Record<string, string>>({}); // studentId -> score
+  const [marks, setMarks] = useState<Record<string, string>>({});
+
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+
+  // Strict Lock State
   const [areMarksSaved, setAreMarksSaved] = useState(false);
+
   const [requestingChangeFor, setRequestingChangeFor] =
     useState<Student | null>(null);
 
-  // Fetch examinations
+  // 1. Fetch Examinations
   useEffect(() => {
     const fetchExams = async () => {
       if (!user?.branchId) return;
@@ -148,39 +158,45 @@ const ExamMarksEntry: React.FC = () => {
     fetchExams();
   }, [user]);
 
-  // FIX: Rewrote this effect to correctly filter schedules without using await inside .filter()
+  // 2. Fetch Schedules (Filtered by Teacher's Subjects)
   useEffect(() => {
     const fetchSchedules = async () => {
       if (!selectedExamId || !user) return;
       setSchedules([]);
       setSelectedScheduleId("");
 
-      const [allSchedules, teacherCourses] = await Promise.all([
-        apiService.getHydratedExamSchedules(selectedExamId),
-        apiService.getTeacherCourses(user.id),
-      ]);
+      try {
+        const [allSchedules, teacherCourses] = await Promise.all([
+          apiService.getHydratedExamSchedules(selectedExamId),
+          apiService.getTeacherCourses(user.id),
+        ]);
 
-      const teacherSubjectIds = new Set(teacherCourses.map((c) => c.subjectId));
-      const teacherSchedules = allSchedules.filter((s) =>
-        teacherSubjectIds.has(s.subjectId)
-      );
+        // Filter: Only show schedules for subjects this teacher actually teaches
+        const teacherSubjectIds = new Set(
+          teacherCourses.map((c) => c.subjectId)
+        );
+        const teacherSchedules = allSchedules.filter((s) =>
+          teacherSubjectIds.has(s.subjectId)
+        );
 
-      setSchedules(teacherSchedules);
-      if (teacherSchedules.length > 0) {
-        setSelectedScheduleId(teacherSchedules[0].id);
+        setSchedules(teacherSchedules);
+        // Don't auto-select schedule to avoid confusion
+      } catch (e) {
+        console.error("Failed to load schedules");
       }
     };
     fetchSchedules();
   }, [selectedExamId, user]);
 
-  // Fetch students and marks when a schedule is selected
+  // 3. Fetch Students & Existing Marks
   const fetchStudentsAndMarks = useCallback(async () => {
-    if (!selectedScheduleId) {
-      setStudents([]);
-      setMarks({});
-      setAreMarksSaved(false);
-      return;
-    }
+    // Reset state immediately when schedule changes to prevent "flashing" wrong data
+    setStudents([]);
+    setMarks({});
+    setAreMarksSaved(false);
+
+    if (!selectedScheduleId) return;
+
     setLoading(true);
     const schedule = schedules.find((s) => s.id === selectedScheduleId);
     if (!schedule) {
@@ -188,25 +204,38 @@ const ExamMarksEntry: React.FC = () => {
       return;
     }
 
-    // NOTE: If this line errors, it's a cache issue. Restart your server.
-    const studentData = await apiService.getStudentsForClass(schedule.classId);
-    setStudents(studentData);
+    try {
+      // Fetch students in this class
+      const studentData = await apiService.getStudentsForClass(
+        schedule.classId
+      );
+      setStudents(studentData);
 
-    const existingMarks = await apiService.getExamMarksForSchedule(
-      selectedScheduleId
-    );
-    if (existingMarks.length > 0) {
-      const marksMap = existingMarks.reduce((acc, mark) => {
-        acc[mark.studentId] = String(mark.score);
-        return acc;
-      }, {} as Record<string, string>);
-      setMarks(marksMap);
-      setAreMarksSaved(true);
-    } else {
-      setMarks({});
-      setAreMarksSaved(false);
+      // Check if marks already exist for this schedule
+      const existingMarks = await apiService.getExamMarksForSchedule(
+        selectedScheduleId
+      );
+
+      if (existingMarks.length > 0) {
+        // LOCK THE FORM
+        setAreMarksSaved(true);
+
+        // Populate marks from DB
+        const marksMap = existingMarks.reduce((acc, mark) => {
+          acc[mark.studentId] = String(mark.score);
+          return acc;
+        }, {} as Record<string, string>);
+        setMarks(marksMap);
+      } else {
+        // UNLOCK THE FORM
+        setAreMarksSaved(false);
+        setMarks({});
+      }
+    } catch (error) {
+      console.error("Failed to fetch data", error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [selectedScheduleId, schedules, refreshKey]);
 
   useEffect(() => {
@@ -219,40 +248,62 @@ const ExamMarksEntry: React.FC = () => {
 
   const handleSaveMarks = async () => {
     if (!user || !selectedScheduleId || students.length === 0) return;
-    setIsSaving(true);
 
-    const selectedSchedule = schedules.find((s) => s.id === selectedScheduleId);
-    if (!selectedSchedule) {
-      setIsSaving(false);
+    // Check if user entered marks for everyone (or at least some)
+    const hasEntries = Object.values(marks).some(
+      (val) => val !== "" && val !== undefined
+    );
+    if (!hasEntries) {
+      setStatusMessage("Please enter marks before saving.");
+      setTimeout(() => setStatusMessage(""), 3000);
       return;
     }
 
-    const marksToSave: Omit<ExamMark, "id" | "enteredAt">[] = students.map(
-      (student) => ({
+    if (
+      !window.confirm(
+        "Are you sure you want to save? Once saved, marks will be LOCKED and you will need to request changes."
+      )
+    ) {
+      return;
+    }
+
+    setIsSaving(true);
+    const selectedSchedule = schedules.find((s) => s.id === selectedScheduleId);
+    if (!selectedSchedule) return;
+
+    // Prepare data
+    const marksToSave: Omit<ExamMark, "id" | "enteredAt">[] = students
+      .filter(
+        (student) => marks[student.id] !== undefined && marks[student.id] !== ""
+      )
+      .map((student) => ({
         branchId: user.branchId!,
         examinationId: selectedExamId,
         examScheduleId: selectedScheduleId,
         studentId: student.id,
         teacherId: user.id,
-        score: Number(marks[student.id] || 0),
+        score: Number(marks[student.id]),
         totalMarks: selectedSchedule.totalMarks,
-      })
-    );
+      }));
 
-    await apiService.saveExamMarks(marksToSave);
-    setIsSaving(false);
-    setStatusMessage("Marks saved successfully!");
-    triggerRefresh();
-    setTimeout(() => setStatusMessage(""), 3000);
+    try {
+      await apiService.saveExamMarks(marksToSave);
+      setStatusMessage("Marks saved successfully!");
+      triggerRefresh();
+      // This will re-trigger fetchStudentsAndMarks -> which sees data -> sets areMarksSaved = true
+      fetchStudentsAndMarks();
+    } catch (error) {
+      setStatusMessage("Failed to save marks.");
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setStatusMessage(""), 3000);
+    }
   };
 
   const handleSubmitRequest = () => {
     setRequestingChangeFor(null);
-    setStatusMessage(
-      "Your change request has been submitted for registrar approval."
-    );
-    triggerRefresh();
-    setTimeout(() => setStatusMessage(""), 5000);
+    setStatusMessage("Change request submitted for approval.");
+    setTimeout(() => setStatusMessage(""), 3000);
   };
 
   const selectedSchedule = schedules.find((s) => s.id === selectedScheduleId);
@@ -292,7 +343,7 @@ const ExamMarksEntry: React.FC = () => {
               <option value="">-- Select a Schedule --</option>
               {schedules.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.className} - {s.subjectName}
+                  {s.className} - {s.subjectName} (Max: {s.totalMarks})
                 </option>
               ))}
             </select>
@@ -300,37 +351,64 @@ const ExamMarksEntry: React.FC = () => {
         </div>
 
         {statusMessage && (
-          <p className="text-center text-green-600 mb-4">{statusMessage}</p>
+          <p
+            className={`text-center mb-4 p-2 rounded ${
+              statusMessage.includes("Failed")
+                ? "bg-red-50 text-red-600"
+                : "bg-green-50 text-green-600"
+            }`}
+          >
+            {statusMessage}
+          </p>
         )}
 
         {loading ? (
-          <p>Loading...</p>
+          <p className="text-center py-8 text-slate-500">Loading...</p>
         ) : !selectedSchedule ? (
-          <p>Please select an exam schedule.</p>
+          <div className="text-center py-8 bg-slate-50 rounded border border-dashed border-slate-300 text-slate-500">
+            Please select an exam schedule above to start entering marks.
+          </div>
         ) : (
           <div>
+            {/* LOCKED STATE BANNER */}
             {areMarksSaved && (
-              <p className="text-center text-blue-600 bg-blue-50 p-2 rounded mb-4">
-                Marks for this exam have been saved. To make changes, please
-                submit a rectification request.
-              </p>
+              <div className="flex items-center gap-2 justify-center bg-blue-50 border border-blue-100 text-blue-700 p-3 rounded mb-4">
+                <span className="font-bold">🔒 LOCKED:</span>
+                <span>
+                  Marks for this exam have been saved. To make changes, click
+                  "Request Change" next to a student.
+                </span>
+              </div>
             )}
-            <div className="overflow-x-auto">
+
+            <div className="overflow-x-auto max-h-[60vh]">
               <table className="w-full text-left">
-                <thead className="border-b">
+                <thead className="border-b bg-slate-50 sticky top-0">
                   <tr>
-                    <th className="p-2">Student Name</th>
-                    <th className="p-2">
-                      Score / {selectedSchedule.totalMarks}
+                    <th className="p-3 font-semibold text-slate-700">
+                      Student Name
                     </th>
-                    {areMarksSaved && <th className="p-2"></th>}
+                    <th className="p-3 font-semibold text-slate-700 w-40">
+                      Score{" "}
+                      <span className="text-xs font-normal text-slate-500">
+                        / {selectedSchedule.totalMarks}
+                      </span>
+                    </th>
+                    {areMarksSaved && (
+                      <th className="p-3 text-right">Actions</th>
+                    )}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100">
                   {students.map((student) => (
-                    <tr key={student.id} className="border-b">
-                      <td className="p-2 font-medium">{student.name}</td>
-                      <td className="p-2">
+                    <tr
+                      key={student.id}
+                      className="hover:bg-slate-50 transition-colors"
+                    >
+                      <td className="p-3 font-medium text-slate-900">
+                        {student.name}
+                      </td>
+                      <td className="p-3">
                         <Input
                           type="number"
                           min="0"
@@ -339,15 +417,21 @@ const ExamMarksEntry: React.FC = () => {
                           onChange={(e) =>
                             handleMarkChange(student.id, e.target.value)
                           }
+                          // STRICT LOCK: Disable input if marks are saved
                           disabled={areMarksSaved}
-                          className="w-32"
+                          className={`w-32 ${
+                            areMarksSaved
+                              ? "bg-slate-100 cursor-not-allowed"
+                              : "bg-white"
+                          }`}
+                          placeholder="0"
                         />
                       </td>
                       {areMarksSaved && (
-                        <td className="p-2 text-right">
+                        <td className="p-3 text-right">
                           <Button
                             variant="secondary"
-                            className="!px-2 !py-1 text-xs"
+                            className="!px-3 !py-1 text-xs"
                             onClick={() => setRequestingChangeFor(student)}
                           >
                             Request Change
@@ -359,16 +443,24 @@ const ExamMarksEntry: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* SAVE BUTTON: Only visible if NOT locked */}
             {!areMarksSaved && (
-              <div className="mt-6 text-right">
-                <Button onClick={handleSaveMarks} disabled={isSaving}>
-                  {isSaving ? "Saving..." : "Save All Marks"}
+              <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
+                <Button
+                  onClick={handleSaveMarks}
+                  disabled={isSaving}
+                  className="w-full md:w-auto"
+                >
+                  {isSaving ? "Saving..." : "Save & Lock Marks"}
                 </Button>
               </div>
             )}
           </div>
         )}
       </Card>
+
+      {/* Modal */}
       {requestingChangeFor && selectedSchedule && (
         <RequestChangeModal
           student={requestingChangeFor}
