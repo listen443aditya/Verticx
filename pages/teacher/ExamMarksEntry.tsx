@@ -367,7 +367,7 @@ const ExamMarksEntry: React.FC = () => {
           <div>
             {areMarksSaved && (
               <div className="flex items-center gap-2 justify-center bg-blue-50 border border-blue-100 text-blue-700 p-3 rounded mb-4">
-                <span className="font-bold">🔒 LOCKED:</span>
+                <span className="font-bold"> LOCKED:</span>
                 <span>
                   Marks for this exam have been saved. To make changes, click
                   "Request Change" next to a student.
