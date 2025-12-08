@@ -67,7 +67,14 @@ export class TeacherApiService {
     );
     return data;
   }
-
+  async updateStudentRollNumber(
+    studentId: string,
+    rollNo: string
+  ): Promise<void> {
+    await baseApi.patch(`/teacher/students/${studentId}/roll-number`, {
+      rollNo,
+    });
+  }
   async getTeacherCourses(teacherId: string): Promise<TeacherCourse[]> {
     const { data } = await baseApi.get<TeacherCourse[]>("/teacher/courses", {
       params: { teacherId },
@@ -75,7 +82,6 @@ export class TeacherApiService {
     return data;
   }
 
-  // NEW: Added missing function to get all courses for a branch.
   async getCoursesByBranch(branchId: string): Promise<Course[]> {
     const { data } = await baseApi.get<Course[]>(`/teacher/courses/by-branch`, {
       params: { branchId },
