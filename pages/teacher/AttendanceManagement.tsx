@@ -9,6 +9,7 @@ import { useDataRefresh } from "../../contexts/DataRefreshContext";
 
 const apiService = new TeacherApiService();
 
+// Request Change Modal
 const RequestChangeModal: React.FC<{
   studentName: string;
   currentStatus: string;
@@ -64,6 +65,9 @@ const AttendanceManagement: React.FC = () => {
   const [isSaved, setIsSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // FIX: Added the missing statusMessage state here
+  const [statusMessage, setStatusMessage] = useState("");
 
   // Modal State
   const [changeRequestTarget, setChangeRequestTarget] = useState<any>(null);
@@ -124,7 +128,8 @@ const AttendanceManagement: React.FC = () => {
       );
       setIsSaved(true);
       triggerRefresh();
-      alert("Attendance saved successfully!");
+      setStatusMessage("Attendance saved successfully!");
+      setTimeout(() => setStatusMessage(""), 3000);
     } catch (e) {
       alert("Failed to save attendance.");
     } finally {
@@ -141,7 +146,7 @@ const AttendanceManagement: React.FC = () => {
     const requestData = {
       branchId: user.branchId!,
       teacherId: user.id,
-      type: "Attendance",
+      type: "StudentAttendance",
       details: {
         studentId: changeRequestTarget.studentId,
         studentName: changeRequestTarget.studentName,
@@ -152,9 +157,17 @@ const AttendanceManagement: React.FC = () => {
       reason: reason,
     };
 
-    await apiService.submitRectificationRequest(requestData as any);
-    setChangeRequestTarget(null);
-    alert("Request submitted.");
+    try {
+      await apiService.submitRectificationRequest(requestData as any);
+      setChangeRequestTarget(null);
+
+      // This will now work because we declared the state above
+      setStatusMessage("Request submitted successfully.");
+      setTimeout(() => setStatusMessage(""), 3000);
+    } catch (error) {
+      console.error(error);
+      alert("Failed to submit request.");
+    }
   };
 
   if (loading && !mentoredClass)
@@ -200,6 +213,13 @@ const AttendanceManagement: React.FC = () => {
             />
           </div>
         </div>
+
+        {/* Display Status Message */}
+        {statusMessage && (
+          <div className="bg-green-50 text-green-700 p-3 rounded mb-4 text-center font-medium border border-green-200">
+            {statusMessage}
+          </div>
+        )}
 
         {loading ? (
           <p className="text-center py-8">Loading attendance sheet...</p>
