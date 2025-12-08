@@ -114,7 +114,6 @@ const SyllabusManagement: React.FC = () => {
     const fetchData = useCallback(async () => {
         if (!user) return;
         setLoading(true);
-// FIX: Called the correct 'getTeacherCourses' method on apiService.
         const courses = await apiService.getTeacherCourses(user.id);
         setTeacherCourses(courses);
         if (courses.length > 0) {
@@ -129,16 +128,28 @@ const SyllabusManagement: React.FC = () => {
     }, [fetchData]);
 
     const fetchLectures = useCallback(async () => {
-        if (!selectedCourseId) {
-            setLectures([]);
-            return;
-        }
-        setLoading(true);
-        const [classId, subjectId] = selectedCourseId.split('|');
-// FIX: Called the correct 'getLectures' method on apiService.
+      if (!selectedCourseId) {
+        setLectures([]);
+        return;
+      }
+      setLoading(true);
+      const [classId, subjectId] = selectedCourseId.split("|");
+
+      try {
         const lectureData = await apiService.getLectures(classId, subjectId);
-        setLectures(lectureData);
+        const formattedLectures = lectureData.map((l: any) => ({
+          ...l,
+          scheduledDate: l.scheduledDate
+            ? String(l.scheduledDate).split("T")[0]
+            : "",
+        }));
+
+        setLectures(formattedLectures);
+      } catch (error) {
+        console.error("Failed to load lectures", error);
+      } finally {
         setLoading(false);
+      }
     }, [selectedCourseId, refreshKey]);
 
     useEffect(() => {
