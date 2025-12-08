@@ -276,7 +276,8 @@ export class TeacherApiService {
     lectures: Partial<Lecture>[],
     branchId: string,
     userId: string,
-    newLectures: Partial<Lecture>[]
+    newLectures: Partial<Lecture>[],
+    deletedLectureIds: string[] = [] 
   ): Promise<void> {
     await baseApi.post("/teacher/syllabus/lectures/save", {
       classId,
@@ -284,6 +285,7 @@ export class TeacherApiService {
       lectures,
       branchId,
       newLectures,
+      deletedLectureIds, 
     });
   }
 
