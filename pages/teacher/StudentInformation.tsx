@@ -10,15 +10,20 @@ import RaiseComplaintModal from "../../components/modals/RaiseComplaintModal";
 
 const apiService = new TeacherApiService();
 
-// Inline Edit Component for Roll Number
+// --- 1. NEW: Inline Edit Component for Roll Number ---
 const RollNumberCell: React.FC<{
   student: any;
   isMentor: boolean;
   onUpdate: (id: string, val: string) => Promise<void>;
 }> = ({ student, isMentor, onUpdate }) => {
-  const [val, setVal] = useState(student.classRollNumber || "");
   const [isEditing, setIsEditing] = useState(false);
+  const [val, setVal] = useState(student.classRollNumber || "");
   const [saving, setSaving] = useState(false);
+
+  // Sync local state if prop changes
+  useEffect(() => {
+    setVal(student.classRollNumber || "");
+  }, [student.classRollNumber]);
 
   const handleSave = async () => {
     if (val === student.classRollNumber) {
@@ -30,8 +35,9 @@ const RollNumberCell: React.FC<{
       await onUpdate(student.id, val);
       setIsEditing(false);
     } catch (e) {
-      alert("Failed to update roll number");
-      setVal(student.classRollNumber || ""); // Reset on error
+      console.error(e);
+      // Reset to original on error
+      setVal(student.classRollNumber || "");
     } finally {
       setSaving(false);
     }
@@ -39,7 +45,7 @@ const RollNumberCell: React.FC<{
 
   if (!isMentor) {
     return (
-      <span className="text-slate-600">{student.classRollNumber || "N/A"}</span>
+      <span className="text-slate-500">{student.classRollNumber || "-"}</span>
     );
   }
 
@@ -47,15 +53,20 @@ const RollNumberCell: React.FC<{
     return (
       <div className="flex items-center gap-1">
         <input
-          className="w-16 p-1 text-sm border rounded"
+          className="w-12 p-1 text-xs border border-blue-400 rounded focus:outline-none"
           value={val}
           onChange={(e) => setVal(e.target.value)}
           autoFocus
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSave();
+            if (e.key === "Escape") setIsEditing(false);
+          }}
         />
         <button
           onClick={handleSave}
           disabled={saving}
-          className="text-green-600 hover:text-green-800 text-xs font-bold"
+          className="text-green-600 hover:text-green-800"
+          title="Save"
         >
           {saving ? "..." : "✓"}
         </button>
@@ -65,6 +76,7 @@ const RollNumberCell: React.FC<{
             setVal(student.classRollNumber || "");
           }}
           className="text-red-500 hover:text-red-700 text-xs"
+          title="Cancel"
         >
           ✕
         </button>
@@ -74,14 +86,18 @@ const RollNumberCell: React.FC<{
 
   return (
     <div
-      className="group flex items-center gap-2 cursor-pointer"
+      className="group flex items-center gap-2 cursor-pointer py-1 px-2 rounded hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-all"
       onClick={() => setIsEditing(true)}
-      title="Click to edit"
+      title="Click to edit Roll Number"
     >
-      <span className={val ? "text-slate-800" : "text-slate-400 italic"}>
-        {val || "Set Roll No"}
+      <span
+        className={
+          val ? "font-mono text-slate-700" : "text-slate-400 text-xs italic"
+        }
+      >
+        {val || "Set"}
       </span>
-      <span className="opacity-0 group-hover:opacity-100 text-xs text-brand-primary">
+      <span className="opacity-0 group-hover:opacity-100 text-[10px] text-brand-primary">
         ✎
       </span>
     </div>
@@ -126,12 +142,15 @@ const StudentInformation: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
+  // --- 2. Logic to Update Roll Number & Refresh Local State ---
   const handleRollNumberUpdate = async (
     studentId: string,
     newRollNo: string
   ) => {
+    // Call API
     await apiService.updateStudentRollNumber(studentId, newRollNo);
-    // Optimistic update locally
+
+    // Optimistic Update: Update local state immediately without full reload
     setStudents((prev) =>
       prev.map((s) =>
         s.id === studentId ? { ...s, classRollNumber: newRollNo } : s
@@ -151,10 +170,19 @@ const StudentInformation: React.FC = () => {
     }
   };
 
+  const handleComplaintSubmit = () => {
+    setComplainingAbout(null);
+    setComplaintStatus(
+      "Complaint logged successfully. The student and their parent will be notified."
+    );
+    setTimeout(() => setComplaintStatus(""), 5000);
+  };
+
   const filteredStudents = students.filter(
     (s) =>
       s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (s.user?.userId || "").toLowerCase().includes(searchTerm.toLowerCase())
+      (s.user?.userId || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -165,7 +193,7 @@ const StudentInformation: React.FC = () => {
       <Card>
         <div className="flex justify-between items-center mb-4 gap-4">
           <Input
-            placeholder="Search..."
+            placeholder="Search students..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full md:w-1/2"
@@ -174,6 +202,13 @@ const StudentInformation: React.FC = () => {
             Refresh
           </Button>
         </div>
+
+        {complaintStatus && (
+          <p className="text-center text-green-600 mb-4 bg-green-50 p-2 rounded">
+            {complaintStatus}
+          </p>
+        )}
+        {error && <p className="text-center text-red-600 mb-4">{error}</p>}
 
         {loading ? (
           <div className="text-center py-8 text-slate-500">
@@ -185,10 +220,10 @@ const StudentInformation: React.FC = () => {
               <thead className="border-b bg-slate-50">
                 <tr>
                   <th className="p-4 font-semibold text-slate-700">Name</th>
-                  <th className="p-4 font-semibold text-slate-700">
+                  {/* --- 3. Added Roll No Column Header --- */}
+                  <th className="p-4 font-semibold text-slate-700 w-24">
                     Roll No
-                  </th>{" "}
-                  {/* NEW COLUMN */}
+                  </th>
                   <th className="p-4 font-semibold text-slate-700">
                     Student ID
                   </th>
@@ -203,7 +238,7 @@ const StudentInformation: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredStudents.map((student) => {
-                  // Determine if current user is the mentor for this student's class
+                  // Determine permissions
                   const isMentor = student.class?.mentorId === user?.id;
 
                   return (
@@ -212,7 +247,7 @@ const StudentInformation: React.FC = () => {
                         {student.name}
                       </td>
 
-                      {/* NEW: Editable Roll Number Cell */}
+                      {/* --- 4. Added Roll No Cell --- */}
                       <td className="p-4">
                         <RollNumberCell
                           student={student}
@@ -261,18 +296,19 @@ const StudentInformation: React.FC = () => {
         )}
       </Card>
 
-      {/* ... Modals (keep existing code) ... */}
+      {/* Modals */}
       {viewingStudent && !detailsLoading && (
         <StudentDetailModal
           profile={viewingStudent}
           onClose={() => setViewingStudent(null)}
+          onDataRefresh={() => handleViewStudent(viewingStudent.student.id)}
         />
       )}
       {complainingAbout && (
         <RaiseComplaintModal
           student={complainingAbout}
           onClose={() => setComplainingAbout(null)}
-          onSubmit={() => setComplainingAbout(null)}
+          onSubmit={handleComplaintSubmit}
         />
       )}
     </div>
