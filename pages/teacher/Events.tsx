@@ -51,7 +51,10 @@ const EventDetailModal: React.FC<{
   );
 };
 
-const EventCard: React.FC<{ event: SchoolEvent }> = ({ event }) => {
+const EventCard: React.FC<{ event: SchoolEvent; isPast?: boolean }> = ({
+  event,
+  isPast,
+}) => {
   const getIcon = () => {
     switch (event.category) {
       case "Sports":
@@ -70,12 +73,22 @@ const EventCard: React.FC<{ event: SchoolEvent }> = ({ event }) => {
   };
 
   return (
-    <div className="bg-slate-100 p-3 rounded-lg flex items-start gap-3">
+    <div
+      className={`p-3 rounded-lg flex items-start gap-3 transition-colors ${
+        isPast ? "bg-slate-50 opacity-75 grayscale-[0.5]" : "bg-slate-100"
+      }`}
+    >
       <div className="flex-shrink-0 bg-brand-primary/10 text-brand-primary rounded-full p-2 mt-1">
         {getIcon()}
       </div>
       <div className="flex-grow">
-        <p className="font-bold text-text-primary-dark">{event.name}</p>
+        <p
+          className={`font-bold ${
+            isPast ? "text-slate-600" : "text-text-primary-dark"
+          }`}
+        >
+          {event.name}
+        </p>
         <p className="text-sm text-text-secondary-dark">
           {new Date(event.date).toLocaleDateString("en-US", {
             weekday: "long",
@@ -99,11 +112,17 @@ const Events: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<SchoolEvent | null>(null);
 
+  // NEW: Tab state for sidebar
+  const [activeTab, setActiveTab] = useState<"upcoming" | "history">(
+    "upcoming"
+  );
+
   const fetchData = useCallback(async () => {
     if (!user?.branchId) return;
     setLoading(true);
     try {
       const data = await apiService.getSchoolEvents(user.branchId);
+      // Filter: Only show approved events for Staff/All
       setEvents(
         data.filter(
           (e) =>
@@ -122,6 +141,7 @@ const Events: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
+  // Calendar Helpers
   const firstDayOfMonth = new Date(
     currentDate.getFullYear(),
     currentDate.getMonth(),
@@ -132,12 +152,11 @@ const Events: React.FC = () => {
     currentDate.getMonth() + 1,
     0
   ).getDate();
-  const startingDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7; // Adjust if your week starts on Sunday
+  const startingDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
 
   const eventsByDate = useMemo(() => {
     const map = new Map<string, SchoolEvent[]>();
     events.forEach((event) => {
-      // Normalize backend date to YYYY-MM-DD string
       const dateKey = new Date(event.date).toISOString().split("T")[0];
       if (!map.has(dateKey)) map.set(dateKey, []);
       map.get(dateKey)!.push(event);
@@ -151,12 +170,20 @@ const Events: React.FC = () => {
     );
   };
 
-  const upcomingEvents = useMemo(() => {
+  // Filter Logic
+  const { upcomingEvents, pastEvents } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return events
+
+    const upcoming = events
       .filter((e) => new Date(e.date) >= today)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    const past = events
+      .filter((e) => new Date(e.date) < today)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Descending (newest past first)
+
+    return { upcomingEvents: upcoming, pastEvents: past };
   }, [events]);
 
   return (
@@ -191,7 +218,6 @@ const Events: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-7 gap-2">
-            {/* Empty cells for previous month */}
             {Array.from({ length: startingDayOfWeek }).map((_, i) => (
               <div
                 key={`empty-${i}`}
@@ -199,10 +225,7 @@ const Events: React.FC = () => {
               ></div>
             ))}
 
-            {/* Days of current month */}
             {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
-              // FIX: Create Local Date String correctly (YYYY-MM-DD)
-              // This ensures the calendar matches the 'eventsByDate' map keys
               const year = currentDate.getFullYear();
               const month = String(currentDate.getMonth() + 1).padStart(2, "0");
               const dayStr = String(day).padStart(2, "0");
@@ -228,7 +251,6 @@ const Events: React.FC = () => {
                   >
                     {day}
                   </span>
-
                   <div className="flex-grow space-y-1 overflow-y-auto max-h-[80px]">
                     {dayEvents.map((event) => (
                       <div
@@ -256,25 +278,57 @@ const Events: React.FC = () => {
           </div>
         </Card>
 
-        {/* UPCOMING EVENTS LIST */}
+        {/* SIDEBAR: UPCOMING & HISTORY */}
         <Card>
-          <h2 className="text-xl font-semibold mb-4 text-text-primary-dark">
-            Upcoming Events
-          </h2>
+          <div className="flex items-center gap-2 mb-4 border-b border-slate-200 pb-2">
+            <button
+              className={`flex-1 pb-2 text-sm font-semibold transition-colors ${
+                activeTab === "upcoming"
+                  ? "text-brand-primary border-b-2 border-brand-primary -mb-2.5"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+              onClick={() => setActiveTab("upcoming")}
+            >
+              Upcoming
+            </button>
+            <button
+              className={`flex-1 pb-2 text-sm font-semibold transition-colors ${
+                activeTab === "history"
+                  ? "text-brand-primary border-b-2 border-brand-primary -mb-2.5"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+              onClick={() => setActiveTab("history")}
+            >
+              History
+            </button>
+          </div>
+
           <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
             {loading ? (
               <p className="text-center py-4 text-slate-500">
                 Loading events...
               </p>
-            ) : upcomingEvents.length === 0 ? (
+            ) : activeTab === "upcoming" ? (
+              upcomingEvents.length === 0 ? (
+                <div className="text-center py-8 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                  <p className="text-text-secondary-dark">
+                    No upcoming events.
+                  </p>
+                </div>
+              ) : (
+                upcomingEvents.map((event) => (
+                  <EventCard key={event.id} event={event} />
+                ))
+              )
+            ) : pastEvents.length === 0 ? (
               <div className="text-center py-8 bg-slate-50 rounded-lg border border-dashed border-slate-300">
                 <p className="text-text-secondary-dark">
-                  No upcoming events scheduled.
+                  No past events found.
                 </p>
               </div>
             ) : (
-              upcomingEvents.map((event) => (
-                <EventCard key={event.id} event={event} />
+              pastEvents.map((event) => (
+                <EventCard key={event.id} event={event} isPast={true} />
               ))
             )}
           </div>
