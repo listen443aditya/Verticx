@@ -111,8 +111,6 @@ const Events: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<SchoolEvent | null>(null);
-
-  // NEW: Tab state for sidebar
   const [activeTab, setActiveTab] = useState<"upcoming" | "history">(
     "upcoming"
   );
@@ -122,7 +120,6 @@ const Events: React.FC = () => {
     setLoading(true);
     try {
       const data = await apiService.getSchoolEvents(user.branchId);
-      // Filter: Only show approved events for Staff/All
       setEvents(
         data.filter(
           (e) =>
@@ -141,7 +138,6 @@ const Events: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
-  // Calendar Helpers
   const firstDayOfMonth = new Date(
     currentDate.getFullYear(),
     currentDate.getMonth(),
@@ -170,7 +166,6 @@ const Events: React.FC = () => {
     );
   };
 
-  // Filter Logic
   const { upcomingEvents, pastEvents } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -181,7 +176,7 @@ const Events: React.FC = () => {
 
     const past = events
       .filter((e) => new Date(e.date) < today)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Descending (newest past first)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return { upcomingEvents: upcoming, pastEvents: past };
   }, [events]);
@@ -195,16 +190,26 @@ const Events: React.FC = () => {
         {/* CALENDAR COLUMN */}
         <Card className="lg:col-span-2">
           <div className="flex justify-between items-center mb-6">
-            <Button variant="secondary" onClick={() => changeMonth(-1)}>
+            {/* CHANGED: Updated Buttons to be White/Brand Primary instead of Gray */}
+            <Button
+              className="!bg-white border border-slate-200 !text-brand-primary hover:!bg-brand-primary/5 shadow-sm transition-all font-medium"
+              onClick={() => changeMonth(-1)}
+            >
               &larr; Prev
             </Button>
+
             <h2 className="text-xl font-bold text-brand-primary">
               {currentDate.toLocaleString("default", {
                 month: "long",
                 year: "numeric",
               })}
             </h2>
-            <Button variant="secondary" onClick={() => changeMonth(1)}>
+
+            {/* CHANGED: Updated Buttons to be White/Brand Primary instead of Gray */}
+            <Button
+              className="!bg-white border border-slate-200 !text-brand-primary hover:!bg-brand-primary/5 shadow-sm transition-all font-medium"
+              onClick={() => changeMonth(1)}
+            >
               Next &rarr;
             </Button>
           </div>
@@ -251,6 +256,7 @@ const Events: React.FC = () => {
                   >
                     {day}
                   </span>
+
                   <div className="flex-grow space-y-1 overflow-y-auto max-h-[80px]">
                     {dayEvents.map((event) => (
                       <div
