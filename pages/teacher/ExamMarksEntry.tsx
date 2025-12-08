@@ -139,7 +139,6 @@ const ExamMarksEntry: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
 
-  // Strict Lock State
   const [areMarksSaved, setAreMarksSaved] = useState(false);
 
   const [requestingChangeFor, setRequestingChangeFor] =
@@ -158,7 +157,7 @@ const ExamMarksEntry: React.FC = () => {
     fetchExams();
   }, [user]);
 
-  // 2. Fetch Schedules (Filtered by Teacher's Subjects)
+  // 2. Fetch Schedules (FIXED: Added data flattening logic)
   useEffect(() => {
     const fetchSchedules = async () => {
       if (!selectedExamId || !user) return;
@@ -175,12 +174,22 @@ const ExamMarksEntry: React.FC = () => {
         const teacherSubjectIds = new Set(
           teacherCourses.map((c) => c.subjectId)
         );
-        const teacherSchedules = allSchedules.filter((s) =>
-          teacherSubjectIds.has(s.subjectId)
-        );
+
+        const teacherSchedules = allSchedules
+          .filter((s) => teacherSubjectIds.has(s.subjectId))
+          // FIX: Map nested objects (s.class, s.subject) to flat strings (s.className, s.subjectName)
+          .map((s: any) => ({
+            ...s,
+            className:
+              s.className ||
+              (s.class
+                ? `Grade ${s.class.gradeLevel}-${s.class.section}`
+                : "Class"),
+            subjectName:
+              s.subjectName || (s.subject ? s.subject.name : "Subject"),
+          }));
 
         setSchedules(teacherSchedules);
-        // Don't auto-select schedule to avoid confusion
       } catch (e) {
         console.error("Failed to load schedules");
       }
@@ -190,7 +199,6 @@ const ExamMarksEntry: React.FC = () => {
 
   // 3. Fetch Students & Existing Marks
   const fetchStudentsAndMarks = useCallback(async () => {
-    // Reset state immediately when schedule changes to prevent "flashing" wrong data
     setStudents([]);
     setMarks({});
     setAreMarksSaved(false);
@@ -205,29 +213,23 @@ const ExamMarksEntry: React.FC = () => {
     }
 
     try {
-      // Fetch students in this class
       const studentData = await apiService.getStudentsForClass(
         schedule.classId
       );
       setStudents(studentData);
 
-      // Check if marks already exist for this schedule
       const existingMarks = await apiService.getExamMarksForSchedule(
         selectedScheduleId
       );
 
       if (existingMarks.length > 0) {
-        // LOCK THE FORM
         setAreMarksSaved(true);
-
-        // Populate marks from DB
         const marksMap = existingMarks.reduce((acc, mark) => {
           acc[mark.studentId] = String(mark.score);
           return acc;
         }, {} as Record<string, string>);
         setMarks(marksMap);
       } else {
-        // UNLOCK THE FORM
         setAreMarksSaved(false);
         setMarks({});
       }
@@ -249,7 +251,6 @@ const ExamMarksEntry: React.FC = () => {
   const handleSaveMarks = async () => {
     if (!user || !selectedScheduleId || students.length === 0) return;
 
-    // Check if user entered marks for everyone (or at least some)
     const hasEntries = Object.values(marks).some(
       (val) => val !== "" && val !== undefined
     );
@@ -259,11 +260,7 @@ const ExamMarksEntry: React.FC = () => {
       return;
     }
 
-    if (
-      !window.confirm(
-        "Are you sure you want to save? Once saved, marks will be LOCKED and you will need to request changes."
-      )
-    ) {
+    if (!window.confirm("Are you sure? Once saved, marks will be LOCKED.")) {
       return;
     }
 
@@ -271,7 +268,6 @@ const ExamMarksEntry: React.FC = () => {
     const selectedSchedule = schedules.find((s) => s.id === selectedScheduleId);
     if (!selectedSchedule) return;
 
-    // Prepare data
     const marksToSave: Omit<ExamMark, "id" | "enteredAt">[] = students
       .filter(
         (student) => marks[student.id] !== undefined && marks[student.id] !== ""
@@ -290,7 +286,6 @@ const ExamMarksEntry: React.FC = () => {
       await apiService.saveExamMarks(marksToSave);
       setStatusMessage("Marks saved successfully!");
       triggerRefresh();
-      // This will re-trigger fetchStudentsAndMarks -> which sees data -> sets areMarksSaved = true
       fetchStudentsAndMarks();
     } catch (error) {
       setStatusMessage("Failed to save marks.");
@@ -370,7 +365,6 @@ const ExamMarksEntry: React.FC = () => {
           </div>
         ) : (
           <div>
-            {/* LOCKED STATE BANNER */}
             {areMarksSaved && (
               <div className="flex items-center gap-2 justify-center bg-blue-50 border border-blue-100 text-blue-700 p-3 rounded mb-4">
                 <span className="font-bold">🔒 LOCKED:</span>
@@ -417,7 +411,6 @@ const ExamMarksEntry: React.FC = () => {
                           onChange={(e) =>
                             handleMarkChange(student.id, e.target.value)
                           }
-                          // STRICT LOCK: Disable input if marks are saved
                           disabled={areMarksSaved}
                           className={`w-32 ${
                             areMarksSaved
@@ -444,7 +437,6 @@ const ExamMarksEntry: React.FC = () => {
               </table>
             </div>
 
-            {/* SAVE BUTTON: Only visible if NOT locked */}
             {!areMarksSaved && (
               <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
                 <Button
@@ -460,7 +452,6 @@ const ExamMarksEntry: React.FC = () => {
         )}
       </Card>
 
-      {/* Modal */}
       {requestingChangeFor && selectedSchedule && (
         <RequestChangeModal
           student={requestingChangeFor}
