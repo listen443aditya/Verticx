@@ -10,7 +10,7 @@ import RaiseComplaintModal from "../../components/modals/RaiseComplaintModal";
 
 const apiService = new TeacherApiService();
 
-// --- Inline Edit Component for Roll Number (Kept the same) ---
+// --- Inline Edit Component for Roll Number ---
 const RollNumberCell: React.FC<{
   student: any;
   isMentor: boolean;
@@ -107,7 +107,7 @@ const StudentInformation: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // --- NEW: Tab State ---
+  // --- Tab State ---
   const [activeTab, setActiveTab] = useState<"all" | "mentees">("all");
 
   // Modals
@@ -127,6 +127,8 @@ const StudentInformation: React.FC = () => {
     try {
       const teacherId = user.id;
       if (!teacherId) throw new Error("Teacher ID missing.");
+
+      // This endpoint now returns students with an 'isMentee' boolean flag
       const studentData = await apiService.getStudentsForTeacher(teacherId);
       setStudents(studentData);
     } catch (err: any) {
@@ -175,10 +177,9 @@ const StudentInformation: React.FC = () => {
   const displayedStudents = useMemo(() => {
     let list = students;
 
-    // 1. Filter by Tab
+    // 1. Filter by Tab using the backend flag 'isMentee'
     if (activeTab === "mentees") {
-      // Only show students where the class mentor matches the current user
-      list = students.filter((s) => s.class?.mentorId === user?.id);
+      list = students.filter((s) => s.isMentee === true);
     }
 
     // 2. Filter by Search
@@ -193,7 +194,7 @@ const StudentInformation: React.FC = () => {
     }
 
     return list;
-  }, [students, activeTab, searchTerm, user?.id]);
+  }, [students, activeTab, searchTerm]);
 
   // Helper styles for tabs
   const tabClasses = (isActive: boolean) =>
@@ -210,8 +211,6 @@ const StudentInformation: React.FC = () => {
       </h1>
 
       <Card className="!p-0 overflow-hidden">
-        {" "}
-        {/* Remove padding from card for tabs to sit flush */}
         {/* --- TABS --- */}
         <div className="flex border-b border-slate-200 bg-white">
           <button
@@ -227,6 +226,7 @@ const StudentInformation: React.FC = () => {
             My Class (Mentees)
           </button>
         </div>
+
         <div className="p-4">
           <div className="flex justify-between items-center mb-4 gap-4">
             <Input
@@ -280,7 +280,8 @@ const StudentInformation: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {displayedStudents.map((student) => {
-                    const isMentor = student.class?.mentorId === user?.id;
+                    // FIX: Use the flag from backend for permissions
+                    const isMentor = student.isMentee === true;
 
                     return (
                       <tr key={student.id} className="hover:bg-slate-50">
