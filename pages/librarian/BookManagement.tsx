@@ -291,7 +291,7 @@ const BookManagement: React.FC = () => {
                       {book.title}
                     </td>
                     <td className="p-4 text-slate-600">{book.author}</td>
-                    <td className="p-4 font-medium text-xs text-slate-500 px-2 py-1 rounded w-fit">
+                    <td className="p-4 font-medium text-xs text-slate-900 px-2 py-1 rounded w-fit">
                       {book.isbn}
                     </td>
                     <td className="p-4 text-center">
