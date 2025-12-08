@@ -79,12 +79,12 @@ const StudentInformation: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredStudents.map(student => {
-                                    const studentClass = apiService.getClassById(student.classId!);
+                                {filteredStudents.map(async student => {
+                                    const studentClass = await apiService.getClassById(student.classId!);
                                     return (
                                     <tr key={student.id} className="border-b hover:bg-slate-50">
                                         <td className="p-4 font-medium">{student.name}</td>
-                                        <td className="p-4 font-mono text-xs">{student.id}</td>
+                                        <td className="p-4 font-mono text-xs">{student.userId}</td>
                                         <td className="p-4">{studentClass ? `Grade ${studentClass.gradeLevel} - ${studentClass.section}` : 'N/A'}</td>
                                         <td className="p-4 text-center font-semibold">{student.schoolRank || 'N/A'}</td>
                                         <td className="p-4 text-right">

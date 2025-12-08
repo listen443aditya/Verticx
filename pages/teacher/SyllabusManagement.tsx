@@ -170,7 +170,15 @@ const SyllabusManagement: React.FC = () => {
         
         setIsSaving(true);
         const [classId, subjectId] = selectedCourseId.split('|');
-        await apiService.saveLectures(classId, subjectId, user.id, user.branchId!, newLectures);
+        await apiService.saveLectures(
+          classId,
+          subjectId,
+          lectures,
+          user.branchId!,
+          user.userId,
+          newLectures,
+          
+        );
         setIsSaving(false);
         setStatusMessage("New lectures saved successfully!");
         triggerRefresh();
