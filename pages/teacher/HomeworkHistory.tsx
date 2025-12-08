@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useAuth } from "../../hooks/useAuth.ts";
+import { useAuth } from "../../hooks/useAuth";
 import { TeacherApiService } from "../../services";
-import type { Assignment, SchoolClass } from "../../types.ts";
-import Card from "../../components/ui/Card.tsx";
-import Button from "../../components/ui/Button.tsx";
-import AssignHomeworkModal from "../../components/modals/AssignHomeworkModal.tsx";
+import type { Assignment, SchoolClass } from "../../types";
+import Card from "../../components/ui/Card";
+import Button from "../../components/ui/Button";
+import AssignHomeworkModal from "../../components/modals/AssignHomeworkModal";
 
 const apiService = new TeacherApiService();
 
@@ -13,9 +13,15 @@ const HomeworkHistory: React.FC = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // State for Editing
   const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(
     null
   );
+
+  // NEW: State for Creating
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
   const [saveStatus, setSaveStatus] = useState("");
 
   const fetchData = useCallback(async () => {
@@ -45,29 +51,51 @@ const HomeworkHistory: React.FC = () => {
   }, [fetchData]);
 
   const handleSave = () => {
+    // Close whichever modal was open
     setEditingAssignment(null);
+    setIsCreateModalOpen(false);
+
     setSaveStatus("Homework saved successfully!");
-    fetchData();
+    fetchData(); // Refresh list
     setTimeout(() => setSaveStatus(""), 4000);
   };
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-text-primary-dark mb-6">
-        Homework History
-      </h1>
+      {/* HEADER SECTION */}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-text-primary-dark">
+          Homework History
+        </h1>
+        {/* NEW BUTTON */}
+        <Button onClick={() => setIsCreateModalOpen(true)}>
+          Assign Homework
+        </Button>
+      </div>
+
       <Card>
         {saveStatus && (
-          <p className="text-center text-green-600 mb-4">{saveStatus}</p>
+          <p className="text-center text-green-600 mb-4 bg-green-50 p-2 rounded border border-green-200">
+            {saveStatus}
+          </p>
         )}
+
         {loading ? (
-          <p>Loading homework...</p>
+          <p className="text-center py-8 text-slate-500">Loading homework...</p>
         ) : (
           <div className="space-y-4">
             {assignments.length === 0 ? (
-              <p className="text-center text-text-secondary-dark p-8">
-                You have not assigned any homework yet.
-              </p>
+              <div className="text-center py-12 bg-slate-50 rounded border border-dashed border-slate-300">
+                <p className="text-text-secondary-dark mb-4">
+                  You have not assigned any homework yet.
+                </p>
+                <Button
+                  variant="secondary"
+                  onClick={() => setIsCreateModalOpen(true)}
+                >
+                  Create First Assignment
+                </Button>
+              </div>
             ) : (
               assignments.map((assignment) => {
                 const isPastDue = new Date(assignment.dueDate) < new Date();
@@ -85,11 +113,14 @@ const HomeworkHistory: React.FC = () => {
                 return (
                   <details
                     key={assignment.id}
-                    className="bg-slate-50 p-4 rounded-lg"
+                    className="bg-slate-50 p-4 rounded-lg border border-slate-100 open:bg-white open:shadow-sm transition-all"
                     open={!isPastDue}
                   >
                     <summary className="cursor-pointer font-semibold text-text-primary-dark flex justify-between items-center">
-                      <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-brand-primary">
+                          {/* Simple icon or bullet */}•
+                        </span>
                         {assignment.title}
                         <span className="font-normal text-sm text-text-secondary-dark ml-2">
                           ({courseName})
@@ -109,7 +140,7 @@ const HomeworkHistory: React.FC = () => {
                             variant="secondary"
                             className="!px-2 !py-1 text-xs"
                             onClick={(e) => {
-                              e.preventDefault(); // prevent details from closing
+                              e.preventDefault();
                               setEditingAssignment(assignment);
                             }}
                           >
@@ -118,7 +149,7 @@ const HomeworkHistory: React.FC = () => {
                         )}
                       </div>
                     </summary>
-                    <div className="mt-2 pt-2 border-t border-slate-200">
+                    <div className="mt-2 pt-2 border-t border-slate-200 pl-4">
                       <p className="text-sm text-text-primary-dark whitespace-pre-wrap">
                         {assignment.description || "No description provided."}
                       </p>
@@ -130,7 +161,8 @@ const HomeworkHistory: React.FC = () => {
           </div>
         )}
       </Card>
-      {/* FIX: This specific modal requires the 'isOpen' prop. It is now provided. */}
+
+      {/* MODAL 1: EDIT MODE */}
       {editingAssignment && (
         <AssignHomeworkModal
           isOpen={!!editingAssignment}
@@ -139,6 +171,14 @@ const HomeworkHistory: React.FC = () => {
           assignmentToEdit={editingAssignment}
         />
       )}
+
+      {/* MODAL 2: CREATE MODE (NEW) */}
+      <AssignHomeworkModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSave={handleSave}
+        // No assignmentToEdit passed here, so it acts as Create
+      />
     </div>
   );
 };
