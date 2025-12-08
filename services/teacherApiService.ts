@@ -249,9 +249,15 @@ export class TeacherApiService {
 
   async saveQuiz(
     quizData: Partial<Quiz>,
-    questionsData: Partial<QuizQuestion>[]
+    questionsData: Partial<QuizQuestion>[],
+    deletedQuestionIds: string[] = [] // New arg
   ): Promise<void> {
-    await baseApi.post("/teacher/quizzes/save", { quizData, questionsData });
+    const payload = {
+      ...quizData,
+      questions: questionsData,
+      deletedQuestionIds,
+    };
+    await baseApi.post("/teacher/quizzes/save", payload);
   }
 
   async getQuizResults(
@@ -277,7 +283,7 @@ export class TeacherApiService {
     branchId: string,
     userId: string,
     newLectures: Partial<Lecture>[],
-    deletedLectureIds: string[] = [] 
+    deletedLectureIds: string[] = []
   ): Promise<void> {
     await baseApi.post("/teacher/syllabus/lectures/save", {
       classId,
@@ -285,7 +291,7 @@ export class TeacherApiService {
       lectures,
       branchId,
       newLectures,
-      deletedLectureIds, 
+      deletedLectureIds,
     });
   }
 
