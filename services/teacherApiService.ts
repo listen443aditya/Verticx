@@ -259,6 +259,9 @@ export class TeacherApiService {
     };
     await baseApi.post("/teacher/quizzes/save", payload);
   }
+  async deleteQuiz(quizId: string): Promise<void> {
+    await baseApi.delete(`/teacher/quizzes/${quizId}`);
+  }
 
   async getQuizResults(
     quizId: string
