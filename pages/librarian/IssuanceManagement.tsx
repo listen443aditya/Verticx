@@ -1,17 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useAuth } from "../../hooks/useAuth.ts";
-import { LibrarianApiService } from "../../services";
+import { useAuth } from "../../hooks/useAuth";
+import { LibrarianApiService } from "../../services/librarianApiService";
 import type {
   HydratedBookIssuance,
-  User,
   LibraryBook,
   Student,
   Teacher,
-} from "../../types.ts";
-import Card from "../../components/ui/Card.tsx";
-import Button from "../../components/ui/Button.tsx";
-import Input from "../../components/ui/Input.tsx";
-import { BarcodeIcon } from "../../components/icons/Icons.tsx";
+} from "../../types";
+import Card from "../../components/ui/Card";
+import Button from "../../components/ui/Button";
+import Input from "../../components/ui/Input";
+import { BarcodeIcon } from "../../components/icons/Icons";
 
 const apiService = new LibrarianApiService();
 
@@ -20,6 +19,10 @@ const IssuanceManagement: React.FC = () => {
   const [issuances, setIssuances] = useState<HydratedBookIssuance[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"issued" | "history">("issued");
+
+  // --- Search & Filter State (New) ---
+  const [issuedSearchQuery, setIssuedSearchQuery] = useState("");
+  const [issuedClassFilter, setIssuedClassFilter] = useState("All");
 
   // Data for suggestions
   const [allBooks, setAllBooks] = useState<LibraryBook[]>([]);
@@ -46,24 +49,46 @@ const IssuanceManagement: React.FC = () => {
   const fetchData = useCallback(async () => {
     if (!user?.branchId) return;
     setLoading(true);
-    // FIX: Restored branchId and corrected method names.
-    // Your LibrarianApiService must implement getStudentsByBranch and getTeachersByBranch.
-    const [issuanceData, bookData, studentData, teacherData] =
-      await Promise.all([
-        apiService.getBookIssuancesWithMemberDetails(user.branchId),
-        apiService.getLibraryBooks(user.branchId),
-        apiService.getStudentsByBranch(user.branchId),
-        apiService.getTeachersByBranch(user.branchId),
-      ]);
-    setIssuances(issuanceData);
-    setAllBooks(bookData);
-    setAllMembers([...studentData, ...teacherData]);
-    setLoading(false);
+    try {
+      const [issuanceData, bookData, studentData, teacherData] =
+        await Promise.all([
+          apiService.getBookIssuancesWithMemberDetails(user.branchId),
+          apiService.getLibraryBooks(user.branchId),
+          apiService.getStudentsByBranch(user.branchId),
+          apiService.getTeachersByBranch(user.branchId),
+        ]);
+      setIssuances(issuanceData);
+      setAllBooks(bookData);
+      setAllMembers([...studentData, ...teacherData]);
+    } catch (error) {
+      console.error("Failed to load library data", error);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // --- Dynamic Filter Options ---
+  // Automatically extract "Grade X" from the issuance list to populate the dropdown
+  const availableClasses = useMemo(() => {
+    const classes = new Set<string>();
+    issuances.forEach((i) => {
+      // Assuming memberDetails format is "Grade X - Section" or similar
+      if (i.memberDetails && i.memberDetails.includes("Grade")) {
+        const match = i.memberDetails.match(/(Grade\s\d+)/);
+        if (match) classes.add(match[1]);
+      } else if (i.memberDetails && i.memberDetails.includes("Teacher")) {
+        classes.add("Teachers");
+      }
+    });
+    // Sort naturally (Grade 5 before Grade 10)
+    return Array.from(classes).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true })
+    );
+  }, [issuances]);
 
   const handleIssue = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +102,6 @@ const IssuanceManagement: React.FC = () => {
         allBooks.find((b) => b.id === bookIdentifier);
       const bookIdToSubmit = bookToIssue ? bookToIssue.id : bookIdentifier;
 
-      // FIX: Restored the mandatory branchId argument.
       const response = await apiService.issueBookByIsbnOrId(
         user.branchId,
         bookIdToSubmit,
@@ -101,7 +125,6 @@ const IssuanceManagement: React.FC = () => {
   };
 
   const handleReturn = async (issuanceId: string) => {
-    // Assuming returnBook does not need branchId as issuanceId is unique
     await apiService.returnBook(issuanceId);
     await fetchData();
   };
@@ -142,7 +165,7 @@ const IssuanceManagement: React.FC = () => {
   };
 
   const selectBook = (book: LibraryBook) => {
-    setBookIdentifier(book.isbn); // Use ISBN as it's scan-friendly
+    setBookIdentifier(book.isbn);
     setBookSuggestions([]);
   };
 
@@ -151,16 +174,40 @@ const IssuanceManagement: React.FC = () => {
     setMemberSuggestions([]);
   };
 
-  const currentlyIssued = useMemo(
-    () =>
-      issuances
-        .filter((i) => !i.returnedDate)
-        .sort(
-          (a, b) =>
-            new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-        ),
-    [issuances]
-  );
+  // --- Filtering Logic ---
+  const currentlyIssued = useMemo(() => {
+    return issuances
+      .filter((i) => {
+        // 1. Must not be returned
+        if (i.returnedDate) return false;
+
+        // 2. Class Filter
+        if (
+          issuedClassFilter !== "All" &&
+          !i.memberDetails.includes(issuedClassFilter)
+        ) {
+          if (issuedClassFilter === "Teachers" && i.memberDetails !== "Teacher")
+            return false;
+          if (issuedClassFilter !== "Teachers") return false;
+        }
+
+        // 3. Search Query
+        if (issuedSearchQuery) {
+          const q = issuedSearchQuery.toLowerCase();
+          return (
+            i.bookTitle.toLowerCase().includes(q) ||
+            i.memberName.toLowerCase().includes(q) ||
+            i.memberDetails.toLowerCase().includes(q)
+          );
+        }
+
+        return true;
+      })
+      .sort(
+        (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+      );
+  }, [issuances, issuedClassFilter, issuedSearchQuery]);
+
   const history = useMemo(
     () =>
       issuances
@@ -182,10 +229,15 @@ const IssuanceManagement: React.FC = () => {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-6">Issue & Returns Management</h1>
+      <h1 className="text-3xl font-bold mb-6 text-text-primary-dark">
+        Issue & Returns Management
+      </h1>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-1">
-          <h2 className="text-xl font-semibold mb-4">Issue a Book</h2>
+        {/* Left Column: Issue Form */}
+        <Card className="lg:col-span-1 h-fit">
+          <h2 className="text-xl font-semibold mb-4 text-text-primary-dark">
+            Issue a Book
+          </h2>
           <form onSubmit={handleIssue} className="space-y-4">
             <div className="relative">
               <Input
@@ -194,7 +246,7 @@ const IssuanceManagement: React.FC = () => {
                 onChange={handleBookIdentifierChange}
                 onBlur={() => setTimeout(() => setBookSuggestions([]), 150)}
                 required
-                placeholder="Scan or type to search book..."
+                placeholder="Scan or type..."
                 icon={<BarcodeIcon className="h-5 w-5 text-slate-400" />}
                 autoComplete="off"
               />
@@ -220,7 +272,7 @@ const IssuanceManagement: React.FC = () => {
                 onChange={handleMemberIdChange}
                 onBlur={() => setTimeout(() => setMemberSuggestions([]), 150)}
                 required
-                placeholder="Scan or type to search member..."
+                placeholder="Scan or type..."
                 icon={<BarcodeIcon className="h-5 w-5 text-slate-400" />}
                 autoComplete="off"
               />
@@ -276,7 +328,9 @@ const IssuanceManagement: React.FC = () => {
             </Button>
           </form>
         </Card>
-        <Card className="lg:col-span-2">
+
+        {/* Right Column: Lists */}
+        <Card className="lg:col-span-2 flex flex-col min-h-[500px]">
           <div className="flex border-b border-slate-200 mb-4">
             <button
               className={tabButtonClasses(activeTab === "issued")}
@@ -292,60 +346,120 @@ const IssuanceManagement: React.FC = () => {
             </button>
           </div>
 
-          <div className="overflow-auto max-h-[60vh]">
+          {/* Filters Bar (Only visible for Issued tab) */}
+          {activeTab === "issued" && (
+            <div className="flex flex-col md:flex-row gap-3 mb-4 p-2 bg-slate-50 rounded-lg">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  placeholder="Search by Book, Name or ID..."
+                  value={issuedSearchQuery}
+                  onChange={(e) => setIssuedSearchQuery(e.target.value)}
+                  className="w-full text-sm px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                />
+              </div>
+              <div className="w-full md:w-40">
+                <select
+                  value={issuedClassFilter}
+                  onChange={(e) => setIssuedClassFilter(e.target.value)}
+                  className="w-full text-sm px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                >
+                  <option value="All">All Classes</option>
+                  {availableClasses.map((cls) => (
+                    <option key={cls} value={cls}>
+                      {cls}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          <div className="overflow-auto flex-grow">
             <table className="w-full text-left text-sm">
-              <thead className="sticky top-0 bg-surface-dark">
-                <tr className="border-b">
-                  <th className="p-2">Book Title</th>
-                  <th className="p-2">Issued To</th>
-                  <th className="p-2">
-                    {activeTab === "issued" ? "Due Date" : "Issued / Returned"}
+              <thead className="sticky top-0 bg-white z-10 shadow-sm">
+                <tr className="border-b bg-slate-50 text-slate-700">
+                  <th className="p-3 font-semibold">Book Title</th>
+                  <th className="p-3 font-semibold">Issued To</th>
+                  <th className="p-3 font-semibold">
+                    {activeTab === "issued" ? "Due Date" : "Returned On"}
                   </th>
-                  <th className="p-2"></th>
+                  <th className="p-3 font-semibold text-right">Action</th>
                 </tr>
               </thead>
-              <tbody>
-                {(activeTab === "issued" ? currentlyIssued : history).map(
-                  (item) => {
-                    const isOverdue =
-                      !item.returnedDate && new Date(item.dueDate) < new Date();
-                    return (
-                      <tr
-                        key={item.id}
-                        className={`border-b ${
-                          isOverdue ? "bg-red-50" : "hover:bg-slate-50"
-                        }`}
-                      >
-                        <td className="p-2 font-medium">{item.bookTitle}</td>
-                        <td className="p-2">
-                          {item.memberName} <br />
-                          <span className="text-xs text-slate-500">
-                            {item.memberDetails}
-                          </span>
-                        </td>
-                        <td
-                          className={`p-2 font-semibold ${
-                            isOverdue ? "text-red-600" : ""
+              <tbody className="divide-y divide-slate-100">
+                {(activeTab === "issued" ? currentlyIssued : history).length >
+                0 ? (
+                  (activeTab === "issued" ? currentlyIssued : history).map(
+                    (item) => {
+                      const isOverdue =
+                        !item.returnedDate &&
+                        new Date(item.dueDate) < new Date();
+                      return (
+                        <tr
+                          key={item.id}
+                          className={`group transition-colors ${
+                            isOverdue
+                              ? "bg-red-50 hover:bg-red-100"
+                              : "hover:bg-slate-50"
                           }`}
                         >
-                          {activeTab === "issued"
-                            ? new Date(item.dueDate).toLocaleDateString()
-                            : `${new Date(
-                                item.issuedDate
-                              ).toLocaleDateString()} - ${new Date(
-                                item.returnedDate!
-                              ).toLocaleDateString()}`}
-                        </td>
-                        <td className="p-2 text-right">
-                          {activeTab === "issued" && (
-                            <Button onClick={() => handleReturn(item.id)}>
-                              Return
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  }
+                          <td className="p-3">
+                            <span className="font-medium text-slate-900 block">
+                              {item.bookTitle}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <span className="font-medium text-slate-900 block">
+                              {item.memberName}
+                            </span>
+                            <span className="text-xs text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200 inline-block mt-1">
+                              {item.memberDetails}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            {activeTab === "issued" ? (
+                              <span
+                                className={`font-medium ${
+                                  isOverdue ? "text-red-600" : "text-slate-600"
+                                }`}
+                              >
+                                {new Date(item.dueDate).toLocaleDateString()}
+                                {isOverdue && (
+                                  <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-red-600 border border-red-200 px-1 rounded">
+                                    Overdue
+                                  </span>
+                                )}
+                              </span>
+                            ) : (
+                              <span className="text-slate-600">
+                                {new Date(
+                                  item.returnedDate!
+                                ).toLocaleDateString()}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-right">
+                            {activeTab === "issued" && (
+                              <Button
+                                variant="secondary"
+                                className="!px-3 !py-1 text-xs border-slate-300 hover:border-brand-primary hover:text-brand-primary bg-white"
+                                onClick={() => handleReturn(item.id)}
+                              >
+                                Return
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    }
+                  )
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="p-8 text-center text-slate-400">
+                      No records found matching your filters.
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
