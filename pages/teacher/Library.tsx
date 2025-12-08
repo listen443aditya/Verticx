@@ -15,16 +15,19 @@ const Library: React.FC = () => {
     const [books, setBooks] = useState<LibraryBook[]>([]);
     const [loading, setLoading] = useState(false);
     
-    const performSearch = useCallback(async (query: string) => {
-        if (!user?.branchId || query.length < 2) {
-            setBooks([]);
-            return;
-        }
-        setLoading(true);
-        const results = await apiService.searchLibraryBooks(user.branchId, query);
-        setBooks(results);
-        setLoading(false);
-    }, [user?.branchId]);
+  const performSearch = useCallback(
+    async (query: string) => {
+      if (!user?.branchId || query.length < 2) {
+        setBooks([]);
+        return;
+      }
+      setLoading(true);
+      const results = await apiService.searchLibraryBooks(query, user.branchId);
+      setBooks(results);
+      setLoading(false);
+    },
+    [user?.branchId]
+  );
 
     useEffect(() => {
         const handler = setTimeout(() => {

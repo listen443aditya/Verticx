@@ -521,7 +521,7 @@ export class TeacherApiService {
     branchId: string
   ): Promise<LibraryBook[]> {
     const { data } = await baseApi.get<LibraryBook[]>(
-      "/general/library/search",
+      "/teacher/library/search",
       {
         params: { q: query, branchId },
       }
