@@ -20,11 +20,11 @@ const IssuanceManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"issued" | "history">("issued");
 
-  // --- Search & Filter State (New) ---
+  // --- Search & Filter State ---
   const [issuedSearchQuery, setIssuedSearchQuery] = useState("");
   const [issuedClassFilter, setIssuedClassFilter] = useState("All");
 
-  // Data for suggestions
+  // Data
   const [allBooks, setAllBooks] = useState<LibraryBook[]>([]);
   const [allMembers, setAllMembers] = useState<(Student | Teacher)[]>([]);
 
@@ -45,6 +45,49 @@ const IssuanceManagement: React.FC = () => {
   const [memberSuggestions, setMemberSuggestions] = useState<
     (Student | Teacher)[]
   >([]);
+
+  // --- 1. BARCODE SCANNER LISTENER ---
+  useEffect(() => {
+    let barcodeBuffer = "";
+    let lastKeyTime = 0;
+    const SCAN_THRESHOLD = 60; // ms between keystrokes (Scanners are fast, humans are slow)
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+
+      // If user is already typing in an input, let the browser handle it normally
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
+        return;
+      }
+
+      const now = Date.now();
+
+      // Reset buffer if typing is too slow (manual human typing)
+      if (now - lastKeyTime > SCAN_THRESHOLD) {
+        barcodeBuffer = "";
+      }
+      lastKeyTime = now;
+
+      if (e.key === "Enter") {
+        // If buffer has content and looks like a scan (length > 2), fill Book ID
+        if (barcodeBuffer.length >= 3) {
+          e.preventDefault();
+          setBookIdentifier(barcodeBuffer);
+          setBookSuggestions([]); // Clear autocomplete since it's an exact scan
+
+          // Optional: Visual feedback or focus Member ID field here if needed
+          // For now, we just fill the field as requested
+        }
+        barcodeBuffer = "";
+      } else if (e.key.length === 1) {
+        // Only append printable characters
+        barcodeBuffer += e.key;
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
 
   const fetchData = useCallback(async () => {
     if (!user?.branchId) return;
@@ -72,11 +115,9 @@ const IssuanceManagement: React.FC = () => {
   }, [fetchData]);
 
   // --- Dynamic Filter Options ---
-  // Automatically extract "Grade X" from the issuance list to populate the dropdown
   const availableClasses = useMemo(() => {
     const classes = new Set<string>();
     issuances.forEach((i) => {
-      // Assuming memberDetails format is "Grade X - Section" or similar
       if (i.memberDetails && i.memberDetails.includes("Grade")) {
         const match = i.memberDetails.match(/(Grade\s\d+)/);
         if (match) classes.add(match[1]);
@@ -84,7 +125,6 @@ const IssuanceManagement: React.FC = () => {
         classes.add("Teachers");
       }
     });
-    // Sort naturally (Grade 5 before Grade 10)
     return Array.from(classes).sort((a, b) =>
       a.localeCompare(b, undefined, { numeric: true })
     );
@@ -174,14 +214,10 @@ const IssuanceManagement: React.FC = () => {
     setMemberSuggestions([]);
   };
 
-  // --- Filtering Logic ---
   const currentlyIssued = useMemo(() => {
     return issuances
       .filter((i) => {
-        // 1. Must not be returned
         if (i.returnedDate) return false;
-
-        // 2. Class Filter
         if (
           issuedClassFilter !== "All" &&
           !i.memberDetails.includes(issuedClassFilter)
@@ -190,8 +226,6 @@ const IssuanceManagement: React.FC = () => {
             return false;
           if (issuedClassFilter !== "Teachers") return false;
         }
-
-        // 3. Search Query
         if (issuedSearchQuery) {
           const q = issuedSearchQuery.toLowerCase();
           return (
@@ -200,7 +234,6 @@ const IssuanceManagement: React.FC = () => {
             i.memberDetails.toLowerCase().includes(q)
           );
         }
-
         return true;
       })
       .sort(
@@ -247,6 +280,8 @@ const IssuanceManagement: React.FC = () => {
                 onBlur={() => setTimeout(() => setBookSuggestions([]), 150)}
                 required
                 placeholder="Scan or type..."
+                // Added a title attribute to help users know they can scan anywhere
+                title="You can use a barcode scanner anywhere on this page to fill this field."
                 icon={<BarcodeIcon className="h-5 w-5 text-slate-400" />}
                 autoComplete="off"
               />
@@ -346,7 +381,6 @@ const IssuanceManagement: React.FC = () => {
             </button>
           </div>
 
-          {/* Filters Bar (Only visible for Issued tab) */}
           {activeTab === "issued" && (
             <div className="flex flex-col md:flex-row gap-3 mb-4 p-2 bg-slate-50 rounded-lg">
               <div className="flex-1">
