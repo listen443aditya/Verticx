@@ -470,7 +470,7 @@ export class TeacherApiService {
   }
 
   async getSchoolEvents(branchId: string): Promise<SchoolEvent[]> {
-    const { data } = await baseApi.get<SchoolEvent[]>("/general/events", {
+    const { data } = await baseApi.get<SchoolEvent[]>("/teacher/events", {
       params: { branchId },
     });
     return data;
