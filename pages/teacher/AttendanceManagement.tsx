@@ -66,7 +66,6 @@ const AttendanceManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // FIX: Added the missing statusMessage state here
   const [statusMessage, setStatusMessage] = useState("");
 
   // Modal State
@@ -214,7 +213,7 @@ const AttendanceManagement: React.FC = () => {
           </div>
         </div>
 
-        {/* Display Status Message */}
+
         {statusMessage && (
           <div className="bg-green-50 text-green-700 p-3 rounded mb-4 text-center font-medium border border-green-200">
             {statusMessage}
