@@ -43,7 +43,7 @@ export class TeacherApiService {
   Promise<TeacherDashboardData> {
     const { data } = await baseApi.get<TeacherDashboardData>(
       "/teacher/dashboard"
-      //{ params: { teacherId } }
+      // { params: { teacherId } }
     );
     return data;
   }
