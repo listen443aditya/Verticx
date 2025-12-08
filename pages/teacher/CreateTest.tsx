@@ -26,7 +26,7 @@ const CreateTest: React.FC = () => {
   ]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
 
-  // NEW: Track IDs of questions deleted from the UI
+  // Track IDs of questions deleted from the UI
   const [deletedQuestionIds, setDeletedQuestionIds] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -34,26 +34,48 @@ const CreateTest: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!user?.branchId) return;
+      if (!user?.branchId || !user?.id) return;
       setLoading(true);
-      const classesData = await apiService.getSchoolClassesByBranch(
-        user.branchId
-      );
-      setClasses(classesData);
 
-      if (quizId && quizId !== "new") {
-        const quizData = await apiService.getQuizWithQuestions(quizId);
-        if (quizData) {
-          setQuiz(quizData.quiz);
-          // Ensure there's at least one empty question if none exist
-          setQuestions(
-            quizData.questions.length > 0
-              ? quizData.questions
-              : [{ questionText: "", options: ["", ""], correctOptionIndex: 0 }]
-          );
+      try {
+        // 1. Fetch ALL classes (to get nice names like 'Grade 6 - A')
+        // 2. Fetch MY courses (to get the IDs of classes I actually teach)
+        const [allClassesData, myCoursesData] = await Promise.all([
+          apiService.getSchoolClassesByBranch(user.branchId),
+          apiService.getTeacherCourses(user.id),
+        ]);
+
+        // 3. Extract unique Class IDs from my courses
+        // (My courses might have multiple entries for the same class if I teach 2 subjects there)
+        const myClassIds = new Set(myCoursesData.map((c: any) => c.classId));
+
+        // 4. Filter the full list to show ONLY classes I teach
+        const myClasses = allClassesData.filter((c) => myClassIds.has(c.id));
+        setClasses(myClasses);
+
+        // 5. Load Quiz Data if editing
+        if (quizId && quizId !== "new") {
+          const quizData = await apiService.getQuizWithQuestions(quizId);
+          if (quizData) {
+            setQuiz(quizData.quiz);
+            setQuestions(
+              quizData.questions.length > 0
+                ? quizData.questions
+                : [
+                    {
+                      questionText: "",
+                      options: ["", ""],
+                      correctOptionIndex: 0,
+                    },
+                  ]
+            );
+          }
         }
+      } catch (err) {
+        console.error("Failed to load data", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchData();
   }, [quizId, user]);
@@ -103,12 +125,9 @@ const CreateTest: React.FC = () => {
   const removeQuestion = (index: number) => {
     if (questions.length > 1) {
       const questionToRemove = questions[index];
-
-      // FIX: If question has an ID (exists in DB), add to deleted list
       if (questionToRemove.id) {
         setDeletedQuestionIds((prev) => [...prev, questionToRemove.id!]);
       }
-
       setQuestions(questions.filter((_, i) => i !== index));
     }
   };
@@ -132,20 +151,30 @@ const CreateTest: React.FC = () => {
 
   const handleSave = async (status: "draft" | "published") => {
     if (!user) return;
+
+    if (!quiz.title || !quiz.classId) {
+      alert("Please fill in the Quiz Title and select a Class.");
+      return;
+    }
+
     setIsSaving(true);
     const quizData = {
       ...quiz,
       status,
-      // If quizId is NOT 'new', pass it so backend knows to update
       id: quizId !== "new" ? quizId : undefined,
       teacherId: user.id,
       branchId: user.branchId,
     };
 
-    // Pass deleted IDs to service
-    await apiService.saveQuiz(quizData, questions, deletedQuestionIds);
-    setIsSaving(false);
-    navigate("/teacher/quizzes");
+    try {
+      await apiService.saveQuiz(quizData, questions, deletedQuestionIds);
+      navigate("/teacher/quizzes");
+    } catch (error) {
+      console.error("Failed to save quiz", error);
+      alert("Failed to save quiz. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (loading) return <p className="text-center py-8">Loading...</p>;
@@ -165,6 +194,7 @@ const CreateTest: React.FC = () => {
               value={quiz.title}
               onChange={handleQuizChange}
               required
+              placeholder="e.g. Science Chapter 1 Test"
             />
             <div>
               <label className="block text-sm font-medium text-text-secondary-dark mb-1">
@@ -174,7 +204,7 @@ const CreateTest: React.FC = () => {
                 name="classId"
                 value={quiz.classId}
                 onChange={handleQuizChange}
-                className="w-full bg-white border border-slate-300 rounded-md py-2 px-3"
+                className="w-full bg-white border border-slate-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-brand-primary/50"
                 required
               >
                 <option value="">-- Select Class --</option>
@@ -184,6 +214,11 @@ const CreateTest: React.FC = () => {
                   </option>
                 ))}
               </select>
+              {classes.length === 0 && (
+                <p className="text-xs text-red-500 mt-1">
+                  No classes found assigned to you.
+                </p>
+              )}
             </div>
             <Input
               label="Questions per Student"
@@ -217,6 +252,7 @@ const CreateTest: React.FC = () => {
               value={q.questionText}
               onChange={(e) => handleQuestionChange(qIndex, e)}
               required
+              placeholder="Enter question here..."
             />
             <div className="mt-4 space-y-2">
               <label className="block text-sm font-medium text-text-secondary-dark">
@@ -229,7 +265,7 @@ const CreateTest: React.FC = () => {
                     name={`correct-opt-${qIndex}`}
                     checked={q.correctOptionIndex === oIndex}
                     onChange={() => handleCorrectOptionChange(qIndex, oIndex)}
-                    className="w-4 h-4"
+                    className="w-4 h-4 cursor-pointer accent-brand-primary"
                   />
                   <Input
                     className="flex-grow"
