@@ -451,29 +451,6 @@ const StudentDashboard: React.FC = () => {
               </div>
             </Card>
           )}
-          <Card>
-            <h3 className="text-lg font-semibold mb-3">Quick Actions</h3>
-            <div className="flex flex-col gap-2">
-              <Button
-                variant="secondary"
-                onClick={() => setIsTimetableOpen(true)}
-              >
-                View Timetable
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => navigate("/student/quizzes")}
-              >
-                Attend Quiz
-              </Button>
-              <Button
-                variant="danger"
-                onClick={() => setIsComplaintModalOpen(true)}
-              >
-                Raise a Complaint
-              </Button>
-            </div>
-          </Card>
         </div>
 
         {/* Column 2: Academic Performance */}
@@ -582,12 +559,36 @@ const StudentDashboard: React.FC = () => {
             <SkillRadarChart skills={skills || []} />
           </Card>
 
-          {/* <Card>
+          <Card>
             <h3 className="text-lg font-semibold mb-3">AI Study Suggestion</h3>
             <p className="text-sm text-center text-text-secondary-dark bg-slate-100 p-3 rounded-lg">
               "{aiSuggestion}"
             </p>
-          </Card> */}
+          </Card>
+
+          <Card>
+            <h3 className="text-lg font-semibold mb-3">Quick Actions</h3>
+            <div className="flex flex-col gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => setIsTimetableOpen(true)}
+              >
+                View Timetable
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => navigate("/student/quizzes")}
+              >
+                Attend Quiz
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => setIsComplaintModalOpen(true)}
+              >
+                Raise a Complaint
+              </Button>
+            </div>
+          </Card>
         </div>
 
         {/* Column 3: School Life & Schedule */}
