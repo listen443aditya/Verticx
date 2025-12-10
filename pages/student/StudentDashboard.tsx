@@ -282,14 +282,14 @@ const StudentDashboard: React.FC = () => {
                   className="!text-xs !py-1 !px-2"
                   onClick={() => setIsFeeDetailsOpen(true)}
                 >
-                  View Details
+                  View Breakdown
                 </Button>
               )}
             </div>
-            <div className="space-y-2 text-sm p-3 bg-slate-50 rounded-lg">
+            <div className="space-y-2 text-sm p-3 bg-slate-50 rounded-lg border border-slate-100">
               <div className="flex justify-between">
                 <span className="text-text-secondary-dark">
-                  This Month's Due:
+                  Monthly Installment:
                 </span>{" "}
                 <span className="font-medium">
                   {(fees.currentMonthDue || 0).toLocaleString()}
@@ -298,9 +298,9 @@ const StudentDashboard: React.FC = () => {
               {transportFee > 0 && (
                 <div className="flex justify-between">
                   <span className="text-text-secondary-dark">
-                    Transport Charges:
+                    Transport Included:
                   </span>{" "}
-                  <span className="font-medium">
+                  <span className="font-medium text-slate-600">
                     {transportFee.toLocaleString()}
                   </span>
                 </div>
@@ -308,24 +308,31 @@ const StudentDashboard: React.FC = () => {
               {hostelFee > 0 && (
                 <div className="flex justify-between">
                   <span className="text-text-secondary-dark">
-                    Hostel Charges:
+                    Hostel Included:
                   </span>{" "}
-                  <span className="font-medium">
+                  <span className="font-medium text-slate-600">
                     {hostelFee.toLocaleString()}
                   </span>
                 </div>
               )}
-              <div className="flex justify-between pt-2 border-t mt-2">
-                <span className="font-bold text-text-primary-dark">
+
+              <div className="flex justify-between pt-2 border-t border-slate-200 mt-2">
+                <span className="font-bold text-slate-700">
                   Total Outstanding:
                 </span>{" "}
-                <span className="font-bold text-lg text-red-500">
-                  {totalOutstandingWithExtras.toLocaleString()}
+                <span
+                  className={`font-bold text-lg ${
+                    fees.totalOutstanding > 0
+                      ? "text-red-600"
+                      : "text-green-600"
+                  }`}
+                >
+                  {fees.totalOutstanding.toLocaleString()}
                 </span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between text-xs mt-1">
                 <span className="text-text-secondary-dark">Due Date:</span>{" "}
-                <span className="font-semibold">
+                <span className="font-medium text-slate-700">
                   {fees.dueDate
                     ? new Date(fees.dueDate).toLocaleDateString()
                     : "N/A"}
@@ -336,13 +343,13 @@ const StudentDashboard: React.FC = () => {
               className="w-full mt-3"
               onClick={() => setIsPayFeesModalOpen(true)}
               disabled={
-                totalOutstandingWithExtras <= 0 ||
+                fees.totalOutstanding <= 0 ||
                 !user?.enabledFeatures?.online_payments_enabled
               }
             >
               {!user?.enabledFeatures?.online_payments_enabled
                 ? "Online Payment Disabled"
-                : totalOutstandingWithExtras <= 0
+                : fees.totalOutstanding <= 0
                 ? "All Fees Paid"
                 : "Pay Now"}
             </Button>
