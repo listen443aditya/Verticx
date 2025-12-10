@@ -16,7 +16,6 @@ const FeeDetailsTable: React.FC<{ fees: StudentDashboardData["fees"] }> = ({
 }) => {
   const { monthlyDues, previousSessionDues, previousSessionDuesPaid } = fees;
 
-  // FIX: Define safe local variables with defaults to prevent "undefined" errors
   const safePrevDues = previousSessionDues || 0;
   const safePrevPaid = previousSessionDuesPaid || 0;
   const prevOutstanding = safePrevDues - safePrevPaid;
