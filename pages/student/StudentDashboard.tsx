@@ -510,26 +510,67 @@ const StudentDashboard: React.FC = () => {
             <h2 className="text-xl font-semibold text-text-primary-dark mb-4">
               Academic Performance
             </h2>
-            {/* FIX: Add height container and check for data */}
+            {/* FIX: Explicit height container */}
             <div className="h-64 w-full">
-              {performanceChartData.length > 0 ? (
+              {performanceChartData && performanceChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={performanceChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="subject" />
+                  <BarChart
+                    data={performanceChartData.map((p) => ({
+                      subject: p.subject,
+                      myScore: p["My Score"], // Remapping for safety
+                      classAvg: p["Class Average"],
+                    }))}
+                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="#f1f5f9"
+                    />
+                    <XAxis
+                      dataKey="subject"
+                      tick={{ fontSize: 12, fill: "#64748b" }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
                     <YAxis
                       domain={[0, 100]}
                       tickFormatter={(value) => `${value}%`}
+                      tick={{ fontSize: 11, fill: "#64748b" }}
+                      axisLine={false}
+                      tickLine={false}
                     />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="My Score" fill="#4F46E5" />
-                    <Bar dataKey="Class Average" fill="#FB923C" />
+                    <Tooltip
+                      cursor={{ fill: "#f8fafc" }}
+                      contentStyle={{
+                        borderRadius: "8px",
+                        border: "none",
+                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                      }}
+                    />
+                    <Legend
+                      iconType="circle"
+                      wrapperStyle={{ paddingTop: "10px", fontSize: "12px" }}
+                    />
+                    <Bar
+                      name="My Score"
+                      dataKey="myScore"
+                      fill="#4F46E5"
+                      radius={[4, 4, 0, 0]}
+                      barSize={20}
+                    />
+                    <Bar
+                      name="Class Avg"
+                      dataKey="classAvg"
+                      fill="#fb923c"
+                      radius={[4, 4, 0, 0]}
+                      barSize={20}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-slate-400">
-                  <p>No exam performance data available yet.</p>
+                <div className="h-full flex items-center justify-center text-slate-400 border border-dashed border-slate-200 rounded-lg">
+                  <p>No exam performance data available.</p>
                 </div>
               )}
             </div>
@@ -537,16 +578,8 @@ const StudentDashboard: React.FC = () => {
 
           <Card>
             <h3 className="text-lg font-semibold mb-3">Skill Assessment</h3>
-            {/* FIX: Add specific height wrapper (h-64 = 16rem = 256px) */}
-            <div className="h-64 w-full">
-              {skills && skills.length > 0 ? (
-                <SkillRadarChart skills={skills} />
-              ) : (
-                <div className="h-full flex items-center justify-center text-slate-400">
-                  <p>No skill assessment data.</p>
-                </div>
-              )}
-            </div>
+            {/* The height is now handled inside the SkillRadarChart component */}
+            <SkillRadarChart skills={skills || []} />
           </Card>
 
           <Card>
