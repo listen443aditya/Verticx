@@ -24,10 +24,11 @@ import type {
   Subject,
   Teacher,
   SchoolEvent,
+  Hostel,
+  Room,
 } from "../types.ts";
 
 export class StudentApiService {
- 
   // --- Dashboard & Profile ---
   async getStudentDashboardData(): Promise<StudentDashboardData> {
     // A single, powerful call that gets the entire, pre-calculated dashboard object from the backend.
@@ -48,6 +49,11 @@ export class StudentApiService {
   // Students typically have restricted ability to update official records. This maps to a profile update endpoint.
   async updateStudent(updates: Partial<Student>): Promise<void> {
     await baseApi.put("/student/profile", updates);
+  }
+
+  async getMyHostelDetails(): Promise<{ hostel: Hostel; room: Room } | null> {
+    const { data } = await baseApi.get("/student/my-hostel-details");
+    return data;
   }
 
   // --- Academics ---

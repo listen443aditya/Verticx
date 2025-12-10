@@ -100,32 +100,17 @@ const StudentDashboard: React.FC = () => {
 
       // 3. Fetch Other Data in Parallel
       // FIX: We use the *instances* (apiService, sharedApiService) not the Class definitions.
-      const [transport, teachersData, subjectsData] = await Promise.all([
+      const [transport, accommodation, teachersData, subjectsData] = await Promise.all([
         apiService.getMyTransportDetails(),
+        apiService.getMyHostelDetails(),
         sharedApiService.getTeachersByBranch(branchId),
         sharedApiService.getSubjectsByBranch(branchId),
       ]);
 
       setPrincipal(principalData);
-      const studentData = result.student as any;
-     if (studentData.busStop && studentData.busStop.transportRoute) {
-       setTransportDetails({
-         stop: studentData.busStop,
-         route: studentData.busStop.transportRoute,
-       });
-     } else {
-       setTransportDetails(null);
-     }
-
-     // 4. Extract Hostel Details
-     if (studentData.room && studentData.room.hostel) {
-       setAccommodationDetails({
-         room: studentData.room,
-         hostel: studentData.room.hostel,
-       });
-     } else {
-       setAccommodationDetails(null);
-     }
+      setTransportDetails(transport);
+      // NOTE: Accommodation details API does not exist in backend yet, setting to null to prevent crash
+      setAccommodationDetails(accommodation || null);
       setTeachers(teachersData || []);
       setSubjects(subjectsData || []);
     } catch (error) {
