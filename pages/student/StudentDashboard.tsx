@@ -509,28 +509,42 @@ const StudentDashboard: React.FC = () => {
             <h2 className="text-xl font-semibold text-text-primary-dark mb-4">
               Academic Performance
             </h2>
-            <div className="h-[250px] w-full">
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={performanceChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="subject" />
-                  <YAxis
-                    domain={[0, 100]}
-                    tickFormatter={(value) => `${value}%`}
-                  />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="My Score" fill="#4F46E5" />
-                  <Bar dataKey="Class Average" fill="#FB923C" />
-                </BarChart>
-              </ResponsiveContainer>
+            {/* FIX: Add height container and check for data */}
+            <div className="h-64 w-full">
+              {performanceChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={performanceChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="subject" />
+                    <YAxis
+                      domain={[0, 100]}
+                      tickFormatter={(value) => `${value}%`}
+                    />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="My Score" fill="#4F46E5" />
+                    <Bar dataKey="Class Average" fill="#FB923C" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-slate-400">
+                  <p>No exam performance data available yet.</p>
+                </div>
+              )}
             </div>
           </Card>
 
           <Card>
             <h3 className="text-lg font-semibold mb-3">Skill Assessment</h3>
+            {/* FIX: Add specific height wrapper (h-64 = 16rem = 256px) */}
             <div className="h-64 w-full">
-              <SkillRadarChart skills={skills || []} />
+              {skills && skills.length > 0 ? (
+                <SkillRadarChart skills={skills} />
+              ) : (
+                <div className="h-full flex items-center justify-center text-slate-400">
+                  <p>No skill assessment data.</p>
+                </div>
+              )}
             </div>
           </Card>
 
