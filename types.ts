@@ -908,12 +908,17 @@ export interface SuspensionRecord {
   createdAt: Date;
 }
 
+// src/types.ts
+
+// ... other types
+
 export interface CourseContent {
     id: string;
     branchId: string;
     courseId: string;
     teacherId: string;
     title: string;
+    course: string | { subject?: { name: string } }; 
     description?: string;
     fileName: string;
     fileType: string;
