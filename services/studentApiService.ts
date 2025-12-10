@@ -150,6 +150,13 @@ export class StudentApiService {
     );
     return data;
   }
+  async payStudentFees(data: {
+    amount: number;
+    details: string;
+    studentId?: string;
+  }): Promise<void> {
+    await baseApi.post("/student/pay-fees", data);
+  }
 
   // This is the callback after a payment gateway interaction.
   async recordFeePayment(paymentResponse: any): Promise<void> {

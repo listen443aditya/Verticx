@@ -804,6 +804,7 @@ const StudentDashboard: React.FC = () => {
           student={student as Student}
           branch={data.branch}
           parent={student.guardianInfo}
+          fees={fees}
         />
       )}
       {isFeeDetailsOpen && (
