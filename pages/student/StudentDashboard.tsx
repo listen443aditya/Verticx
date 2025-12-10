@@ -107,9 +107,25 @@ const StudentDashboard: React.FC = () => {
       ]);
 
       setPrincipal(principalData);
-      setTransportDetails(transport);
-      // NOTE: Accommodation details API does not exist in backend yet, setting to null to prevent crash
-      setAccommodationDetails(null);
+      const studentData = result.student as any;
+     if (studentData.busStop && studentData.busStop.transportRoute) {
+       setTransportDetails({
+         stop: studentData.busStop,
+         route: studentData.busStop.transportRoute,
+       });
+     } else {
+       setTransportDetails(null);
+     }
+
+     // 4. Extract Hostel Details
+     if (studentData.room && studentData.room.hostel) {
+       setAccommodationDetails({
+         room: studentData.room,
+         hostel: studentData.room.hostel,
+       });
+     } else {
+       setAccommodationDetails(null);
+     }
       setTeachers(teachersData || []);
       setSubjects(subjectsData || []);
     } catch (error) {
