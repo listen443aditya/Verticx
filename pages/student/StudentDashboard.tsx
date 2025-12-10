@@ -527,7 +527,9 @@ const StudentDashboard: React.FC = () => {
 
           <Card>
             <h3 className="text-lg font-semibold mb-3">Skill Assessment</h3>
-            <SkillRadarChart skills={skills || []} />
+            <div className="h-64 w-full">
+              <SkillRadarChart skills={skills || []} />
+            </div>
           </Card>
 
           <Card>
