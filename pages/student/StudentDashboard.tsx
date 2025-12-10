@@ -1,12 +1,8 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { useAuth } from "../../hooks/useAuth.ts";
-import {
-  StudentApiService,
-  SharedApiService,
-  RegistrarApiService,
-} from "../../services";
-import Card from "../../components/ui/Card.tsx";
-import Button from "../../components/ui/Button.tsx";
+import { useAuth } from "../../hooks/useAuth";
+import { StudentApiService, SharedApiService } from "../../services";
+import Card from "../../components/ui/Card";
+import Button from "../../components/ui/Button";
 import type {
   StudentDashboardData,
   Teacher,
@@ -17,7 +13,7 @@ import type {
   User,
   Subject,
   Student,
-} from "../../types.ts";
+} from "../../types";
 
 import {
   ResponsiveContainer,
@@ -38,79 +34,91 @@ import {
   UploadCloudIcon,
   TransportIcon,
   HostelIcon,
-} from "../../components/icons/Icons.tsx";
+} from "../../components/icons/Icons";
 
 import { useNavigate } from "react-router-dom";
-import TimetableModal from "../../components/modals/TimetableModal.tsx";
-import StudentComplaintModal from "../../components/modals/StudentComplaintModal.tsx";
-import SkillRadarChart from "../../components/charts/SkillRadarChart.tsx";
-import { useDataRefresh } from "../../contexts/DataRefreshContext.tsx";
-import FeeDetailsModal from "../../components/modals/FeeDetailsModal.tsx";
-import PayFeesModal from "../../components/modals/PayFeesModal.tsx";
-import ContactCard from "../../components/shared/ContactCard.tsx";
+import TimetableModal from "../../components/modals/TimetableModal";
+import StudentComplaintModal from "../../components/modals/StudentComplaintModal";
+import SkillRadarChart from "../../components/charts/SkillRadarChart";
+import { useDataRefresh } from "../../contexts/DataRefreshContext";
+import FeeDetailsModal from "../../components/modals/FeeDetailsModal";
+import PayFeesModal from "../../components/modals/PayFeesModal";
+import ContactCard from "../../components/shared/ContactCard";
 
 const apiService = new StudentApiService();
 const sharedApiService = new SharedApiService();
-const registrarService = new RegistrarApiService();
 
 const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
   const [data, setData] = useState<StudentDashboardData | null>(null);
   const [principal, setPrincipal] = useState<User | null>(null);
+
+  // State for optional modules
   const [transportDetails, setTransportDetails] = useState<{
     route: TransportRoute;
     stop: BusStop;
   } | null>(null);
+
   const [accommodationDetails, setAccommodationDetails] = useState<{
     hostel: Hostel;
     room: Room;
   } | null>(null);
+
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+
+  // Modal states
   const [isTimetableOpen, setIsTimetableOpen] = useState(false);
   const [isComplaintModalOpen, setIsComplaintModalOpen] = useState(false);
   const [isFeeDetailsOpen, setIsFeeDetailsOpen] = useState(false);
   const [isPayFeesModalOpen, setIsPayFeesModalOpen] = useState(false);
+
   const { triggerRefresh, refreshKey } = useDataRefresh();
 
   const fetchData = useCallback(async () => {
-    if (!user?.branchId) return; // Guard clause
+    if (!user?.branchId) return;
     setLoading(true);
     try {
       // 1. Fetch Dashboard Data
       const result = await apiService.getStudentDashboardData();
       setData(result);
-      const branchId = user.branchId;
 
-      // 2. Fetch Principal Data (if exists)
-      let principalData = null;
-      if (result.branch.principalId) {
-        try {
-          // Note: Students might not have permission to call registrarService.getUserById.
-          // Ideally, principal name should come in the dashboard data or a public endpoint.
-          // We'll try-catch this specific call to avoid breaking the whole dashboard.
-          // principalData = await registrarService.getUserById(result.branch.principalId);
-        } catch (e) {
-          console.warn("Could not fetch principal details", e);
-        }
+      // 2. Extract Principal Data
+      if ((result.branch as any).principal) {
+        setPrincipal((result.branch as any).principal);
       }
 
-      // 3. Fetch Other Data in Parallel
-      // FIX: We use the *instances* (apiService, sharedApiService) not the Class definitions.
-      const [transport, accommodation, teachersData, subjectsData] = await Promise.all([
-        apiService.getMyTransportDetails(),
-        apiService.getMyHostelDetails(),
+      // 3. Extract Transport Details
+      const studentData = result.student as any;
+      if (studentData.busStop && studentData.busStop.transportRoute) {
+        setTransportDetails({
+          stop: studentData.busStop,
+          route: studentData.busStop.transportRoute,
+        });
+      } else {
+        setTransportDetails(null);
+      }
+
+      // 4. Extract Hostel Details
+      if (studentData.room && studentData.room.hostel) {
+        setAccommodationDetails({
+          room: studentData.room,
+          hostel: studentData.room.hostel,
+        });
+      } else {
+        setAccommodationDetails(null);
+      }
+
+      // 5. Fetch Teachers & Subjects
+      const branchId = user.branchId;
+      const [teachersData, subjectsData] = await Promise.all([
         sharedApiService.getTeachersByBranch(branchId),
         sharedApiService.getSubjectsByBranch(branchId),
       ]);
 
-      setPrincipal(principalData);
-      setTransportDetails(transport);
-      // NOTE: Accommodation details API does not exist in backend yet, setting to null to prevent crash
-      setAccommodationDetails(accommodation || null);
       setTeachers(teachersData || []);
       setSubjects(subjectsData || []);
     } catch (error) {
@@ -141,7 +149,6 @@ const StudentDashboard: React.FC = () => {
             }
           : null
       );
-      // Assuming updateStudent handles partial updates
       await apiService.updateStudent({ profilePictureUrl: base64Image } as any);
     };
     reader.readAsDataURL(file);
@@ -161,7 +168,6 @@ const StudentDashboard: React.FC = () => {
 
   const {
     student,
-    branch, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     profile,
     performance,
     ranks,
@@ -193,10 +199,8 @@ const StudentDashboard: React.FC = () => {
 
   const transportFee = transportDetails?.stop.charges || 0;
   const hostelFee = accommodationDetails?.room.fee || 0;
-  const totalOutstandingWithExtras =
-    fees.totalOutstanding + transportFee + hostelFee;
+  const displayOutstanding = fees.totalOutstanding;
 
-  // FIX: Add safety checks for selfStudyProgress to prevent "undefined is not an object"
   const totalLectures = selfStudyProgress?.totalLectures || 0;
   const studentCompletedLectures =
     selfStudyProgress?.studentCompletedLectures || 0;
@@ -215,7 +219,7 @@ const StudentDashboard: React.FC = () => {
       </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Column 1: Identity & Personal Info */}
+        {/* Column 1: Identity & Fees & Transport */}
         <div className="space-y-6">
           <Card>
             <div className="flex flex-col items-center text-center">
@@ -296,44 +300,37 @@ const StudentDashboard: React.FC = () => {
                   {(fees.currentMonthDue || 0).toLocaleString()}
                 </span>
               </div>
-              {transportFee > 0 && (
+              {transportDetails && (
                 <div className="flex justify-between">
                   <span className="text-text-secondary-dark">
                     Transport Included:
                   </span>{" "}
-                  <span className="font-medium text-slate-600">
+                  <span className="font-medium">
                     {transportFee.toLocaleString()}
                   </span>
                 </div>
               )}
-              {hostelFee > 0 && (
+              {accommodationDetails && (
                 <div className="flex justify-between">
                   <span className="text-text-secondary-dark">
                     Hostel Included:
                   </span>{" "}
-                  <span className="font-medium text-slate-600">
+                  <span className="font-medium">
                     {hostelFee.toLocaleString()}
                   </span>
                 </div>
               )}
-
-              <div className="flex justify-between pt-2 border-t border-slate-200 mt-2">
-                <span className="font-bold text-slate-700">
+              <div className="flex justify-between pt-2 border-t mt-2">
+                <span className="font-bold text-text-primary-dark">
                   Total Outstanding:
                 </span>{" "}
-                <span
-                  className={`font-bold text-lg ${
-                    fees.totalOutstanding > 0
-                      ? "text-red-600"
-                      : "text-green-600"
-                  }`}
-                >
-                  {fees.totalOutstanding.toLocaleString()}
+                <span className="font-bold text-lg text-red-500">
+                  {displayOutstanding.toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between text-xs mt-1">
                 <span className="text-text-secondary-dark">Due Date:</span>{" "}
-                <span className="font-medium text-slate-700">
+                <span className="font-semibold">
                   {fees.dueDate
                     ? new Date(fees.dueDate).toLocaleDateString()
                     : "N/A"}
@@ -344,13 +341,13 @@ const StudentDashboard: React.FC = () => {
               className="w-full mt-3"
               onClick={() => setIsPayFeesModalOpen(true)}
               disabled={
-                fees.totalOutstanding <= 0 ||
+                displayOutstanding <= 0 ||
                 !user?.enabledFeatures?.online_payments_enabled
               }
             >
               {!user?.enabledFeatures?.online_payments_enabled
                 ? "Online Payment Disabled"
-                : fees.totalOutstanding <= 0
+                : displayOutstanding <= 0
                 ? "All Fees Paid"
                 : "Pay Now"}
             </Button>
@@ -408,6 +405,7 @@ const StudentDashboard: React.FC = () => {
               </div>
             </Card>
           )}
+
           {accommodationDetails && (
             <Card>
               <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
@@ -416,7 +414,7 @@ const StudentDashboard: React.FC = () => {
               </h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-text-secondary-dark">Hostel Name:</span>{" "}
+                  <span className="text-text-secondary-dark">Hostel:</span>{" "}
                   <span className="font-semibold">
                     {accommodationDetails.hostel.name}
                   </span>
@@ -433,23 +431,25 @@ const StudentDashboard: React.FC = () => {
                     {accommodationDetails.room.roomType}
                   </span>
                 </div>
-                <div className="p-2.5 bg-slate-50 rounded-md mt-2 border border-slate-100 space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Warden:</span>
-                    <span className="font-medium text-slate-800">
-                      {accommodationDetails.hostel.warden}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Contact:</span>
-                    <span className="text-slate-800">
-                      {accommodationDetails.hostel.wardenNumber}
-                    </span>
-                  </div>
+                <div className="p-2 bg-slate-100 rounded-md mt-2">
+                  <p>
+                    <strong>Warden:</strong>{" "}
+                    {accommodationDetails.hostel.warden} (
+                    {accommodationDetails.hostel.wardenNumber})
+                  </p>
+                </div>
+                <div className="flex justify-between pt-2 border-t mt-2">
+                  <span className="text-text-secondary-dark font-medium">
+                    Monthly Fee:
+                  </span>
+                  <span className="font-bold text-lg text-brand-primary">
+                    {accommodationDetails.room.fee.toLocaleString()}
+                  </span>
                 </div>
               </div>
             </Card>
           )}
+
           <Card>
             <h3 className="text-lg font-semibold mb-3">Quick Actions</h3>
             <div className="flex flex-col gap-2">
@@ -509,7 +509,6 @@ const StudentDashboard: React.FC = () => {
             <h2 className="text-xl font-semibold text-text-primary-dark mb-4">
               Academic Performance
             </h2>
-            {/* FIX: Add height container and check for data */}
             <div className="h-64 w-full">
               {performanceChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
@@ -527,8 +526,8 @@ const StudentDashboard: React.FC = () => {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-slate-400">
-                  <p>No exam performance data available yet.</p>
+                <div className="h-full flex items-center justify-center text-slate-400 border border-dashed border-slate-200 rounded">
+                  <p>No exam data available</p>
                 </div>
               )}
             </div>
@@ -536,13 +535,12 @@ const StudentDashboard: React.FC = () => {
 
           <Card>
             <h3 className="text-lg font-semibold mb-3">Skill Assessment</h3>
-            {/* FIX: Add specific height wrapper (h-64 = 16rem = 256px) */}
             <div className="h-64 w-full">
               {skills && skills.length > 0 ? (
                 <SkillRadarChart skills={skills} />
               ) : (
-                <div className="h-full flex items-center justify-center text-slate-400">
-                  <p>No skill assessment data.</p>
+                <div className="h-full flex items-center justify-center text-slate-400 border border-dashed border-slate-200 rounded">
+                  <p>No skill assessment data</p>
                 </div>
               )}
             </div>
