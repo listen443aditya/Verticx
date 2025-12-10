@@ -1,24 +1,16 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react";
-// FIX: Corrected all import paths to navigate from the 'pages/student' directory.
-import { useAuth } from "../../hooks/useAuth.ts";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useAuth } from "../../hooks/useAuth";
 import { StudentApiService } from "../../services";
-import type { CourseContent, Course } from "../../types.ts";
-import Card from "../../components/ui/Card.tsx";
-import Button from "../../components/ui/Button.tsx";
+import type { CourseContent } from "../../types";
+import Card from "../../components/ui/Card";
+import Button from "../../components/ui/Button";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import {
   XIcon,
   MicIcon,
   SendIcon,
-  Volume2Icon,
   StopCircleIcon,
-} from "../../components/icons/Icons.tsx";
+} from "../../components/icons/Icons";
 
 const apiService = new StudentApiService();
 
@@ -32,21 +24,6 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
-};
-
-const themeConfig = {
-  dark: {
-    backdrop: "bg-slate-900/50 backdrop-blur-md",
-    modal:
-      "bg-slate-900/70 backdrop-blur-xl border border-cyan-500/30 shadow-cyan-500/20 shadow-2xl text-slate-200",
-    header: "border-slate-600/50",
-    chatBg: "bg-black/30",
-    aiBubble: "bg-slate-700 text-slate-100",
-    userBubble: "bg-cyan-500 text-black",
-    input:
-      "bg-slate-800/80 text-white placeholder-slate-400 focus:bg-slate-800 border-slate-600 focus:ring-cyan-500",
-    button: "bg-cyan-500 hover:bg-cyan-400 text-black",
-  },
 };
 
 const AIContentAssistantModal: React.FC<{
@@ -63,23 +40,15 @@ const AIContentAssistantModal: React.FC<{
 
   const fileDataRef = useRef<{ base64: string; mimeType: string } | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  // FIX: Replaced import.meta.env with a placeholder for build compatibility.
-  // You must replace "YOUR_API_KEY_HERE" with your actual Gemini API key in a .env file.
-  const genAI = useMemo(
-    () =>
-      new GoogleGenerativeAI(
-        process.env.REACT_APP_GEMINI_API_KEY || "YOUR_API_KEY_HERE"
-      ),
-    []
-  );
 
-  const speechRecognitionRef = useRef<any>(null);
-  const [isListening, setIsListening] = useState(false);
-  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(
-    null
-  );
-  const [selectedVoice, setSelectedVoice] =
-    useState<SpeechSynthesisVoice | null>(null);
+  // Initialize Gemini AI
+ const genAI = useMemo(
+   () =>
+     new GoogleGenerativeAI(
+       process.env.GEMINI_API_KEY || "API_KEY_HERE"
+     ),
+   []
+ );
 
   const SUPPORTED_AI_MIME_TYPES = useMemo(
     () => new Set(["image/png", "image/jpeg", "application/pdf"]),
@@ -90,33 +59,52 @@ const AIContentAssistantModal: React.FC<{
     const prepareFile = async () => {
       setIsPreparing(true);
       setError("");
-      if (!SUPPORTED_AI_MIME_TYPES.has(content.fileType)) {
+
+      // Basic MIME type check based on file extension/type string
+      const isSupported =
+        content.fileType.includes("image") || content.fileType.includes("pdf");
+
+      if (!isSupported) {
         setError(
-          `Sorry, the AI can't read this file type (${content.fileName}).\nSupported types are images (PNG, JPG) and PDFs.`
+          `Sorry, the AI currently supports images (PNG, JPG) and PDFs only.`
         );
         setIsPreparing(false);
         return;
       }
+
       try {
         const response = await fetch(content.fileUrl);
         if (!response.ok) throw new Error("Failed to fetch file.");
         const blob = await response.blob();
         const base64 = await blobToBase64(blob);
-        fileDataRef.current = { base64, mimeType: content.fileType };
+
+        // Determine correct mime type for API
+        let mimeType = content.fileType;
+        if (content.fileType.includes("pdf")) mimeType = "application/pdf";
+        else if (content.fileType.includes("png")) mimeType = "image/png";
+        else if (
+          content.fileType.includes("jpeg") ||
+          content.fileType.includes("jpg")
+        )
+          mimeType = "image/jpeg";
+
+        fileDataRef.current = { base64, mimeType };
+
         setMessages([
           {
             sender: "ai",
-            text: `Ready to help with "${content.title}". Ask me anything!`,
+            text: `I've analyzed "${content.title}". Ask me anything about it!`,
           },
         ]);
       } catch (err) {
+        console.error(err);
         setError("Could not load the document for the AI assistant.");
       } finally {
         setIsPreparing(false);
       }
     };
     prepareFile();
-  }, [content, SUPPORTED_AI_MIME_TYPES]);
+  }, [content]);
 
   useEffect(() => {
     chatContainerRef.current?.scrollTo({
@@ -152,7 +140,10 @@ const AIContentAssistantModal: React.FC<{
       console.error("Gemini API error:", err);
       setMessages((prev) => [
         ...prev,
-        { sender: "ai", text: "Sorry, an error occurred. Please try again." },
+        {
+          sender: "ai",
+          text: "Sorry, I encountered an error processing that request.",
+        },
       ]);
     } finally {
       setIsLoading(false);
@@ -160,10 +151,86 @@ const AIContentAssistantModal: React.FC<{
   };
 
   return (
-    <div
-      className={`fixed inset-0 flex items-center justify-center z-50 p-4 transition-all duration-300 ${themeConfig.dark.backdrop}`}
-    >
-      {/* The rest of the modal JSX remains the same */}
+    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-slate-900/80 backdrop-blur-sm">
+      <div className="bg-white w-full max-w-2xl h-[600px] rounded-xl shadow-2xl flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+          <h3 className="font-bold text-slate-800 flex items-center gap-2">
+            ✨ AI Assistant{" "}
+            <span className="text-xs font-normal text-slate-500">
+              ({content.fileName})
+            </span>
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <XIcon className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Chat Area */}
+        <div
+          ref={chatContainerRef}
+          className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50"
+        >
+          {error ? (
+            <div className="p-4 bg-red-50 text-red-600 rounded-lg text-sm text-center">
+              {error}
+            </div>
+          ) : (
+            messages.map((msg, idx) => (
+              <div
+                key={idx}
+                className={`flex ${
+                  msg.sender === "user" ? "justify-end" : "justify-start"
+                }`}
+              >
+                <div
+                  className={`max-w-[80%] p-3 rounded-lg text-sm ${
+                    msg.sender === "user"
+                      ? "bg-brand-primary text-white rounded-tr-none"
+                      : "bg-white border border-slate-200 text-slate-700 rounded-tl-none shadow-sm"
+                  }`}
+                >
+                  {msg.text}
+                </div>
+              </div>
+            ))
+          )}
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="bg-white border border-slate-200 p-3 rounded-lg rounded-tl-none text-sm text-slate-500 italic shadow-sm">
+                Thinking...
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Input Area */}
+        <div className="p-4 border-t border-slate-200 bg-white">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              placeholder="Ask about this document..."
+              disabled={isLoading || !!error || isPreparing}
+              className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary/50 disabled:bg-slate-50 disabled:text-slate-400"
+            />
+            <Button
+              onClick={() => handleSend()}
+              disabled={
+                isLoading || !!error || isPreparing || !userInput.trim()
+              }
+              className="px-4"
+            >
+              <SendIcon className="w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -171,8 +238,6 @@ const AIContentAssistantModal: React.FC<{
 const StudentContent: React.FC = () => {
   const { user } = useAuth();
   const [content, setContent] = useState<CourseContent[]>([]);
-  // FIX: Re-added state to hold course information for grouping content correctly.
-  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedContentForAI, setSelectedContentForAI] =
     useState<CourseContent | null>(null);
@@ -181,49 +246,41 @@ const StudentContent: React.FC = () => {
     const fetchData = async () => {
       if (!user) return;
       setLoading(true);
-      // FIX: Assumes student service provides a way to get courses. If not, this needs a new endpoint.
-      // For now, we assume getCourseContentForStudent provides all necessary data.
-      const contentData = await apiService.getCourseContentForStudent();
-      setContent(contentData);
-      setLoading(false);
+      try {
+        const contentData = await apiService.getCourseContentForStudent();
+        setContent(contentData);
+      } catch (e) {
+        console.error("Failed to load content", e);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchData();
   }, [user]);
 
-  // FIX: Create a lookup map for course names. This assumes CourseContent includes courseId.
-  const courseMap = useMemo(() => {
-    // This is a temporary solution. Ideally, the API would provide courseName in CourseContent.
-    // Or, a separate API call would fetch all courses for the student.
-    const map = new Map<string, string>();
-    content.forEach((item) => {
-      if (item.courseId && !map.has(item.courseId)) {
-        // Heuristic: derive course name from content if not available
-        map.set(item.courseId, `Course ${item.courseId.slice(-4)}`);
-      }
-    });
-    return map;
-  }, [content]);
-
+  // Group content by Course Name (Subject)
   const groupedContent = useMemo(() => {
     const groups = new Map<string, CourseContent[]>();
-    content.forEach((item) => {
-      // FIX: Look up the course name from the map to correctly group the content.
-      const courseName = courseMap.get(item.courseId) || "Unknown Course";
+
+    content.forEach((item: any) => {
+      // FIX: Use the nested subject name from the backend
+      const courseName =
+        item.course?.subject?.name || item.courseId || "General Resources";
+
       if (!groups.has(courseName)) {
         groups.set(courseName, []);
       }
       groups.get(courseName)!.push(item);
     });
+
     return Array.from(groups.entries());
-  }, [content, courseMap]);
+  }, [content]);
 
   const getFileIcon = (fileType: string) => {
     if (fileType.includes("pdf")) return "📄";
     if (fileType.includes("image")) return "🖼️";
     if (fileType.includes("video")) return "🎬";
     if (fileType.includes("audio")) return "🎵";
-    if (fileType.includes("presentation")) return "📊";
-    if (fileType.includes("wordprocessingml")) return "📝";
     return "📎";
   };
 
@@ -232,68 +289,81 @@ const StudentContent: React.FC = () => {
       <h1 className="text-3xl font-bold text-text-primary-dark mb-6">
         Course Content
       </h1>
+
       {loading ? (
         <Card>
-          <p>Loading content...</p>
+          <div className="p-8 text-center text-slate-500">
+            Loading study materials...
+          </div>
+        </Card>
+      ) : groupedContent.length === 0 ? (
+        <Card>
+          <div className="p-12 text-center text-slate-500">
+            <p className="text-lg">No course content available yet.</p>
+            <p className="text-sm mt-2">
+              Check back later when teachers upload materials.
+            </p>
+          </div>
         </Card>
       ) : (
-        <div className="space-y-6">
-          {groupedContent.length > 0 ? (
-            groupedContent.map(([courseName, items]) => (
-              <Card key={courseName}>
-                <h2 className="text-xl font-semibold text-text-primary-dark mb-4">
-                  {courseName}
-                </h2>
-                <div className="space-y-3">
-                  {items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="bg-slate-50 p-4 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-                    >
-                      <div className="flex-grow">
-                        <p className="font-bold text-text-primary-dark">
+        <div className="space-y-8">
+          {groupedContent.map(([courseName, items]) => (
+            <Card key={courseName}>
+              <h2 className="text-xl font-bold text-brand-secondary mb-4 border-b border-slate-100 pb-2">
+                {courseName}
+              </h2>
+              <div className="space-y-3">
+                {items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="group bg-slate-50 hover:bg-slate-100 border border-slate-200 p-4 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 transition-all"
+                  >
+                    <div className="flex-grow">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-2xl" role="img" aria-label="icon">
+                          {getFileIcon(item.fileType)}
+                        </span>
+                        <p className="font-bold text-text-primary-dark text-lg">
                           {item.title}
                         </p>
-                        <p className="text-sm text-text-secondary-dark mt-1">
-                          {item.description}
-                        </p>
-                        <p className="text-xs text-text-secondary-dark mt-2">
-                          <span className="mr-2">
-                            {getFileIcon(item.fileType)}
-                          </span>
-                          {item.fileName} - Uploaded on{" "}
-                          {new Date(item.uploadedAt).toLocaleDateString()}
-                        </p>
                       </div>
-                      <div className="flex-shrink-0 flex items-center gap-2">
-                        {user?.enabledFeatures?.student_ask_ai && (
-                          <Button onClick={() => setSelectedContentForAI(item)}>
-                            Ask AI ✨
-                          </Button>
-                        )}
-                        <a
-                          href={item.fileUrl}
-                          download={item.fileName}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <Button variant="secondary">Download</Button>
-                        </a>
-                      </div>
+                      <p className="text-sm text-text-secondary-dark pl-9">
+                        {item.description}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-2 pl-9">
+                        {item.fileName} • Uploaded{" "}
+                        {new Date(item.uploadedAt).toLocaleDateString()}
+                      </p>
                     </div>
-                  ))}
-                </div>
-              </Card>
-            ))
-          ) : (
-            <Card>
-              <p className="text-center p-8 text-text-secondary-dark">
-                No course content has been uploaded for your subjects yet.
-              </p>
+
+                    <div className="flex-shrink-0 flex items-center gap-3 pl-9 sm:pl-0">
+                      {/* FIX: Removed strict feature flag check to ensure button appears */}
+                      <Button
+                        onClick={() => setSelectedContentForAI(item)}
+                        variant="secondary"
+                        className="flex items-center gap-2 !bg-purple-100 !text-purple-700 hover:!bg-purple-200 border-purple-200"
+                      >
+                        <span>Ask AI</span>
+                        <span>✨</span>
+                      </Button>
+
+                      <a
+                        href={item.fileUrl}
+                        download={item.fileName}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Button>Download</Button>
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </Card>
-          )}
+          ))}
         </div>
       )}
+
       {selectedContentForAI && (
         <AIContentAssistantModal
           content={selectedContentForAI}
