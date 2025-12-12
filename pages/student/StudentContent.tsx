@@ -39,9 +39,8 @@ interface Flashcard {
 
 // --- HELPER FUNCTIONS ---
 
-// Helper to access env variables safely in both Vite and CRA
 const getApiKey = () => {
-  // @ts-ignore - Handles Vite vs Webpack differences
+  // @ts-ignore
   return (
     process.env.GEMINI_API_KEY ||
     (import.meta as any).env?.GEMINI_API_KEY ||
@@ -54,6 +53,7 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64String = reader.result as string;
+      // Remove the data URL prefix (e.g., "data:application/pdf;base64,")
       resolve(base64String.split(",")[1]);
     };
     reader.onerror = reject;
@@ -70,8 +70,7 @@ const getFileIcon = (fileType: string) => {
   return "📎";
 };
 
-// FIX: Stable Random Generator (Based on String ID)
-// This ensures the same file always gets the same stats after refresh
+// Stable Random Generator based on ID
 const getStableNumber = (seed: string, range: number, offset: number = 0) => {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
@@ -131,7 +130,7 @@ const FlashcardViewer: React.FC<{
               <p className="text-xs uppercase tracking-widest text-slate-400 mb-4">
                 Question
               </p>
-              <p className="text-xl font-medium text-slate-800">
+              <p className="text-xl font-medium text-slate-800 overflow-y-auto max-h-40">
                 {cards[currentIndex].question}
               </p>
               <p className="text-xs text-slate-400 mt-6">(Click to flip)</p>
@@ -143,7 +142,7 @@ const FlashcardViewer: React.FC<{
               <p className="text-xs uppercase tracking-widest text-white/70 mb-4">
                 Answer
               </p>
-              <p className="text-lg font-medium">
+              <p className="text-lg font-medium overflow-y-auto max-h-40">
                 {cards[currentIndex].answer}
               </p>
             </div>
@@ -179,11 +178,11 @@ const AIContentAssistantModal: React.FC<{
   const [summary, setSummary] = useState("");
   const [comments, setComments] = useState(content.comments || []);
   const [newComment, setNewComment] = useState("");
+  const [fileSizeWarning, setFileSizeWarning] = useState(false);
 
   const fileDataRef = useRef<{ base64: string; mimeType: string } | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Initialize Gemini AI with Safe API Key Access
   const genAI = useMemo(() => new GoogleGenerativeAI(getApiKey()), []);
 
   useEffect(() => {
@@ -202,16 +201,9 @@ const AIContentAssistantModal: React.FC<{
         const response = await fetch(content.fileUrl);
         const blob = await response.blob();
 
-        // Basic size check (Gemini has limits, browser has limits)
-        if (blob.size > 10 * 1024 * 1024) {
-          // 10MB limit check
-          setMessages([
-            {
-              sender: "ai",
-              text: "⚠️ This file is too large for the AI to process directly.",
-            },
-          ]);
-          return;
+        // 3MB Warning Limit (Browser upload to AI API is slow for large files)
+        if (blob.size > 3 * 1024 * 1024) {
+          setFileSizeWarning(true);
         }
 
         const base64 = await blobToBase64(blob);
@@ -246,25 +238,7 @@ const AIContentAssistantModal: React.FC<{
   }, [content]);
 
   const handleSend = async () => {
-    if (!userInput.trim()) return;
-
-    // Check if API Key is missing
-    if (!getApiKey()) {
-      alert("API Key is missing. Please check your .env file.");
-      return;
-    }
-
-    if (!fileDataRef.current) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          sender: "ai",
-          text: "Still loading the document... please wait a moment.",
-        },
-      ]);
-      return;
-    }
-
+    if (!userInput.trim() || !fileDataRef.current) return;
     const text = userInput;
     setUserInput("");
     setMessages((prev) => [...prev, { sender: "user", text }]);
@@ -272,8 +246,6 @@ const AIContentAssistantModal: React.FC<{
 
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-      // Add placeholder
       setMessages((prev) => [...prev, { sender: "ai", text: "" }]);
 
       const result = await model.generateContentStream([
@@ -292,11 +264,8 @@ const AIContentAssistantModal: React.FC<{
         fullResponse += chunkText;
         setMessages((prev) => {
           const newMsgs = [...prev];
-          // Safely update the last message which is the AI placeholder
           const lastMsg = newMsgs[newMsgs.length - 1];
-          if (lastMsg && lastMsg.sender === "ai") {
-            lastMsg.text = fullResponse;
-          }
+          if (lastMsg.sender === "ai") lastMsg.text = fullResponse;
           return newMsgs;
         });
       }
@@ -304,19 +273,14 @@ const AIContentAssistantModal: React.FC<{
     } catch (error: any) {
       console.error("Gemini Error:", error);
       let errorMsg = "Sorry, I encountered an error. Please try again.";
-      if (error.message?.includes("API key")) errorMsg = "Invalid API Key.";
-      if (error.message?.includes("400"))
-        errorMsg =
-          "The request was rejected by AI (Content policy or format issue).";
+      if (error.message?.includes("413"))
+        errorMsg = "The file is too large for the AI to process right now.";
 
       setMessages((prev) => {
         const newMsgs = [...prev];
         const lastMsg = newMsgs[newMsgs.length - 1];
-        if (lastMsg && lastMsg.sender === "ai" && lastMsg.text === "") {
-          lastMsg.text = errorMsg;
-        } else {
-          newMsgs.push({ sender: "ai", text: errorMsg });
-        }
+        if (lastMsg.text === "") lastMsg.text = errorMsg;
+        else newMsgs.push({ sender: "ai", text: errorMsg });
         return newMsgs;
       });
     } finally {
@@ -330,8 +294,14 @@ const AIContentAssistantModal: React.FC<{
     setActiveTab("flashcards");
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      const prompt =
-        'Create 5 study flashcards from this content. Return ONLY raw JSON array: [{ "question": "...", "answer": "..." }]';
+      // FIX: Improved prompt to ensure valid JSON extraction
+      const prompt = `
+        Analyze this document and create 5 study flashcards.
+        Return the response strictly as a JSON array of objects.
+        Format: [{"question": "Question text", "answer": "Answer text"}]
+        Do not include markdown formatting like \`\`\`json.
+      `;
+
       const result = await model.generateContent([
         {
           inlineData: {
@@ -341,16 +311,27 @@ const AIContentAssistantModal: React.FC<{
         },
         { text: prompt },
       ]);
+
       const text = result.response.text();
-      // Cleanup JSON (remove markdown ticks if AI adds them)
-      const jsonStr = text.replace(/```json|```/g, "").trim();
+
+      // FIX: Robust JSON Parsing
+      // 1. Try to find the array start [ and end ]
+      const match = text.match(/\[[\s\S]*\]/);
+      if (!match) throw new Error("No JSON found in response");
+
+      const jsonStr = match[0];
       const cards = JSON.parse(jsonStr);
-      setFlashcards(cards);
-      onAddXP(20);
+
+      if (Array.isArray(cards)) {
+        setFlashcards(cards);
+        onAddXP(20);
+      } else {
+        throw new Error("Invalid format");
+      }
     } catch (error) {
       console.error("Flashcard error", error);
       alert(
-        "Could not generate flashcards. Please try asking a question instead."
+        "AI Response Error: Could not generate clean flashcards. Please try again."
       );
     } finally {
       setIsGeneratingCards(false);
@@ -378,6 +359,7 @@ const AIContentAssistantModal: React.FC<{
       onAddXP(10);
     } catch (e) {
       console.error(e);
+      setSummary("Failed to generate summary. Please try again later.");
     } finally {
       setIsLoading(false);
     }
@@ -398,10 +380,17 @@ const AIContentAssistantModal: React.FC<{
       <div className="bg-white w-full max-w-4xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden">
         {/* Modal Header */}
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-          <h3 className="font-bold text-slate-800 flex items-center gap-2">
-            <ZapIcon className="w-5 h-5 text-brand-secondary" />
-            Smart Learning: {content.title}
-          </h3>
+          <div>
+            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+              <ZapIcon className="w-5 h-5 text-brand-secondary" />
+              Smart Learning: {content.title}
+            </h3>
+            {fileSizeWarning && (
+              <p className="text-xs text-orange-600 mt-1">
+                ⚠️ Large file ({">"}3MB). AI responses may be slow.
+              </p>
+            )}
+          </div>
           <button onClick={onClose}>
             <XIcon className="w-6 h-6 text-slate-400 hover:text-slate-600" />
           </button>
@@ -624,8 +613,7 @@ const StudentContent: React.FC = () => {
 
         // Transform Data with Stable Logic
         const enhancedData: EnhancedContent[] = data.map((item) => {
-          // Use ID to generate stable "random" stats
-          const rating = getStableNumber(item.id, 3, 3); // 3-5 stars
+          const rating = getStableNumber(item.id, 3, 3);
           const progress = getStableNumber(item.id, 100);
           const readTimeMin = getStableNumber(item.id, 15, 2);
           const difficultyIndex = getStableNumber(item.id, 3);
@@ -672,7 +660,7 @@ const StudentContent: React.FC = () => {
     const groups = new Map<string, EnhancedContent[]>();
     filteredContent.forEach((item) => {
       let courseName = "General Resources";
-      // FIX: Robust check for course object vs ID string
+      // Robust check for course object vs ID string
       if (
         typeof item.course === "object" &&
         item.course !== null &&
