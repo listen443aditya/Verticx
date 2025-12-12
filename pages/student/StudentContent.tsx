@@ -9,7 +9,6 @@ import {
   XIcon,
   MicIcon,
   SendIcon,
-  StopCircleIcon,
   SearchIcon,
   BookmarkIcon,
   StarIcon,
@@ -19,15 +18,16 @@ import {
   BookOpenIcon,
 } from "../../components/icons/Icons";
 
+// Initialize API Service
 const apiService = new StudentApiService();
 
 // --- TYPES & INTERFACES ---
 
-// Extended type to support our local interactive features
+// Extended interface for local state (Gamification/UI only)
 interface EnhancedContent extends CourseContent {
   rating?: number;
   isBookmarked?: boolean;
-  progress?: number; // 0 to 100
+  progress?: number;
   comments?: { user: string; text: string; date: string }[];
   difficulty?: "Easy" | "Medium" | "Hard";
   readTime?: string;
@@ -38,7 +38,7 @@ interface Flashcard {
   answer: string;
 }
 
-// --- UTILS ---
+// --- HELPER FUNCTIONS ---
 
 const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -57,12 +57,13 @@ const getFileIcon = (fileType: string) => {
   if (fileType.includes("image")) return "🖼️";
   if (fileType.includes("video")) return "🎬";
   if (fileType.includes("audio")) return "🎵";
+  if (fileType.includes("presentation")) return "📊";
   return "📎";
 };
 
 // --- SUB-COMPONENTS ---
 
-// 1. Flashcard Component
+// 1. Flashcard Viewer Component
 const FlashcardViewer: React.FC<{
   cards: Flashcard[];
   onClose: () => void;
@@ -72,12 +73,15 @@ const FlashcardViewer: React.FC<{
 
   const handleNext = () => {
     setIsFlipped(false);
-    setCurrentIndex((prev) => (prev + 1) % cards.length);
+    setTimeout(() => setCurrentIndex((prev) => (prev + 1) % cards.length), 200);
   };
 
   const handlePrev = () => {
     setIsFlipped(false);
-    setCurrentIndex((prev) => (prev - 1 + cards.length) % cards.length);
+    setTimeout(
+      () => setCurrentIndex((prev) => (prev - 1 + cards.length) % cards.length),
+      200
+    );
   };
 
   return (
@@ -88,52 +92,44 @@ const FlashcardViewer: React.FC<{
         </h3>
         <button
           onClick={onClose}
-          className="text-sm text-slate-500 hover:text-slate-800"
+          className="text-sm text-slate-500 hover:text-slate-800 underline"
         >
-          Exit Study Mode
+          Exit
         </button>
       </div>
 
       <div
-        className={`relative w-full max-w-md h-64 cursor-pointer perspective-1000 transition-all duration-500`}
+        className="relative w-full max-w-md h-64 cursor-pointer perspective-1000"
         onClick={() => setIsFlipped(!isFlipped)}
       >
         <div
-          className={`relative w-full h-full text-center transition-transform duration-700 transform-style-3d ${
+          className={`relative w-full h-full text-center transition-transform duration-500 transform-style-3d ${
             isFlipped ? "rotate-y-180" : ""
-          } shadow-xl rounded-xl`}
+          }`}
         >
           {/* Front */}
-          <div
-            className={`absolute w-full h-full backface-hidden bg-white border-2 border-brand-primary/20 rounded-xl flex items-center justify-center p-6 ${
-              isFlipped ? "hidden" : "block"
-            }`}
-          >
-            <div>
-              <p className="text-xs uppercase tracking-widest text-slate-400 mb-2">
+          {!isFlipped && (
+            <div className="absolute inset-0 bg-white border-2 border-brand-primary/20 rounded-xl flex flex-col items-center justify-center p-6 shadow-md">
+              <p className="text-xs uppercase tracking-widest text-slate-400 mb-4">
                 Question
               </p>
               <p className="text-xl font-medium text-slate-800">
                 {cards[currentIndex].question}
               </p>
-              <p className="text-xs text-slate-400 mt-4">(Click to flip)</p>
+              <p className="text-xs text-slate-400 mt-6">(Click to flip)</p>
             </div>
-          </div>
+          )}
           {/* Back */}
-          <div
-            className={`absolute w-full h-full backface-hidden bg-brand-primary text-white rounded-xl flex items-center justify-center p-6 ${
-              isFlipped ? "block" : "hidden"
-            } rotate-y-180`}
-          >
-            <div>
-              <p className="text-xs uppercase tracking-widest text-white/70 mb-2">
+          {isFlipped && (
+            <div className="absolute inset-0 bg-brand-primary text-white rounded-xl flex flex-col items-center justify-center p-6 shadow-md">
+              <p className="text-xs uppercase tracking-widest text-white/70 mb-4">
                 Answer
               </p>
               <p className="text-lg font-medium">
                 {cards[currentIndex].answer}
               </p>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -148,7 +144,7 @@ const FlashcardViewer: React.FC<{
 };
 
 // 2. Main Interactive Modal (AI, Chat, Flashcards)
-const InteractiveContentModal: React.FC<{
+const AIContentAssistantModal: React.FC<{
   content: EnhancedContent;
   onClose: () => void;
   onAddXP: (amount: number) => void;
@@ -165,20 +161,23 @@ const InteractiveContentModal: React.FC<{
   const [isGeneratingCards, setIsGeneratingCards] = useState(false);
   const [summary, setSummary] = useState("");
 
-  // Discussion State (Mocked)
+  // Discussion State
   const [comments, setComments] = useState(content.comments || []);
   const [newComment, setNewComment] = useState("");
 
   const fileDataRef = useRef<{ base64: string; mimeType: string } | null>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Init Gemini
+  // Initialize Gemini AI (Standard React Env Variable)
   const genAI = useMemo(
-    () =>
-      new GoogleGenerativeAI(
-        process.env.REACT_APP_GEMINI_API_KEY || "YOUR_KEY_HERE"
-      ),
+    () => new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || ""),
     []
   );
+
+  // Scroll to bottom of chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isLoading]);
 
   // Text-to-Speech
   const handleSpeak = (text: string) => {
@@ -187,7 +186,7 @@ const InteractiveContentModal: React.FC<{
     window.speechSynthesis.speak(utterance);
   };
 
-  // 1. Prepare File for AI
+  // 1. Prepare File for AI Analysis
   useEffect(() => {
     const prepareFile = async () => {
       try {
@@ -197,33 +196,48 @@ const InteractiveContentModal: React.FC<{
 
         let mimeType = content.fileType;
         if (content.fileType.includes("pdf")) mimeType = "application/pdf";
-        else if (content.fileType.includes("image")) mimeType = "image/jpeg"; // Default to jpeg for ease
+        else if (content.fileType.includes("png")) mimeType = "image/png";
+        else if (
+          content.fileType.includes("jpeg") ||
+          content.fileType.includes("jpg")
+        )
+          mimeType = "image/jpeg";
 
         fileDataRef.current = { base64, mimeType };
         setMessages([
           {
             sender: "ai",
-            text: `I've analyzed "${content.title}". I can create flashcards, summarize this, or answer questions!`,
+            text: `I've analyzed "${content.title}". I'm ready to help you study!`,
           },
         ]);
       } catch (err) {
         console.error("File load error", err);
+        setMessages([
+          {
+            sender: "ai",
+            text: "Error loading file. Please try a different document.",
+          },
+        ]);
       }
     };
     prepareFile();
   }, [content]);
 
-  // 2. Chat Function
+  // 2. Chat Logic (With Streaming)
   const handleSend = async () => {
     if (!userInput.trim() || !fileDataRef.current) return;
     const text = userInput;
-    setMessages((prev) => [...prev, { sender: "user", text }]);
     setUserInput("");
+    setMessages((prev) => [...prev, { sender: "user", text }]);
     setIsLoading(true);
 
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      const result = await model.generateContent([
+
+      // Add placeholder for AI response
+      setMessages((prev) => [...prev, { sender: "ai", text: "" }]);
+
+      const result = await model.generateContentStream([
         {
           inlineData: {
             mimeType: fileDataRef.current.mimeType,
@@ -232,13 +246,28 @@ const InteractiveContentModal: React.FC<{
         },
         { text },
       ]);
-      const response = result.response.text();
-      setMessages((prev) => [...prev, { sender: "ai", text: response }]);
-      onAddXP(5); // Gamification: 5 XP per question
+
+      let fullResponse = "";
+
+      for await (const chunk of result.stream) {
+        const chunkText = chunk.text();
+        fullResponse += chunkText;
+        setMessages((prev) => {
+          const newMsgs = [...prev];
+          const lastMsg = newMsgs[newMsgs.length - 1];
+          if (lastMsg.sender === "ai") lastMsg.text = fullResponse;
+          return newMsgs;
+        });
+      }
+      onAddXP(5);
     } catch (error) {
+      console.error("Gemini Error:", error);
       setMessages((prev) => [
         ...prev,
-        { sender: "ai", text: "Error generating response." },
+        {
+          sender: "ai",
+          text: "Sorry, I encountered an error. Please try again.",
+        },
       ]);
     } finally {
       setIsLoading(false);
@@ -253,7 +282,7 @@ const InteractiveContentModal: React.FC<{
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const prompt =
-        'Create 5 study flashcards from this content. Return JSON format: [{ "question": "...", "answer": "..." }]';
+        'Create 5 study flashcards from this content. Return strict JSON format: [{ "question": "...", "answer": "..." }]';
       const result = await model.generateContent([
         {
           inlineData: {
@@ -264,14 +293,13 @@ const InteractiveContentModal: React.FC<{
         { text: prompt },
       ]);
       const text = result.response.text();
-      // Clean JSON string
       const jsonStr = text.replace(/```json|```/g, "").trim();
       const cards = JSON.parse(jsonStr);
       setFlashcards(cards);
-      onAddXP(20); // Gamification: 20 XP for generating cards
+      onAddXP(20);
     } catch (error) {
       console.error("Flashcard error", error);
-      alert("Could not generate flashcards from this file type.");
+      alert("Could not generate flashcards. Please try again.");
     } finally {
       setIsGeneratingCards(false);
     }
@@ -281,7 +309,7 @@ const InteractiveContentModal: React.FC<{
   const generateSummary = async () => {
     if (!fileDataRef.current) return;
     setActiveTab("summary");
-    if (summary) return; // Don't regen if exists
+    if (summary) return;
 
     setIsLoading(true);
     try {
@@ -297,12 +325,14 @@ const InteractiveContentModal: React.FC<{
       ]);
       setSummary(result.response.text());
       onAddXP(10);
+    } catch (e) {
+      console.error(e);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // 5. Post Comment
+  // 5. Discussion Logic
   const handlePostComment = () => {
     if (!newComment.trim()) return;
     setComments((prev) => [
@@ -315,8 +345,8 @@ const InteractiveContentModal: React.FC<{
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-slate-900/80 backdrop-blur-sm">
-      <div className="bg-white w-full max-w-4xl h-[80vh] rounded-xl shadow-2xl flex flex-col overflow-hidden">
-        {/* Header */}
+      <div className="bg-white w-full max-w-4xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden">
+        {/* Modal Header */}
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
           <h3 className="font-bold text-slate-800 flex items-center gap-2">
             <ZapIcon className="w-5 h-5 text-brand-secondary" />
@@ -327,13 +357,13 @@ const InteractiveContentModal: React.FC<{
           </button>
         </div>
 
-        {/* Tabs */}
+        {/* Navigation Tabs */}
         <div className="flex border-b border-slate-200 bg-white">
           {[
             { id: "chat", label: "Ask AI", icon: "🤖" },
             { id: "flashcards", label: "Flashcards", icon: "🃏" },
-            { id: "summary", label: "Key Takeaways", icon: "📝" },
-            { id: "discuss", label: "Discussion", icon: "💬" },
+            { id: "summary", label: "Summary", icon: "📝" },
+            { id: "discuss", label: "Discuss", icon: "💬" },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -349,12 +379,12 @@ const InteractiveContentModal: React.FC<{
           ))}
         </div>
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
-          {/* CHAT TAB */}
+        {/* Tab Content */}
+        <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
+          {/* CHAT */}
           {activeTab === "chat" && (
             <div className="flex flex-col h-full">
-              <div className="flex-1 space-y-4 overflow-y-auto mb-4">
+              <div className="flex-1 space-y-4 overflow-y-auto mb-4 pr-2">
                 {messages.map((msg, i) => (
                   <div
                     key={i}
@@ -363,38 +393,43 @@ const InteractiveContentModal: React.FC<{
                     }`}
                   >
                     <div
-                      className={`max-w-[80%] p-3 rounded-lg text-sm ${
+                      className={`max-w-[85%] p-3 rounded-lg text-sm leading-relaxed whitespace-pre-wrap shadow-sm ${
                         msg.sender === "user"
-                          ? "bg-brand-primary text-white"
-                          : "bg-white border shadow-sm"
+                          ? "bg-brand-primary text-white rounded-tr-none"
+                          : "bg-white border border-slate-200 text-slate-700 rounded-tl-none"
                       }`}
                     >
                       {msg.text}
                     </div>
                   </div>
                 ))}
-                {isLoading && (
-                  <div className="text-slate-400 italic text-sm">
-                    Thinking...
-                  </div>
-                )}
+                <div ref={chatEndRef} />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 bg-white p-2 rounded-lg border border-slate-200">
                 <input
                   value={userInput}
                   onChange={(e) => setUserInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                  placeholder="Ask a question about this file..."
-                  className="flex-1 px-4 py-2 border rounded-lg"
+                  onKeyDown={(e) =>
+                    e.key === "Enter" && !isLoading && handleSend()
+                  }
+                  placeholder={
+                    isLoading ? "AI is thinking..." : "Ask a question..."
+                  }
+                  disabled={isLoading}
+                  className="flex-1 px-3 py-2 outline-none text-sm"
                 />
-                <Button onClick={handleSend}>
+                <Button
+                  onClick={handleSend}
+                  disabled={isLoading || !userInput.trim()}
+                  className="rounded-lg"
+                >
                   <SendIcon className="w-4 h-4" />
                 </Button>
               </div>
             </div>
           )}
 
-          {/* FLASHCARDS TAB */}
+          {/* FLASHCARDS */}
           {activeTab === "flashcards" && (
             <div className="h-full flex flex-col items-center justify-center">
               {flashcards.length > 0 ? (
@@ -403,37 +438,41 @@ const InteractiveContentModal: React.FC<{
                   onClose={() => setFlashcards([])}
                 />
               ) : (
-                <div className="text-center">
+                <div className="text-center max-w-sm">
                   <div className="text-6xl mb-4">🃏</div>
-                  <h3 className="text-xl font-bold text-slate-700">
+                  <h3 className="text-xl font-bold text-slate-700 mb-2">
                     Generate Study Cards
                   </h3>
-                  <p className="text-slate-500 mb-6">
-                    Let AI create quiz cards from this document to help you
-                    memorize.
+                  <p className="text-slate-500 mb-6 text-sm">
+                    Let AI scan this document and create quiz cards to help you
+                    memorize key concepts.
                   </p>
                   <Button
                     onClick={generateFlashcards}
                     disabled={isGeneratingCards}
+                    className="w-full"
                   >
-                    {isGeneratingCards
-                      ? "Generating..."
-                      : "Create Flashcards Now"}
+                    {isGeneratingCards ? "Generating..." : "Create Flashcards"}
                   </Button>
                 </div>
               )}
             </div>
           )}
 
-          {/* SUMMARY TAB */}
+          {/* SUMMARY */}
           {activeTab === "summary" && (
             <div className="h-full">
               {!summary ? (
-                <div className="text-center mt-20">
+                <div className="h-full flex flex-col items-center justify-center text-center">
+                  <div className="text-6xl mb-4">📝</div>
+                  <h3 className="text-xl font-bold text-slate-700 mb-2">
+                    AI Summary
+                  </h3>
+                  <p className="text-slate-500 mb-6 text-sm">
+                    Get a quick overview and key takeaways from this file.
+                  </p>
                   <Button onClick={generateSummary} disabled={isLoading}>
-                    {isLoading
-                      ? "Summarizing..."
-                      : "Generate Summary & Takeaways"}
+                    {isLoading ? "Summarizing..." : "Generate Summary"}
                   </Button>
                 </div>
               ) : (
@@ -444,7 +483,8 @@ const InteractiveContentModal: React.FC<{
                     </h3>
                     <button
                       onClick={() => handleSpeak(summary)}
-                      className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100"
+                      className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition-colors"
+                      title="Read Aloud"
                     >
                       <MicIcon className="w-5 h-5" />
                     </button>
@@ -457,39 +497,42 @@ const InteractiveContentModal: React.FC<{
             </div>
           )}
 
-          {/* DISCUSSION TAB */}
+          {/* DISCUSSION */}
           {activeTab === "discuss" && (
             <div className="flex flex-col h-full">
               <div className="flex-1 space-y-4 overflow-y-auto mb-4">
                 {comments.length === 0 ? (
-                  <p className="text-center text-slate-400 py-10">
-                    No comments yet. Be the first!
-                  </p>
+                  <div className="text-center text-slate-400 py-10 flex flex-col items-center">
+                    <MessageSquareIcon className="w-12 h-12 mb-2 opacity-20" />
+                    <p>No comments yet. Start the discussion!</p>
+                  </div>
                 ) : (
                   comments.map((c, i) => (
                     <div key={i} className="flex gap-3">
-                      <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs">
+                      <div className="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-bold text-xs shrink-0">
                         {c.user.charAt(0)}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm">{c.user}</span>
-                          <span className="text-xs text-slate-400">
+                      <div className="bg-white p-3 rounded-lg rounded-tl-none border border-slate-100 shadow-sm flex-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-bold text-xs text-slate-800">
+                            {c.user}
+                          </span>
+                          <span className="text-[10px] text-slate-400">
                             {c.date}
                           </span>
                         </div>
-                        <p className="text-sm text-slate-600 mt-1">{c.text}</p>
+                        <p className="text-sm text-slate-600">{c.text}</p>
                       </div>
                     </div>
                   ))
                 )}
               </div>
-              <div className="flex gap-2 pt-4 border-t border-slate-100">
+              <div className="flex gap-2 pt-3 border-t border-slate-200">
                 <input
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                   placeholder="Share your thoughts..."
-                  className="flex-1 px-4 py-2 border rounded-lg text-sm"
+                  className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
                 />
                 <Button onClick={handlePostComment} variant="secondary">
                   Post
@@ -503,7 +546,7 @@ const InteractiveContentModal: React.FC<{
   );
 };
 
-// --- MAIN PAGE COMPONENT ---
+// --- MAIN COMPONENT ---
 
 const StudentContent: React.FC = () => {
   const { user } = useAuth();
@@ -512,21 +555,20 @@ const StudentContent: React.FC = () => {
   const [selectedContent, setSelectedContent] =
     useState<EnhancedContent | null>(null);
 
-  // Filters & State
+  // Local UI State
   const [filter, setFilter] = useState<
     "all" | "video" | "document" | "bookmarked"
   >("all");
-  const [xp, setXp] = useState(120); // Initial XP
+  const [xp, setXp] = useState(120);
   const [level, setLevel] = useState(1);
 
-  // Add XP Function (Passed to child)
+  // Function to add XP (Passed to child modal)
   const addXP = (amount: number) => {
     const newXp = xp + amount;
     setXp(newXp);
-    // Simple level up logic
     if (Math.floor(newXp / 100) > level) {
       setLevel((prev) => prev + 1);
-      alert(`🎉 Level Up! You are now Level ${level + 1}`);
+      // alert(`🎉 Level Up! You are now Level ${level + 1}`); // Optional alert
     }
   };
 
@@ -536,17 +578,19 @@ const StudentContent: React.FC = () => {
       setLoading(true);
       try {
         const data = await apiService.getCourseContentForStudent();
-        // Transform to Enhanced Content (Mocking some metadata)
+
+        // Transform API data to Enhanced Content (Mocking some missing fields for UI demo)
         const enhancedData: EnhancedContent[] = data.map((item) => ({
           ...item,
-          rating: Math.floor(Math.random() * 2) + 3, // Random 3-5 stars
+          rating: Math.floor(Math.random() * 2) + 3, // Mock rating 3-5
           isBookmarked: false,
-          progress: Math.floor(Math.random() * 100), // Random progress
+          progress: Math.floor(Math.random() * 100), // Mock progress
           readTime: `${Math.floor(Math.random() * 10) + 2} min`,
           difficulty: ["Easy", "Medium", "Hard"][
             Math.floor(Math.random() * 3)
           ] as any,
         }));
+
         setContent(enhancedData);
       } catch (e) {
         console.error("Failed to load content", e);
@@ -557,7 +601,6 @@ const StudentContent: React.FC = () => {
     fetchData();
   }, [user]);
 
-  // Handlers
   const toggleBookmark = (id: string) => {
     setContent((prev) =>
       prev.map((c) =>
@@ -576,15 +619,23 @@ const StudentContent: React.FC = () => {
     });
   }, [content, filter]);
 
-  // Grouping
+  // FIX: Grouping Logic with robust type checking for 'course'
   const groupedContent = useMemo(() => {
     const groups = new Map<string, EnhancedContent[]>();
 
     filteredContent.forEach((item) => {
       let courseName = "General Resources";
 
-      if (typeof item.course === "object" && item.course?.subject?.name) {
-        courseName = item.course.subject.name;
+      // Robust check: 'course' can be an object (from Prisma include) or string (ID)
+      if (
+        typeof item.course === "object" &&
+        item.course !== null &&
+        (item.course as any).subject?.name
+      ) {
+        courseName = (item.course as any).subject.name;
+      } else if (item.courseId) {
+        // Fallback to ID if name not found, but try to make it readable
+        courseName = `Subject (${item.courseId.substring(0, 4)}...)`;
       }
 
       if (!groups.has(courseName)) {
@@ -598,29 +649,29 @@ const StudentContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20">
-      {/* Header & Gamification Bar */}
+      {/* Page Header & Gamification Bar */}
       <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Learning Hub</h1>
           <p className="text-slate-500 mt-1">
-            Explore, interact, and master your subjects.
+            Explore resources, ask AI, and track your progress.
           </p>
         </div>
 
-        {/* XP Card */}
+        {/* XP / Level Widget */}
         <div className="bg-white p-2 pr-4 rounded-full shadow-sm border border-slate-200 flex items-center gap-3">
-          <div className="bg-amber-100 text-amber-700 p-2 rounded-full font-bold text-xs border border-amber-200">
+          <div className="bg-amber-100 text-amber-700 p-2 rounded-full font-bold text-xs border border-amber-200 shadow-sm">
             Lvl {level}
           </div>
           <div className="flex flex-col">
-            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
               Experience
             </span>
             <span className="text-sm font-bold text-slate-800">{xp} XP</span>
           </div>
           <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden ml-2">
             <div
-              className="h-full bg-amber-400 rounded-full"
+              className="h-full bg-amber-400 rounded-full transition-all duration-500"
               style={{ width: `${xp % 100}%` }}
             ></div>
           </div>
@@ -628,7 +679,7 @@ const StudentContent: React.FC = () => {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+      <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
         {[
           { id: "all", label: "All Materials" },
           { id: "video", label: "Videos" },
@@ -638,9 +689,9 @@ const StudentContent: React.FC = () => {
           <button
             key={tab.id}
             onClick={() => setFilter(tab.id as any)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
               filter === tab.id
-                ? "bg-slate-800 text-white shadow-md"
+                ? "bg-slate-800 text-white shadow-md transform scale-105"
                 : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
             }`}
           >
@@ -649,12 +700,14 @@ const StudentContent: React.FC = () => {
         ))}
       </div>
 
+      {/* Content Grid */}
       {loading ? (
-        <div className="p-12 text-center text-slate-400">
-          Loading your learning path...
+        <div className="p-12 text-center text-slate-400 animate-pulse">
+          Loading study materials...
         </div>
       ) : groupedContent.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
+          <SearchIcon className="w-12 h-12 text-slate-200 mx-auto mb-3" />
           <p className="text-lg text-slate-500">
             No content found in this category.
           </p>
@@ -667,34 +720,35 @@ const StudentContent: React.FC = () => {
           </Button>
         </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-10">
           {groupedContent.map(([courseName, items]) => (
             <div key={courseName}>
-              <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
                 <BookOpenIcon className="w-5 h-5 text-brand-primary" />
                 {courseName}
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {items.map((item) => (
                   <div
                     key={item.id}
-                    className="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-lg transition-all group relative overflow-hidden"
+                    className="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-lg transition-all group relative overflow-hidden flex flex-col h-full"
                   >
-                    {/* Progress Bar (Top) */}
+                    {/* Top Progress Indicator */}
                     <div className="absolute top-0 left-0 w-full h-1 bg-slate-100">
                       <div
-                        className="h-full bg-green-500"
+                        className="h-full bg-green-500 transition-all duration-1000"
                         style={{ width: `${item.progress}%` }}
                       ></div>
                     </div>
 
-                    <div className="flex justify-between items-start mt-2">
-                      <div className="bg-slate-100 p-2 rounded-lg text-2xl">
+                    <div className="flex justify-between items-start mt-2 mb-2">
+                      <div className="bg-slate-50 p-2 rounded-lg text-2xl border border-slate-100">
                         {getFileIcon(item.fileType)}
                       </div>
                       <button
                         onClick={() => toggleBookmark(item.id)}
-                        className="text-slate-300 hover:text-amber-400 transition-colors"
+                        className="text-slate-300 hover:text-amber-400 transition-colors p-1"
                       >
                         <BookmarkIcon
                           className={`w-5 h-5 ${
@@ -706,19 +760,19 @@ const StudentContent: React.FC = () => {
                       </button>
                     </div>
 
-                    <h3 className="font-bold text-slate-800 mt-3 truncate">
+                    <h3 className="font-bold text-slate-800 text-lg leading-tight mb-1 line-clamp-1">
                       {item.title}
                     </h3>
-                    <p className="text-xs text-slate-500 mt-1 line-clamp-2 h-8">
-                      {item.description}
+                    <p className="text-xs text-slate-500 line-clamp-2 mb-4 h-8">
+                      {item.description || "No description provided."}
                     </p>
 
-                    <div className="flex items-center gap-3 mt-4 text-xs text-slate-400">
-                      <span className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded">
+                    <div className="flex items-center gap-2 text-[10px] text-slate-400 mb-4">
+                      <span className="bg-slate-100 px-2 py-1 rounded text-slate-600 font-medium">
                         ⏱️ {item.readTime}
                       </span>
                       <span
-                        className={`px-2 py-1 rounded ${
+                        className={`px-2 py-1 rounded font-medium ${
                           item.difficulty === "Easy"
                             ? "bg-green-50 text-green-700"
                             : item.difficulty === "Medium"
@@ -730,8 +784,8 @@ const StudentContent: React.FC = () => {
                       </span>
                     </div>
 
-                    <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center">
-                      <div className="flex text-amber-400 text-xs">
+                    <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center">
+                      <div className="flex text-amber-400">
                         {[...Array(5)].map((_, i) => (
                           <StarIcon
                             key={i}
@@ -745,16 +799,19 @@ const StudentContent: React.FC = () => {
                       </div>
 
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => setSelectedContent(item)}
-                          className="px-3 py-1.5 rounded-lg bg-brand-primary text-white text-xs font-bold hover:bg-brand-primary/90 transition-colors flex items-center gap-1 shadow-sm shadow-brand-primary/30"
-                        >
-                          <ZapIcon className="w-3 h-3" /> Study
-                        </button>
+                        {/* Only show AI button if env key exists (optional check) */}
+                        {process.env.REACT_APP_GEMINI_API_KEY && (
+                          <button
+                            onClick={() => setSelectedContent(item)}
+                            className="px-3 py-1.5 rounded-lg bg-brand-primary text-white text-xs font-bold hover:bg-brand-primary/90 transition-all flex items-center gap-1 shadow-sm shadow-brand-primary/30"
+                          >
+                            <ZapIcon className="w-3 h-3" /> Study
+                          </button>
+                        )}
                         <a
                           href={item.fileUrl}
                           download={item.fileName}
-                          className="p-1.5 text-slate-400 hover:text-brand-secondary hover:bg-slate-50 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-brand-secondary hover:bg-slate-50 rounded-lg transition-colors border border-transparent hover:border-slate-200"
                         >
                           <ShareIcon className="w-4 h-4" />
                         </a>
@@ -769,7 +826,7 @@ const StudentContent: React.FC = () => {
       )}
 
       {selectedContent && (
-        <InteractiveContentModal
+        <AIContentAssistantModal
           content={selectedContent}
           onClose={() => setSelectedContent(null)}
           onAddXP={addXP}
