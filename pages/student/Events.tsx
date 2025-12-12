@@ -244,7 +244,7 @@ const Events: React.FC = () => {
               className={`flex items-center gap-1.5 text-[10px] p-1.5 rounded cursor-pointer transition-colors border-l-2 truncate shadow-sm ${
                 event.category === "Holiday"
                   ? "bg-red-50 border-red-400 text-red-700 hover:bg-red-100"
-                  : event.category === "Academic" // FIX: Changed "Exam" to "Academic"
+                  : event.category === "Academic" 
                   ? "bg-amber-50 border-amber-400 text-amber-700 hover:bg-amber-100"
                   : "bg-blue-50 border-blue-400 text-blue-700 hover:bg-blue-100"
               }`}
