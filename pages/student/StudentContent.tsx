@@ -39,6 +39,16 @@ interface Flashcard {
 
 // --- HELPER FUNCTIONS ---
 
+// Helper to access env variables safely in both Vite and CRA
+const getApiKey = () => {
+  // @ts-ignore - Handles Vite vs Webpack differences
+  return (
+    process.env.REACT_APP_GEMINI_API_KEY ||
+    (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+    ""
+  );
+};
+
 const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -56,9 +66,12 @@ const getFileIcon = (fileType: string) => {
   if (fileType.includes("image")) return "🖼️";
   if (fileType.includes("video")) return "🎬";
   if (fileType.includes("audio")) return "🎵";
+  if (fileType.includes("presentation")) return "📊";
   return "📎";
 };
 
+// FIX: Stable Random Generator (Based on String ID)
+// This ensures the same file always gets the same stats after refresh
 const getStableNumber = (seed: string, range: number, offset: number = 0) => {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
@@ -114,7 +127,7 @@ const FlashcardViewer: React.FC<{
         >
           {/* Front */}
           {!isFlipped && (
-            <div className="absolute inset-0 bg-white border-2 border-brand-primary/20 rounded-xl flex flex-col items-center justify-center p-6 shadow-md">
+            <div className="absolute inset-0 bg-white border-2 border-brand-primary/20 rounded-xl flex flex-col items-center justify-center p-6 shadow-md backface-hidden">
               <p className="text-xs uppercase tracking-widest text-slate-400 mb-4">
                 Question
               </p>
@@ -126,7 +139,7 @@ const FlashcardViewer: React.FC<{
           )}
           {/* Back */}
           {isFlipped && (
-            <div className="absolute inset-0 bg-brand-primary text-white rounded-xl flex flex-col items-center justify-center p-6 shadow-md">
+            <div className="absolute inset-0 bg-brand-primary text-white rounded-xl flex flex-col items-center justify-center p-6 shadow-md backface-hidden rotate-y-180">
               <p className="text-xs uppercase tracking-widest text-white/70 mb-4">
                 Answer
               </p>
@@ -170,11 +183,8 @@ const AIContentAssistantModal: React.FC<{
   const fileDataRef = useRef<{ base64: string; mimeType: string } | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Initialize Gemini AI (Using process.env)
-  const genAI = useMemo(
-    () => new GoogleGenerativeAI(process.env.GEMINI_API_KEY || ""),
-    []
-  );
+  // Initialize Gemini AI with Safe API Key Access
+  const genAI = useMemo(() => new GoogleGenerativeAI(getApiKey()), []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -191,6 +201,19 @@ const AIContentAssistantModal: React.FC<{
       try {
         const response = await fetch(content.fileUrl);
         const blob = await response.blob();
+
+        // Basic size check (Gemini has limits, browser has limits)
+        if (blob.size > 10 * 1024 * 1024) {
+          // 10MB limit check
+          setMessages([
+            {
+              sender: "ai",
+              text: "⚠️ This file is too large for the AI to process directly.",
+            },
+          ]);
+          return;
+        }
+
         const base64 = await blobToBase64(blob);
 
         let mimeType = content.fileType;
@@ -214,7 +237,7 @@ const AIContentAssistantModal: React.FC<{
         setMessages([
           {
             sender: "ai",
-            text: "Error loading file. Please try a different document.",
+            text: "Error loading file. It might be restricted or too large.",
           },
         ]);
       }
@@ -223,7 +246,25 @@ const AIContentAssistantModal: React.FC<{
   }, [content]);
 
   const handleSend = async () => {
-    if (!userInput.trim() || !fileDataRef.current) return;
+    if (!userInput.trim()) return;
+
+    // Check if API Key is missing
+    if (!getApiKey()) {
+      alert("API Key is missing. Please check your .env file.");
+      return;
+    }
+
+    if (!fileDataRef.current) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: "ai",
+          text: "Still loading the document... please wait a moment.",
+        },
+      ]);
+      return;
+    }
+
     const text = userInput;
     setUserInput("");
     setMessages((prev) => [...prev, { sender: "user", text }]);
@@ -231,7 +272,9 @@ const AIContentAssistantModal: React.FC<{
 
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      setMessages((prev) => [...prev, { sender: "ai", text: "" }]); // Placeholder
+
+      // Add placeholder
+      setMessages((prev) => [...prev, { sender: "ai", text: "" }]);
 
       const result = await model.generateContentStream([
         {
@@ -249,21 +292,33 @@ const AIContentAssistantModal: React.FC<{
         fullResponse += chunkText;
         setMessages((prev) => {
           const newMsgs = [...prev];
+          // Safely update the last message which is the AI placeholder
           const lastMsg = newMsgs[newMsgs.length - 1];
-          if (lastMsg.sender === "ai") lastMsg.text = fullResponse;
+          if (lastMsg && lastMsg.sender === "ai") {
+            lastMsg.text = fullResponse;
+          }
           return newMsgs;
         });
       }
       onAddXP(5);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Gemini Error:", error);
-      setMessages((prev) => [
-        ...prev,
-        {
-          sender: "ai",
-          text: "Sorry, I encountered an error. Please try again.",
-        },
-      ]);
+      let errorMsg = "Sorry, I encountered an error. Please try again.";
+      if (error.message?.includes("API key")) errorMsg = "Invalid API Key.";
+      if (error.message?.includes("400"))
+        errorMsg =
+          "The request was rejected by AI (Content policy or format issue).";
+
+      setMessages((prev) => {
+        const newMsgs = [...prev];
+        const lastMsg = newMsgs[newMsgs.length - 1];
+        if (lastMsg && lastMsg.sender === "ai" && lastMsg.text === "") {
+          lastMsg.text = errorMsg;
+        } else {
+          newMsgs.push({ sender: "ai", text: errorMsg });
+        }
+        return newMsgs;
+      });
     } finally {
       setIsLoading(false);
     }
@@ -276,7 +331,7 @@ const AIContentAssistantModal: React.FC<{
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const prompt =
-        'Create 5 study flashcards from this content. Return strict JSON format: [{ "question": "...", "answer": "..." }]';
+        'Create 5 study flashcards from this content. Return ONLY raw JSON array: [{ "question": "...", "answer": "..." }]';
       const result = await model.generateContent([
         {
           inlineData: {
@@ -287,13 +342,16 @@ const AIContentAssistantModal: React.FC<{
         { text: prompt },
       ]);
       const text = result.response.text();
+      // Cleanup JSON (remove markdown ticks if AI adds them)
       const jsonStr = text.replace(/```json|```/g, "").trim();
       const cards = JSON.parse(jsonStr);
       setFlashcards(cards);
       onAddXP(20);
     } catch (error) {
       console.error("Flashcard error", error);
-      alert("Could not generate flashcards. Please try again.");
+      alert(
+        "Could not generate flashcards. Please try asking a question instead."
+      );
     } finally {
       setIsGeneratingCards(false);
     }
@@ -338,16 +396,18 @@ const AIContentAssistantModal: React.FC<{
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-slate-900/80 backdrop-blur-sm">
       <div className="bg-white w-full max-w-4xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden">
+        {/* Modal Header */}
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
           <h3 className="font-bold text-slate-800 flex items-center gap-2">
-            <ZapIcon className="w-5 h-5 text-brand-secondary" /> Smart Learning:{" "}
-            {content.title}
+            <ZapIcon className="w-5 h-5 text-brand-secondary" />
+            Smart Learning: {content.title}
           </h3>
           <button onClick={onClose}>
             <XIcon className="w-6 h-6 text-slate-400 hover:text-slate-600" />
           </button>
         </div>
 
+        {/* Tabs */}
         <div className="flex border-b border-slate-200 bg-white">
           {[
             { id: "chat", label: "Ask AI", icon: "🤖" },
@@ -369,6 +429,7 @@ const AIContentAssistantModal: React.FC<{
           ))}
         </div>
 
+        {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
           {activeTab === "chat" && (
             <div className="flex flex-col h-full">
@@ -469,7 +530,7 @@ const AIContentAssistantModal: React.FC<{
                     </h3>
                     <button
                       onClick={() => handleSpeak(summary)}
-                      className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100"
+                      className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition-colors"
                       title="Read Aloud"
                     >
                       <MicIcon className="w-5 h-5" />
@@ -561,13 +622,13 @@ const StudentContent: React.FC = () => {
       try {
         const data = await apiService.getCourseContentForStudent();
 
-        // FIX: Use Stable Randomness based on ID
+        // Transform Data with Stable Logic
         const enhancedData: EnhancedContent[] = data.map((item) => {
-          // Use ID to determine stable stats
+          // Use ID to generate stable "random" stats
           const rating = getStableNumber(item.id, 3, 3); // 3-5 stars
-          const progress = getStableNumber(item.id, 100); // 0-100%
-          const readTimeMin = getStableNumber(item.id, 15, 2); // 2-17 mins
-          const difficultyIndex = getStableNumber(item.id, 3); // 0, 1, or 2
+          const progress = getStableNumber(item.id, 100);
+          const readTimeMin = getStableNumber(item.id, 15, 2);
+          const difficultyIndex = getStableNumber(item.id, 3);
 
           return {
             ...item,
@@ -611,6 +672,7 @@ const StudentContent: React.FC = () => {
     const groups = new Map<string, EnhancedContent[]>();
     filteredContent.forEach((item) => {
       let courseName = "General Resources";
+      // FIX: Robust check for course object vs ID string
       if (
         typeof item.course === "object" &&
         item.course !== null &&
@@ -628,7 +690,7 @@ const StudentContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20">
-      {/* Page Header */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Learning Hub</h1>
@@ -637,7 +699,7 @@ const StudentContent: React.FC = () => {
           </p>
         </div>
 
-        {/* XP Card */}
+        {/* XP */}
         <div className="bg-white p-2 pr-4 rounded-full shadow-sm border border-slate-200 flex items-center gap-3">
           <div className="bg-amber-100 text-amber-700 p-2 rounded-full font-bold text-xs border border-amber-200 shadow-sm">
             Lvl {level}
@@ -657,7 +719,7 @@ const StudentContent: React.FC = () => {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Tabs */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
         {[
           { id: "all", label: "All Materials" },
@@ -679,7 +741,7 @@ const StudentContent: React.FC = () => {
         ))}
       </div>
 
-      {/* Content Grid */}
+      {/* Grid */}
       {loading ? (
         <div className="p-12 text-center text-slate-400 animate-pulse">
           Loading study materials...
@@ -687,9 +749,7 @@ const StudentContent: React.FC = () => {
       ) : groupedContent.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
           <SearchIcon className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-          <p className="text-lg text-slate-500">
-            No content found in this category.
-          </p>
+          <p className="text-lg text-slate-500">No content found.</p>
           <Button
             variant="secondary"
             className="mt-4"
@@ -777,7 +837,7 @@ const StudentContent: React.FC = () => {
                       </div>
 
                       <div className="flex gap-2">
-                        {/* FIX: Removed env check to force button visibility */}
+                        {/* Always visible button */}
                         <button
                           onClick={() => setSelectedContent(item)}
                           className="px-3 py-1.5 rounded-lg bg-brand-primary text-white text-xs font-bold hover:bg-brand-primary/90 transition-all flex items-center gap-1 shadow-sm shadow-brand-primary/30"
