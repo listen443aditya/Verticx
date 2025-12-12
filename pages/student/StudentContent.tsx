@@ -48,12 +48,14 @@ const getApiKey = () => {
   );
 };
 
+// FIX: Updated Model Name to specific stable version to prevent 404 errors
+const GEMINI_MODEL_NAME = "gemini-1.5-flash-001";
+
 const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64String = reader.result as string;
-      // Robustly remove ANY data URL prefix
       const base64Clean = base64String.substring(base64String.indexOf(",") + 1);
       resolve(base64Clean);
     };
@@ -196,11 +198,9 @@ const AIContentAssistantModal: React.FC<{
     window.speechSynthesis.speak(utterance);
   };
 
-  // 1. ROBUST FILE PREPARATION (Fixes "Not Processing")
   useEffect(() => {
     const prepareFile = async () => {
       try {
-        console.log("Fetching file:", content.fileUrl);
         const response = await fetch(content.fileUrl, { mode: "cors" });
 
         if (!response.ok) {
@@ -211,21 +211,23 @@ const AIContentAssistantModal: React.FC<{
 
         const blob = await response.blob();
 
-        // Convert to Base64
+        if (blob.size > 3 * 1024 * 1024) {
+          setMessages([
+            {
+              sender: "ai",
+              text: "⚠️ This file is large. Responses might take a moment.",
+            },
+          ]);
+        }
+
         const base64 = await blobToBase64(blob);
 
-        // FIX: Force Correct MIME Type based on Extension
-        // Gemini is strict. It rejects 'application/x-pdf' or generic types.
-        let mimeType = "application/pdf"; // Default to PDF as it's most common for docs
+        let mimeType = "application/pdf";
         const ext = content.fileName.split(".").pop()?.toLowerCase();
 
         if (ext === "png") mimeType = "image/png";
         else if (ext === "jpg" || ext === "jpeg") mimeType = "image/jpeg";
         else if (ext === "webp") mimeType = "image/webp";
-
-        console.log(
-          `File Prepared: ${content.fileName} (${mimeType}) Size: ${blob.size}`
-        );
 
         fileDataRef.current = { base64, mimeType };
         setIsFileReady(true);
@@ -233,7 +235,7 @@ const AIContentAssistantModal: React.FC<{
         setMessages([
           {
             sender: "ai",
-            text: `I've analyzed "${content.title}". I'm ready to help you study!`,
+            text: `I've analyzed "${content.title}". Ask me anything!`,
           },
         ]);
       } catch (err) {
@@ -241,9 +243,7 @@ const AIContentAssistantModal: React.FC<{
         setMessages([
           {
             sender: "ai",
-            text: `Error loading file. This is usually due to CORS restrictions on your file storage.\n\nTechnical Error: ${
-              (err as any).message
-            }`,
+            text: `Error loading file. Access blocked or file too large.`,
           },
         ]);
       }
@@ -254,7 +254,7 @@ const AIContentAssistantModal: React.FC<{
   const handleSend = async () => {
     if (!userInput.trim()) return;
     if (!isFileReady || !fileDataRef.current) {
-      alert("File is not ready yet. Please check for error messages.");
+      alert("File is not ready yet.");
       return;
     }
 
@@ -264,7 +264,8 @@ const AIContentAssistantModal: React.FC<{
     setIsLoading(true);
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      // FIX: Use specific model version
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_NAME });
       setMessages((prev) => [...prev, { sender: "ai", text: "" }]);
 
       const result = await model.generateContentStream([
@@ -291,10 +292,13 @@ const AIContentAssistantModal: React.FC<{
       onAddXP(5);
     } catch (error: any) {
       console.error("Gemini Chat Error:", error);
-      let errorMsg = "Sorry, I encountered an error. Please try again.";
-      if (error.message?.includes("400"))
+
+      let errorMsg = "Sorry, I encountered an error.";
+      if (error.message?.includes("404"))
         errorMsg =
-          "AI Error: The file content cannot be processed. It might be corrupted or in an unsupported format.";
+          "AI Model Error: The 'flash' model is not available for your API key. Try checking your API key permissions.";
+      else if (error.message?.includes("400"))
+        errorMsg = "The file content cannot be processed by AI.";
 
       setMessages((prev) => {
         const newMsgs = [...prev];
@@ -313,12 +317,13 @@ const AIContentAssistantModal: React.FC<{
     setIsGeneratingCards(true);
     setActiveTab("flashcards");
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      // FIX: Use specific model version
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_NAME });
       const prompt = `
-        Analyze this document and create 5 study flashcards.
-        Return the response strictly as a JSON array of objects.
-        Format: [{"question": "Question text", "answer": "Answer text"}]
-        Do not include markdown formatting like \`\`\`json.
+        Create 5 study flashcards from this document.
+        Return ONLY a JSON array. 
+        Format: [{"question": "...", "answer": "..."}]
+        No markdown formatting.
       `;
 
       const result = await model.generateContent([
@@ -332,14 +337,11 @@ const AIContentAssistantModal: React.FC<{
       ]);
 
       const text = result.response.text();
-
-      // FIX: Robust JSON Extraction
-      // Use regex to find the array brackets, ignoring surrounding text
       const match = text.match(/\[.*\]/s);
-      if (!match) throw new Error("No JSON found in response");
 
-      const jsonStr = match[0];
-      const cards = JSON.parse(jsonStr);
+      if (!match) throw new Error("No JSON found");
+
+      const cards = JSON.parse(match[0]);
 
       if (Array.isArray(cards)) {
         setFlashcards(cards);
@@ -350,7 +352,7 @@ const AIContentAssistantModal: React.FC<{
     } catch (error) {
       console.error("Flashcard error", error);
       alert(
-        "Could not generate flashcards. The AI response format was incorrect. Please try again."
+        "AI Error: Could not generate flashcards. Model might be overloaded or file type unsupported."
       );
     } finally {
       setIsGeneratingCards(false);
@@ -364,7 +366,8 @@ const AIContentAssistantModal: React.FC<{
 
     setIsLoading(true);
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      // FIX: Use specific model version
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_NAME });
       const result = await model.generateContentStream([
         {
           inlineData: {
@@ -378,12 +381,12 @@ const AIContentAssistantModal: React.FC<{
       let fullSummary = "";
       for await (const chunk of result.stream) {
         fullSummary += chunk.text();
-        setSummary(fullSummary); // Stream update UI
+        setSummary(fullSummary);
       }
       onAddXP(10);
     } catch (e) {
       console.error(e);
-      setSummary("Failed to generate summary.");
+      setSummary("Failed to generate summary. Please check your connection.");
     } finally {
       setIsLoading(false);
     }
