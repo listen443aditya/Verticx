@@ -43,8 +43,8 @@ interface Flashcard {
 const getApiKey = () => {
   // @ts-ignore - Handles Vite vs Webpack differences
   return (
-    process.env.REACT_APP_GEMINI_API_KEY ||
-    (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+    process.env.GEMINI_API_KEY ||
+    (import.meta as any).env?.GEMINI_API_KEY ||
     ""
   );
 };
