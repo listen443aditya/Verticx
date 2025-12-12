@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../../hooks/useAuth.ts";
-// FIX: Corrected import to use named export
+import { useAuth } from "../../hooks/useAuth";
 import { StudentApiService } from "../../services";
-import type { GradeWithCourse } from "../../types.ts";
-import Card from "../../components/ui/Card.tsx";
+import type { GradeWithCourse } from "../../types";
+import Card from "../../components/ui/Card";
 
 const apiService = new StudentApiService();
 
@@ -17,7 +16,6 @@ const MyGrades: React.FC = () => {
       if (!user) return;
       setLoading(true);
       try {
-
         const data = await apiService.getStudentGrades();
         setGrades(data);
       } catch (error) {
@@ -36,43 +34,50 @@ const MyGrades: React.FC = () => {
       </h1>
       <Card>
         {loading ? (
-          <p>Loading grades...</p>
+          <p className="p-4 text-slate-500">Loading grades...</p>
         ) : grades.length === 0 ? (
           <p className="text-center p-8 text-text-secondary-dark">
             No grades have been recorded yet.
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="border-b border-slate-200 text-sm text-text-secondary-dark">
+            <table className="w-full text-left border-collapse">
+              <thead className="border-b border-slate-200 text-sm text-text-secondary-dark bg-slate-50">
                 <tr>
-                  <th className="p-4">Type</th>
-                  <th className="p-4">Course</th>
-                  <th className="p-4">Assessment</th>
-                  <th className="p-4 text-center">Score</th>
+                  <th className="p-4 font-semibold">Type</th>
+                  <th className="p-4 font-semibold">Course</th>
+                  <th className="p-4 font-semibold">Assessment</th>
+                  <th className="p-4 font-semibold text-center">Score</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="text-sm">
                 {grades.map((grade, index) => (
                   <tr
-                    key={`${grade.studentId}-${grade.courseId}-${grade.assessment}-${index}`}
-                    className="border-b border-slate-100 hover:bg-slate-50"
+                    key={`${grade.studentId}-${grade.courseId || "nocourse"}-${
+                      grade.assessment
+                    }-${index}`}
+                    className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
                   >
                     <td className="p-4">
+                      {/* FIX: Added specific style for 'Assignment' */}
                       <span
-                        className={`text-xs font-bold px-2 py-1 rounded ${
+                        className={`text-xs font-bold px-2 py-1 rounded border ${
                           grade.type === "Quiz"
-                            ? "bg-purple-100 text-purple-700"
+                            ? "bg-purple-50 text-purple-700 border-purple-200"
                             : grade.type === "Exam"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-slate-100 text-slate-700"
+                            ? "bg-blue-50 text-blue-700 border-blue-200"
+                            : grade.type === "Assignment"
+                            ? "bg-orange-50 text-orange-700 border-orange-200"
+                            : "bg-slate-100 text-slate-700 border-slate-200"
                         }`}
                       >
                         {grade.type || "Grade"}
                       </span>
                     </td>
-                    <td className="p-4 font-medium">{grade.courseName}</td>
-                    <td className="p-4">{grade.assessment}</td>
+                    <td className="p-4 font-medium text-slate-700">
+                      {grade.courseName}
+                    </td>
+                    <td className="p-4 text-slate-600">{grade.assessment}</td>
                     <td className="p-4 text-center">
                       <span
                         className={`font-bold ${

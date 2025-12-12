@@ -188,7 +188,7 @@ export interface GradeWithCourse extends Grade {
   courseName: string;
   assessment: string;
   score: number;
-  type?: "Exam" | "Assignment" | "Quiz";
+  type?: "Exam" | "Assignment" | "Quiz" | string;
   date?: string | Date;
 }
 
