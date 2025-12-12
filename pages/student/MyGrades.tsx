@@ -17,7 +17,7 @@ const MyGrades: React.FC = () => {
       if (!user) return;
       setLoading(true);
       try {
-        // FIX: Removed the user.id argument to match the service method definition.
+
         const data = await apiService.getStudentGrades();
         setGrades(data);
       } catch (error) {
@@ -46,6 +46,7 @@ const MyGrades: React.FC = () => {
             <table className="w-full text-left">
               <thead className="border-b border-slate-200 text-sm text-text-secondary-dark">
                 <tr>
+                  <th className="p-4">Type</th>
                   <th className="p-4">Course</th>
                   <th className="p-4">Assessment</th>
                   <th className="p-4 text-center">Score</th>
@@ -57,6 +58,19 @@ const MyGrades: React.FC = () => {
                     key={`${grade.studentId}-${grade.courseId}-${grade.assessment}-${index}`}
                     className="border-b border-slate-100 hover:bg-slate-50"
                   >
+                    <td className="p-4">
+                      <span
+                        className={`text-xs font-bold px-2 py-1 rounded ${
+                          grade.type === "Quiz"
+                            ? "bg-purple-100 text-purple-700"
+                            : grade.type === "Exam"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-slate-100 text-slate-700"
+                        }`}
+                      >
+                        {grade.type || "Grade"}
+                      </span>
+                    </td>
                     <td className="p-4 font-medium">{grade.courseName}</td>
                     <td className="p-4">{grade.assessment}</td>
                     <td className="p-4 text-center">

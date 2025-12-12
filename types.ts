@@ -184,7 +184,12 @@ export interface Grade {
 }
 
 export interface GradeWithCourse extends Grade {
+  studentId: string;
   courseName: string;
+  assessment: string;
+  score: number;
+  type?: "Exam" | "Assignment" | "Quiz";
+  date?: string | Date;
 }
 
 export interface Assignment {
