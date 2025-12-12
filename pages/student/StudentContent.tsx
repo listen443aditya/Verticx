@@ -16,10 +16,15 @@ import {
   ShareIcon,
   ZapIcon,
   BookOpenIcon,
+  StopCircleIcon, // Added for Stop button
 } from "../../components/icons/Icons";
 
 // Initialize API Service
 const apiService = new StudentApiService();
+
+// --- CONSTANTS ---
+// Using the stable 2.5 Flash model for speed and efficiency
+const CHAT_MODEL_NAME = "gemini-2.5-flash";
 
 // --- TYPES & INTERFACES ---
 
@@ -48,14 +53,12 @@ const getApiKey = () => {
   );
 };
 
-// FIX: Updated Model Name to specific stable version to prevent 404 errors
-const GEMINI_MODEL_NAME = "gemini-2.5-flash";
-
 const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64String = reader.result as string;
+      // Robustly remove ANY data URL prefix
       const base64Clean = base64String.substring(base64String.indexOf(",") + 1);
       resolve(base64Clean);
     };
@@ -183,6 +186,9 @@ const AIContentAssistantModal: React.FC<{
   const [newComment, setNewComment] = useState("");
   const [isFileReady, setIsFileReady] = useState(false);
 
+  // Audio State
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
   const fileDataRef = useRef<{ base64: string; mimeType: string } | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -192,12 +198,30 @@ const AIContentAssistantModal: React.FC<{
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  const handleSpeak = (text: string) => {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    window.speechSynthesis.speak(utterance);
+  // Handle Speech Toggle
+  const handleSpeakToggle = (text: string) => {
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    } else {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.onend = () => setIsSpeaking(false);
+      // Optional: Select a specific voice if desired
+      // const voices = window.speechSynthesis.getVoices();
+      // utterance.voice = voices[0];
+      window.speechSynthesis.speak(utterance);
+      setIsSpeaking(true);
+    }
   };
 
+  // Cleanup speech on unmount
+  useEffect(() => {
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, []);
+
+  // 1. ROBUST FILE PREPARATION
   useEffect(() => {
     const prepareFile = async () => {
       try {
@@ -211,17 +235,10 @@ const AIContentAssistantModal: React.FC<{
 
         const blob = await response.blob();
 
-        if (blob.size > 3 * 1024 * 1024) {
-          setMessages([
-            {
-              sender: "ai",
-              text: "⚠️ This file is large. Responses might take a moment.",
-            },
-          ]);
-        }
-
+        // Convert to Base64
         const base64 = await blobToBase64(blob);
 
+        // Force Correct MIME Type based on Extension
         let mimeType = "application/pdf";
         const ext = content.fileName.split(".").pop()?.toLowerCase();
 
@@ -235,7 +252,7 @@ const AIContentAssistantModal: React.FC<{
         setMessages([
           {
             sender: "ai",
-            text: `I've analyzed "${content.title}". Ask me anything!`,
+            text: `I've analyzed "${content.title}". I'm ready to help you study!`,
           },
         ]);
       } catch (err) {
@@ -264,8 +281,8 @@ const AIContentAssistantModal: React.FC<{
     setIsLoading(true);
 
     try {
-      // FIX: Use specific model version
-      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_NAME });
+      // FIX: Use Gemini 2.5 Flash
+      const model = genAI.getGenerativeModel({ model: CHAT_MODEL_NAME });
       setMessages((prev) => [...prev, { sender: "ai", text: "" }]);
 
       const result = await model.generateContentStream([
@@ -292,13 +309,9 @@ const AIContentAssistantModal: React.FC<{
       onAddXP(5);
     } catch (error: any) {
       console.error("Gemini Chat Error:", error);
-
       let errorMsg = "Sorry, I encountered an error.";
       if (error.message?.includes("404"))
-        errorMsg =
-          "AI Model Error: The 'flash' model is not available for your API key. Try checking your API key permissions.";
-      else if (error.message?.includes("400"))
-        errorMsg = "The file content cannot be processed by AI.";
+        errorMsg = "AI Model Error: Model not found. Check API key.";
 
       setMessages((prev) => {
         const newMsgs = [...prev];
@@ -317,8 +330,7 @@ const AIContentAssistantModal: React.FC<{
     setIsGeneratingCards(true);
     setActiveTab("flashcards");
     try {
-      // FIX: Use specific model version
-      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_NAME });
+      const model = genAI.getGenerativeModel({ model: CHAT_MODEL_NAME });
       const prompt = `
         Create 5 study flashcards from this document.
         Return ONLY a JSON array. 
@@ -351,9 +363,7 @@ const AIContentAssistantModal: React.FC<{
       }
     } catch (error) {
       console.error("Flashcard error", error);
-      alert(
-        "AI Error: Could not generate flashcards. Model might be overloaded or file type unsupported."
-      );
+      alert("AI Error: Could not generate flashcards.");
     } finally {
       setIsGeneratingCards(false);
     }
@@ -366,8 +376,7 @@ const AIContentAssistantModal: React.FC<{
 
     setIsLoading(true);
     try {
-      // FIX: Use specific model version
-      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_NAME });
+      const model = genAI.getGenerativeModel({ model: CHAT_MODEL_NAME });
       const result = await model.generateContentStream([
         {
           inlineData: {
@@ -386,7 +395,7 @@ const AIContentAssistantModal: React.FC<{
       onAddXP(10);
     } catch (e) {
       console.error(e);
-      setSummary("Failed to generate summary. Please check your connection.");
+      setSummary("Failed to generate summary.");
     } finally {
       setIsLoading(false);
     }
@@ -547,12 +556,22 @@ const AIContentAssistantModal: React.FC<{
                     <h3 className="font-bold text-lg text-slate-800">
                       Key Takeaways
                     </h3>
+
+                    {/* STOP/PLAY Button Logic */}
                     <button
-                      onClick={() => handleSpeak(summary)}
-                      className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition-colors"
-                      title="Read Aloud"
+                      onClick={() => handleSpeakToggle(summary)}
+                      className={`p-2 rounded-full transition-colors flex items-center justify-center ${
+                        isSpeaking
+                          ? "bg-red-50 text-red-600 hover:bg-red-100"
+                          : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                      }`}
+                      title={isSpeaking ? "Stop Speaking" : "Read Aloud"}
                     >
-                      <MicIcon className="w-5 h-5" />
+                      {isSpeaking ? (
+                        <StopCircleIcon className="w-5 h-5 animate-pulse" />
+                      ) : (
+                        <MicIcon className="w-5 h-5" />
+                      )}
                     </button>
                   </div>
                   <div className="prose prose-sm text-slate-600 leading-relaxed whitespace-pre-line">
