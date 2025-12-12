@@ -23,7 +23,6 @@ const apiService = new StudentApiService();
 
 // --- TYPES & INTERFACES ---
 
-// Extended interface for local state (Gamification/UI only)
 interface EnhancedContent extends CourseContent {
   rating?: number;
   isBookmarked?: boolean;
@@ -57,13 +56,19 @@ const getFileIcon = (fileType: string) => {
   if (fileType.includes("image")) return "🖼️";
   if (fileType.includes("video")) return "🎬";
   if (fileType.includes("audio")) return "🎵";
-  if (fileType.includes("presentation")) return "📊";
   return "📎";
+};
+
+const getStableNumber = (seed: string, range: number, offset: number = 0) => {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return (Math.abs(hash) % range) + offset;
 };
 
 // --- SUB-COMPONENTS ---
 
-// 1. Flashcard Viewer Component
 const FlashcardViewer: React.FC<{
   cards: Flashcard[];
   onClose: () => void;
@@ -143,7 +148,6 @@ const FlashcardViewer: React.FC<{
   );
 };
 
-// 2. Main Interactive Modal (AI, Chat, Flashcards)
 const AIContentAssistantModal: React.FC<{
   content: EnhancedContent;
   onClose: () => void;
@@ -160,33 +164,28 @@ const AIContentAssistantModal: React.FC<{
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [isGeneratingCards, setIsGeneratingCards] = useState(false);
   const [summary, setSummary] = useState("");
-
-  // Discussion State
   const [comments, setComments] = useState(content.comments || []);
   const [newComment, setNewComment] = useState("");
 
   const fileDataRef = useRef<{ base64: string; mimeType: string } | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Initialize Gemini AI (Standard React Env Variable)
+  // Initialize Gemini AI (Using process.env)
   const genAI = useMemo(
-    () => new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || ""),
+    () => new GoogleGenerativeAI(process.env.GEMINI_API_KEY || ""),
     []
   );
 
-  // Scroll to bottom of chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  // Text-to-Speech
   const handleSpeak = (text: string) => {
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     window.speechSynthesis.speak(utterance);
   };
 
-  // 1. Prepare File for AI Analysis
   useEffect(() => {
     const prepareFile = async () => {
       try {
@@ -223,7 +222,6 @@ const AIContentAssistantModal: React.FC<{
     prepareFile();
   }, [content]);
 
-  // 2. Chat Logic (With Streaming)
   const handleSend = async () => {
     if (!userInput.trim() || !fileDataRef.current) return;
     const text = userInput;
@@ -233,9 +231,7 @@ const AIContentAssistantModal: React.FC<{
 
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-      // Add placeholder for AI response
-      setMessages((prev) => [...prev, { sender: "ai", text: "" }]);
+      setMessages((prev) => [...prev, { sender: "ai", text: "" }]); // Placeholder
 
       const result = await model.generateContentStream([
         {
@@ -248,7 +244,6 @@ const AIContentAssistantModal: React.FC<{
       ]);
 
       let fullResponse = "";
-
       for await (const chunk of result.stream) {
         const chunkText = chunk.text();
         fullResponse += chunkText;
@@ -274,7 +269,6 @@ const AIContentAssistantModal: React.FC<{
     }
   };
 
-  // 3. Generate Flashcards
   const generateFlashcards = async () => {
     if (!fileDataRef.current) return;
     setIsGeneratingCards(true);
@@ -305,7 +299,6 @@ const AIContentAssistantModal: React.FC<{
     }
   };
 
-  // 4. Generate Summary
   const generateSummary = async () => {
     if (!fileDataRef.current) return;
     setActiveTab("summary");
@@ -332,7 +325,6 @@ const AIContentAssistantModal: React.FC<{
     }
   };
 
-  // 5. Discussion Logic
   const handlePostComment = () => {
     if (!newComment.trim()) return;
     setComments((prev) => [
@@ -346,18 +338,16 @@ const AIContentAssistantModal: React.FC<{
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-slate-900/80 backdrop-blur-sm">
       <div className="bg-white w-full max-w-4xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden">
-        {/* Modal Header */}
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
           <h3 className="font-bold text-slate-800 flex items-center gap-2">
-            <ZapIcon className="w-5 h-5 text-brand-secondary" />
-            Smart Learning: {content.title}
+            <ZapIcon className="w-5 h-5 text-brand-secondary" /> Smart Learning:{" "}
+            {content.title}
           </h3>
           <button onClick={onClose}>
             <XIcon className="w-6 h-6 text-slate-400 hover:text-slate-600" />
           </button>
         </div>
 
-        {/* Navigation Tabs */}
         <div className="flex border-b border-slate-200 bg-white">
           {[
             { id: "chat", label: "Ask AI", icon: "🤖" },
@@ -379,9 +369,7 @@ const AIContentAssistantModal: React.FC<{
           ))}
         </div>
 
-        {/* Tab Content */}
         <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
-          {/* CHAT */}
           {activeTab === "chat" && (
             <div className="flex flex-col h-full">
               <div className="flex-1 space-y-4 overflow-y-auto mb-4 pr-2">
@@ -429,7 +417,6 @@ const AIContentAssistantModal: React.FC<{
             </div>
           )}
 
-          {/* FLASHCARDS */}
           {activeTab === "flashcards" && (
             <div className="h-full flex flex-col items-center justify-center">
               {flashcards.length > 0 ? (
@@ -444,8 +431,8 @@ const AIContentAssistantModal: React.FC<{
                     Generate Study Cards
                   </h3>
                   <p className="text-slate-500 mb-6 text-sm">
-                    Let AI scan this document and create quiz cards to help you
-                    memorize key concepts.
+                    AI creates quiz cards from this document to help you
+                    memorize.
                   </p>
                   <Button
                     onClick={generateFlashcards}
@@ -459,7 +446,6 @@ const AIContentAssistantModal: React.FC<{
             </div>
           )}
 
-          {/* SUMMARY */}
           {activeTab === "summary" && (
             <div className="h-full">
               {!summary ? (
@@ -469,7 +455,7 @@ const AIContentAssistantModal: React.FC<{
                     AI Summary
                   </h3>
                   <p className="text-slate-500 mb-6 text-sm">
-                    Get a quick overview and key takeaways from this file.
+                    Get a quick overview and key takeaways.
                   </p>
                   <Button onClick={generateSummary} disabled={isLoading}>
                     {isLoading ? "Summarizing..." : "Generate Summary"}
@@ -483,7 +469,7 @@ const AIContentAssistantModal: React.FC<{
                     </h3>
                     <button
                       onClick={() => handleSpeak(summary)}
-                      className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition-colors"
+                      className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100"
                       title="Read Aloud"
                     >
                       <MicIcon className="w-5 h-5" />
@@ -497,7 +483,6 @@ const AIContentAssistantModal: React.FC<{
             </div>
           )}
 
-          {/* DISCUSSION */}
           {activeTab === "discuss" && (
             <div className="flex flex-col h-full">
               <div className="flex-1 space-y-4 overflow-y-auto mb-4">
@@ -555,20 +540,17 @@ const StudentContent: React.FC = () => {
   const [selectedContent, setSelectedContent] =
     useState<EnhancedContent | null>(null);
 
-  // Local UI State
   const [filter, setFilter] = useState<
     "all" | "video" | "document" | "bookmarked"
   >("all");
   const [xp, setXp] = useState(120);
   const [level, setLevel] = useState(1);
 
-  // Function to add XP (Passed to child modal)
   const addXP = (amount: number) => {
     const newXp = xp + amount;
     setXp(newXp);
     if (Math.floor(newXp / 100) > level) {
       setLevel((prev) => prev + 1);
-      // alert(`🎉 Level Up! You are now Level ${level + 1}`); // Optional alert
     }
   };
 
@@ -579,17 +561,23 @@ const StudentContent: React.FC = () => {
       try {
         const data = await apiService.getCourseContentForStudent();
 
-        // Transform API data to Enhanced Content (Mocking some missing fields for UI demo)
-        const enhancedData: EnhancedContent[] = data.map((item) => ({
-          ...item,
-          rating: Math.floor(Math.random() * 2) + 3, // Mock rating 3-5
-          isBookmarked: false,
-          progress: Math.floor(Math.random() * 100), // Mock progress
-          readTime: `${Math.floor(Math.random() * 10) + 2} min`,
-          difficulty: ["Easy", "Medium", "Hard"][
-            Math.floor(Math.random() * 3)
-          ] as any,
-        }));
+        // FIX: Use Stable Randomness based on ID
+        const enhancedData: EnhancedContent[] = data.map((item) => {
+          // Use ID to determine stable stats
+          const rating = getStableNumber(item.id, 3, 3); // 3-5 stars
+          const progress = getStableNumber(item.id, 100); // 0-100%
+          const readTimeMin = getStableNumber(item.id, 15, 2); // 2-17 mins
+          const difficultyIndex = getStableNumber(item.id, 3); // 0, 1, or 2
+
+          return {
+            ...item,
+            rating: rating,
+            isBookmarked: false,
+            progress: progress,
+            readTime: `${readTimeMin} min`,
+            difficulty: ["Easy", "Medium", "Hard"][difficultyIndex] as any,
+          };
+        });
 
         setContent(enhancedData);
       } catch (e) {
@@ -619,14 +607,10 @@ const StudentContent: React.FC = () => {
     });
   }, [content, filter]);
 
-  // FIX: Grouping Logic with robust type checking for 'course'
   const groupedContent = useMemo(() => {
     const groups = new Map<string, EnhancedContent[]>();
-
     filteredContent.forEach((item) => {
       let courseName = "General Resources";
-
-      // Robust check: 'course' can be an object (from Prisma include) or string (ID)
       if (
         typeof item.course === "object" &&
         item.course !== null &&
@@ -634,22 +618,17 @@ const StudentContent: React.FC = () => {
       ) {
         courseName = (item.course as any).subject.name;
       } else if (item.courseId) {
-        // Fallback to ID if name not found, but try to make it readable
         courseName = `Subject (${item.courseId.substring(0, 4)}...)`;
       }
-
-      if (!groups.has(courseName)) {
-        groups.set(courseName, []);
-      }
+      if (!groups.has(courseName)) groups.set(courseName, []);
       groups.get(courseName)!.push(item);
     });
-
     return Array.from(groups.entries());
   }, [filteredContent]);
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20">
-      {/* Page Header & Gamification Bar */}
+      {/* Page Header */}
       <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Learning Hub</h1>
@@ -658,7 +637,7 @@ const StudentContent: React.FC = () => {
           </p>
         </div>
 
-        {/* XP / Level Widget */}
+        {/* XP Card */}
         <div className="bg-white p-2 pr-4 rounded-full shadow-sm border border-slate-200 flex items-center gap-3">
           <div className="bg-amber-100 text-amber-700 p-2 rounded-full font-bold text-xs border border-amber-200 shadow-sm">
             Lvl {level}
@@ -678,7 +657,7 @@ const StudentContent: React.FC = () => {
         </div>
       </div>
 
-      {/* Filter Tabs */}
+      {/* Filters */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
         {[
           { id: "all", label: "All Materials" },
@@ -724,7 +703,7 @@ const StudentContent: React.FC = () => {
           {groupedContent.map(([courseName, items]) => (
             <div key={courseName}>
               <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
-                <BookOpenIcon className="w-5 h-5 text-brand-primary" />
+                <BookOpenIcon className="w-5 h-5 text-brand-primary" />{" "}
                 {courseName}
               </h2>
 
@@ -734,7 +713,6 @@ const StudentContent: React.FC = () => {
                     key={item.id}
                     className="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-lg transition-all group relative overflow-hidden flex flex-col h-full"
                   >
-                    {/* Top Progress Indicator */}
                     <div className="absolute top-0 left-0 w-full h-1 bg-slate-100">
                       <div
                         className="h-full bg-green-500 transition-all duration-1000"
@@ -799,15 +777,13 @@ const StudentContent: React.FC = () => {
                       </div>
 
                       <div className="flex gap-2">
-                        {/* Only show AI button if env key exists (optional check) */}
-                        {process.env.REACT_APP_GEMINI_API_KEY && (
-                          <button
-                            onClick={() => setSelectedContent(item)}
-                            className="px-3 py-1.5 rounded-lg bg-brand-primary text-white text-xs font-bold hover:bg-brand-primary/90 transition-all flex items-center gap-1 shadow-sm shadow-brand-primary/30"
-                          >
-                            <ZapIcon className="w-3 h-3" /> Study
-                          </button>
-                        )}
+                        {/* FIX: Removed env check to force button visibility */}
+                        <button
+                          onClick={() => setSelectedContent(item)}
+                          className="px-3 py-1.5 rounded-lg bg-brand-primary text-white text-xs font-bold hover:bg-brand-primary/90 transition-all flex items-center gap-1 shadow-sm shadow-brand-primary/30"
+                        >
+                          <ZapIcon className="w-3 h-3" /> Study
+                        </button>
                         <a
                           href={item.fileUrl}
                           download={item.fileName}
