@@ -49,7 +49,7 @@ const getApiKey = () => {
 };
 
 // FIX: Updated Model Name to specific stable version to prevent 404 errors
-const GEMINI_MODEL_NAME = "gemini-1.5-flash-001";
+const GEMINI_MODEL_NAME = "gemini-2.5-flash";
 
 const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
