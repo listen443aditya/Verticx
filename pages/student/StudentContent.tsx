@@ -53,8 +53,9 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64String = reader.result as string;
-      // Remove the data URL prefix (e.g., "data:application/pdf;base64,")
-      resolve(base64String.split(",")[1]);
+      // Robustly remove ANY data URL prefix
+      const base64Clean = base64String.substring(base64String.indexOf(",") + 1);
+      resolve(base64Clean);
     };
     reader.onerror = reject;
     reader.readAsDataURL(blob);
@@ -178,7 +179,7 @@ const AIContentAssistantModal: React.FC<{
   const [summary, setSummary] = useState("");
   const [comments, setComments] = useState(content.comments || []);
   const [newComment, setNewComment] = useState("");
-  const [fileSizeWarning, setFileSizeWarning] = useState(false);
+  const [isFileReady, setIsFileReady] = useState(false);
 
   const fileDataRef = useRef<{ base64: string; mimeType: string } | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -195,29 +196,40 @@ const AIContentAssistantModal: React.FC<{
     window.speechSynthesis.speak(utterance);
   };
 
+  // 1. ROBUST FILE PREPARATION (Fixes "Not Processing")
   useEffect(() => {
     const prepareFile = async () => {
       try {
-        const response = await fetch(content.fileUrl);
-        const blob = await response.blob();
+        console.log("Fetching file:", content.fileUrl);
+        const response = await fetch(content.fileUrl, { mode: "cors" });
 
-        // 3MB Warning Limit (Browser upload to AI API is slow for large files)
-        if (blob.size > 3 * 1024 * 1024) {
-          setFileSizeWarning(true);
+        if (!response.ok) {
+          throw new Error(
+            `Fetch failed: ${response.status} ${response.statusText}`
+          );
         }
 
+        const blob = await response.blob();
+
+        // Convert to Base64
         const base64 = await blobToBase64(blob);
 
-        let mimeType = content.fileType;
-        if (content.fileType.includes("pdf")) mimeType = "application/pdf";
-        else if (content.fileType.includes("png")) mimeType = "image/png";
-        else if (
-          content.fileType.includes("jpeg") ||
-          content.fileType.includes("jpg")
-        )
-          mimeType = "image/jpeg";
+        // FIX: Force Correct MIME Type based on Extension
+        // Gemini is strict. It rejects 'application/x-pdf' or generic types.
+        let mimeType = "application/pdf"; // Default to PDF as it's most common for docs
+        const ext = content.fileName.split(".").pop()?.toLowerCase();
+
+        if (ext === "png") mimeType = "image/png";
+        else if (ext === "jpg" || ext === "jpeg") mimeType = "image/jpeg";
+        else if (ext === "webp") mimeType = "image/webp";
+
+        console.log(
+          `File Prepared: ${content.fileName} (${mimeType}) Size: ${blob.size}`
+        );
 
         fileDataRef.current = { base64, mimeType };
+        setIsFileReady(true);
+
         setMessages([
           {
             sender: "ai",
@@ -225,11 +237,13 @@ const AIContentAssistantModal: React.FC<{
           },
         ]);
       } catch (err) {
-        console.error("File load error", err);
+        console.error("File load error:", err);
         setMessages([
           {
             sender: "ai",
-            text: "Error loading file. It might be restricted or too large.",
+            text: `Error loading file. This is usually due to CORS restrictions on your file storage.\n\nTechnical Error: ${
+              (err as any).message
+            }`,
           },
         ]);
       }
@@ -238,7 +252,12 @@ const AIContentAssistantModal: React.FC<{
   }, [content]);
 
   const handleSend = async () => {
-    if (!userInput.trim() || !fileDataRef.current) return;
+    if (!userInput.trim()) return;
+    if (!isFileReady || !fileDataRef.current) {
+      alert("File is not ready yet. Please check for error messages.");
+      return;
+    }
+
     const text = userInput;
     setUserInput("");
     setMessages((prev) => [...prev, { sender: "user", text }]);
@@ -271,10 +290,11 @@ const AIContentAssistantModal: React.FC<{
       }
       onAddXP(5);
     } catch (error: any) {
-      console.error("Gemini Error:", error);
+      console.error("Gemini Chat Error:", error);
       let errorMsg = "Sorry, I encountered an error. Please try again.";
-      if (error.message?.includes("413"))
-        errorMsg = "The file is too large for the AI to process right now.";
+      if (error.message?.includes("400"))
+        errorMsg =
+          "AI Error: The file content cannot be processed. It might be corrupted or in an unsupported format.";
 
       setMessages((prev) => {
         const newMsgs = [...prev];
@@ -289,12 +309,11 @@ const AIContentAssistantModal: React.FC<{
   };
 
   const generateFlashcards = async () => {
-    if (!fileDataRef.current) return;
+    if (!isFileReady || !fileDataRef.current) return;
     setIsGeneratingCards(true);
     setActiveTab("flashcards");
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      // FIX: Improved prompt to ensure valid JSON extraction
       const prompt = `
         Analyze this document and create 5 study flashcards.
         Return the response strictly as a JSON array of objects.
@@ -314,9 +333,9 @@ const AIContentAssistantModal: React.FC<{
 
       const text = result.response.text();
 
-      // FIX: Robust JSON Parsing
-      // 1. Try to find the array start [ and end ]
-      const match = text.match(/\[[\s\S]*\]/);
+      // FIX: Robust JSON Extraction
+      // Use regex to find the array brackets, ignoring surrounding text
+      const match = text.match(/\[.*\]/s);
       if (!match) throw new Error("No JSON found in response");
 
       const jsonStr = match[0];
@@ -331,7 +350,7 @@ const AIContentAssistantModal: React.FC<{
     } catch (error) {
       console.error("Flashcard error", error);
       alert(
-        "AI Response Error: Could not generate clean flashcards. Please try again."
+        "Could not generate flashcards. The AI response format was incorrect. Please try again."
       );
     } finally {
       setIsGeneratingCards(false);
@@ -339,14 +358,14 @@ const AIContentAssistantModal: React.FC<{
   };
 
   const generateSummary = async () => {
-    if (!fileDataRef.current) return;
+    if (!isFileReady || !fileDataRef.current) return;
     setActiveTab("summary");
     if (summary) return;
 
     setIsLoading(true);
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      const result = await model.generateContent([
+      const result = await model.generateContentStream([
         {
           inlineData: {
             mimeType: fileDataRef.current.mimeType,
@@ -355,11 +374,16 @@ const AIContentAssistantModal: React.FC<{
         },
         { text: "Provide a concise summary with 3 key takeaways." },
       ]);
-      setSummary(result.response.text());
+
+      let fullSummary = "";
+      for await (const chunk of result.stream) {
+        fullSummary += chunk.text();
+        setSummary(fullSummary); // Stream update UI
+      }
       onAddXP(10);
     } catch (e) {
       console.error(e);
-      setSummary("Failed to generate summary. Please try again later.");
+      setSummary("Failed to generate summary.");
     } finally {
       setIsLoading(false);
     }
@@ -385,9 +409,9 @@ const AIContentAssistantModal: React.FC<{
               <ZapIcon className="w-5 h-5 text-brand-secondary" />
               Smart Learning: {content.title}
             </h3>
-            {fileSizeWarning && (
-              <p className="text-xs text-orange-600 mt-1">
-                ⚠️ Large file ({">"}3MB). AI responses may be slow.
+            {!isFileReady && (
+              <p className="text-xs text-orange-600 mt-1 animate-pulse">
+                Loading document...
               </p>
             )}
           </div>
@@ -453,12 +477,12 @@ const AIContentAssistantModal: React.FC<{
                   placeholder={
                     isLoading ? "AI is thinking..." : "Ask a question..."
                   }
-                  disabled={isLoading}
+                  disabled={isLoading || !isFileReady}
                   className="flex-1 px-3 py-2 outline-none text-sm"
                 />
                 <Button
                   onClick={handleSend}
-                  disabled={isLoading || !userInput.trim()}
+                  disabled={isLoading || !userInput.trim() || !isFileReady}
                   className="rounded-lg"
                 >
                   <SendIcon className="w-4 h-4" />
@@ -486,7 +510,7 @@ const AIContentAssistantModal: React.FC<{
                   </p>
                   <Button
                     onClick={generateFlashcards}
-                    disabled={isGeneratingCards}
+                    disabled={isGeneratingCards || !isFileReady}
                     className="w-full"
                   >
                     {isGeneratingCards ? "Generating..." : "Create Flashcards"}
@@ -507,7 +531,10 @@ const AIContentAssistantModal: React.FC<{
                   <p className="text-slate-500 mb-6 text-sm">
                     Get a quick overview and key takeaways.
                   </p>
-                  <Button onClick={generateSummary} disabled={isLoading}>
+                  <Button
+                    onClick={generateSummary}
+                    disabled={isLoading || !isFileReady}
+                  >
                     {isLoading ? "Summarizing..." : "Generate Summary"}
                   </Button>
                 </div>
